@@ -13,6 +13,7 @@ import { SessionService } from "../electron/session/common.ts"
 import { SettingsService } from "../electron/settings/common.ts"
 import { SkillService } from "../electron/skills/common.ts"
 import { UpdateService } from "../electron/update/common.ts"
+import { ContentPackService } from "../electron/xingchao/common.ts"
 import { App } from "@/App"
 import { AppContext } from "@/components/AppContext"
 import { detectInitialLocale, translate } from "@/i18n/i18n"
@@ -40,6 +41,7 @@ if (!hasElectronConnectionBridge()) {
   client.start()
 
   const chatService = client.use(ChatService)
+  const contentPackService = client.use(ContentPackService)
   const attentionService = client.use(AttentionService)
   const browserService = client.use(BrowserService)
   const gitService = client.use(GitService)
@@ -58,6 +60,7 @@ if (!hasElectronConnectionBridge()) {
         attentionService,
         browserService,
         chatService,
+        contentPackService,
         gitService,
         knowledgeService,
         linkRuntimeService,

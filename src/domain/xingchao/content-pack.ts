@@ -15,8 +15,8 @@ export const contentPackManifestSchema = z
     name: z.string().min(1).max(80),
     description: z.string().min(1).max(500),
     visibility: z.enum(["public-original", "private-local"]),
-    minimumAppVersion: z.string(),
-    checksums: z.record(z.string(), z.string()),
+    minimumAppVersion: z.string().regex(/^\d+\.\d+\.\d+$/),
+    checksums: z.record(z.string(), z.string().regex(/^[0-9a-fA-F]{64}$/)),
     crews: z.array(
       z.object({
         id: safeId,

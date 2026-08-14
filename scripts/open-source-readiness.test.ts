@@ -28,10 +28,10 @@ describe("open-source installation contract", () => {
     expect(manifest.license).toBe("Apache-2.0")
     expect(manifest.repository).toEqual({
       type: "git",
-      url: "git+https://github.com/oomol-lab/wanta.git",
+      url: "git+https://github.com/Shun1989/xingchao-agent.git",
     })
-    expect(manifest.homepage).toBe("https://wanta.ai/")
-    expect(manifest.bugs?.url).toBe("https://github.com/oomol-lab/wanta/issues")
+    expect(manifest.homepage).toBe("https://github.com/Shun1989/xingchao-agent#readme")
+    expect(manifest.bugs?.url).toBe("https://github.com/Shun1989/xingchao-agent/issues")
     expect(manifest.engines?.node).toBe(">=22.22.2")
     expect(manifest.packageManager).toBe("pnpm@11.21.0")
   })

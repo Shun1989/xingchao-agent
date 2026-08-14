@@ -154,6 +154,9 @@ const SettingsRoute = React.lazy(() =>
   import("@/routes/Settings").then((module) => ({ default: module.SettingsRoute })),
 )
 const SkillsRoute = React.lazy(() => import("@/routes/Skills").then((module) => ({ default: module.SkillsRoute })))
+const SupplyDepotRoute = React.lazy(() =>
+  import("@/routes/Supply").then((module) => ({ default: module.SupplyDepotRoute })),
+)
 const FleetHarborRoute = React.lazy(() =>
   import("@/routes/Fleet").then((module) => ({ default: module.FleetHarborRoute })),
 )
@@ -978,17 +981,19 @@ export function AppShell({ auth }: { auth: UseAuth }) {
           ? t("connections.title")
           : route === "skills"
             ? t("skills.title")
-            : route === "knowledge" && knowledgeBaseBetaEnabled
-              ? t("knowledge.title")
-              : route === "teams"
-                ? t("teams.title")
-                : route === "archived"
-                  ? t("archived.title")
-                  : route === "fleet"
-                    ? "舰队港口"
-                    : route === "voyage"
-                      ? "航海图"
-                      : (activeSession?.title ?? t("chat.newSession"))
+            : route === "supply"
+              ? t("supply.title")
+              : route === "knowledge" && knowledgeBaseBetaEnabled
+                ? t("knowledge.title")
+                : route === "teams"
+                  ? t("teams.title")
+                  : route === "archived"
+                    ? t("archived.title")
+                    : route === "fleet"
+                      ? "舰队港口"
+                      : route === "voyage"
+                        ? "航海图"
+                        : (activeSession?.title ?? t("chat.newSession"))
   const titlebarEditable = route === "chat" && Boolean(activeSession)
   const titlebarBreadcrumbs =
     route === "knowledge" && knowledgeBaseBetaEnabled
@@ -2215,6 +2220,8 @@ export function AppShell({ auth }: { auth: UseAuth }) {
                   providerSkillRecommendationsState={providerSkillRecommendations}
                   workspace={teamWorkspace}
                 />
+              ) : route === "supply" ? (
+                <SupplyDepotRoute />
               ) : route === "knowledge" && knowledgeBaseBetaEnabled ? (
                 <KnowledgeRoute
                   currentDirectory={knowledgeDirectory}

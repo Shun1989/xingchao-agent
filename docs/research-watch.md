@@ -23,11 +23,11 @@ Snapshot date: 2026-08-14 (GitHub public API).
 | Compared object   | Confirmed official public main repository                                 |   Stars | Status                                                                                                                                                  |
 | ----------------- | ------------------------------------------------------------------------- | ------: | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | WorkBuddy         | N/A                                                                       |     N/A | Product name is identifiable, but no official open-source main repository was verified. Unrelated repositories using the same name were excluded.       |
-| Hermes Agent      | [NousResearch/hermes-agent](https://github.com/NousResearch/hermes-agent) | 230,202 | Verified through the Nous Research organization and repository metadata; MIT.                                                                           |
+| Hermes Agent      | [NousResearch/hermes-agent](https://github.com/NousResearch/hermes-agent) | 230,436 | Verified through the Nous Research organization and repository metadata; MIT.                                                                           |
 | Deepseek Hareness | N/A                                                                       |     N/A | No official repository was verified; the supplied name may be misspelled.                                                                               |
 | Alice Agent       | N/A                                                                       |     N/A | No official open-source product main repository was verified. `itshen/Alice_methodology` remains methodology-only and is not treated as product source. |
 
-The effective stop threshold is therefore **230,202 Stars**, the highest value among confirmed official public main
+The effective stop threshold is therefore **230,436 Stars**, the highest value among confirmed official public main
 repositories above. [Shun1989/xingchao-agent](https://github.com/Shun1989/xingchao-agent) has **0 Stars** in the same
 snapshot. The threshold has not been reached, so the weekly iteration continues.
 
@@ -35,6 +35,16 @@ snapshot. The threshold has not been reached, so the weekly iteration continues.
 
 - `origin`: `https://github.com/Shun1989/xingchao-agent.git`.
 - `upstream`: fetch-only `https://github.com/oomol-lab/wanta.git`; push URL is disabled.
-- `gh auth status`: blocked on 2026-08-14 because the active `Shun1989` token is invalid.
-- Consequence: local development and commits are allowed; pushing and pull-request creation are prohibited until the
-  account is re-authenticated and `viewerPermission` confirms write access.
+- `gh auth status`: authenticated as `Shun1989`; repository permission is `ADMIN`.
+- The public repository exists with `origin` configured. Publication is permitted after the current change set passes its
+  validation gates.
+
+## 2026-08-14 continuation scan
+
+| Repository                                                          |  Stars | License    | Latest push | Relevant design                                                                                                                                      | Xingchao decision                                                                                                                                  |
+| ------------------------------------------------------------------- | -----: | ---------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [aaif-goose/goose](https://github.com/aaif-goose/goose)             | 52,797 | Apache-2.0 | 2026-08-14  | Desktop, CLI, API, extensions, and custom distributions are separate surfaces; preconfigured capability does not require UI/runtime coupling.        | Keep 补给包 declarative and make the main process the only installation authority. Runtime activation remains a later, explicit adapter.           |
+| [makecindy/cindy](https://github.com/makecindy/cindy)               |  2,067 | Apache-2.0 | 2026-08-14  | Memory, Skills, automation, MCP, and future plugins remain distinct concepts; its README explicitly marks the plugin marketplace as not yet shipped. | Do not label pack activation or a marketplace complete merely because package import UI exists.                                                    |
+| [modelstudioai/openwork](https://github.com/modelstudioai/openwork) |     23 | Apache-2.0 | 2026-08-13  | The desktop shell owns permission confirmation, workspace state, previews, and user interaction while the Agent runtime stays separate.              | Keep archive selection and destructive removal confirmation in the Electron main-process service, returning only redacted pack summaries to React. |
+
+Metadata was read from each repository's GitHub API record and first-party README. No source code was copied.

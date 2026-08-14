@@ -17,6 +17,7 @@ import {
   ListChecks,
   Map,
   Package,
+  PackageOpen,
   Plug,
   ShipWheel,
   SquarePen,
@@ -345,6 +346,17 @@ export const AppShellNavigationSidebar = React.memo(function AppShellNavigationS
           >
             <Package className="size-4 shrink-0" />
             <span className="oo-sidebar-nav-label truncate">{t("skills.title")}</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => onNavigate("supply")}
+            className={cn(
+              "oo-sidebar-nav-item oo-text-body flex h-[var(--sidebar-item-height)] items-center gap-2 rounded-md px-2",
+              activeRoute === "supply" && "bg-sidebar-accent text-sidebar-accent-foreground",
+            )}
+          >
+            <PackageOpen className="size-4 shrink-0" />
+            <span className="oo-sidebar-nav-label truncate">{t("supply.title")}</span>
           </button>
           {showKnowledge ? (
             <button

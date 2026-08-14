@@ -10,6 +10,7 @@ import type { SessionService } from "../../electron/session/common.ts"
 import type { SettingsService } from "../../electron/settings/common.ts"
 import type { SkillService } from "../../electron/skills/common.ts"
 import type { UpdateService } from "../../electron/update/common.ts"
+import type { ContentPackService } from "../../electron/xingchao/common.ts"
 import type { ConnectionClientService } from "@oomol/connection"
 
 import * as React from "react"
@@ -18,6 +19,7 @@ export interface AppContextValue {
   attentionService: ConnectionClientService<AttentionService>
   browserService: ConnectionClientService<BrowserService>
   chatService: ConnectionClientService<ChatService>
+  contentPackService: ConnectionClientService<ContentPackService>
   gitService: ConnectionClientService<GitService>
   knowledgeService: ConnectionClientService<KnowledgeService>
   linkRuntimeService: ConnectionClientService<LinkRuntimeService>
@@ -41,6 +43,10 @@ export function useAppContext(): AppContextValue {
 
 export function useChatService(): ConnectionClientService<ChatService> {
   return useAppContext().chatService
+}
+
+export function useContentPackService(): ConnectionClientService<ContentPackService> {
+  return useAppContext().contentPackService
 }
 
 export function useAttentionService(): ConnectionClientService<AttentionService> {

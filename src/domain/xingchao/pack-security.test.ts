@@ -18,4 +18,14 @@ describe("补给包安全边界", () => {
       expect.arrayContaining(["非法路径：../escape.json", "不允许的文件类型：scripts/install.js"]),
     )
   })
+
+  it("拒绝符号链接和跨平台路径冲突", () => {
+    const rejected = inspectContentPackEntries([
+      { path: "portraits/Lanxi.png", size: 10 },
+      { path: "portraits/lanxi.png", size: 10 },
+      { path: "voices/current.wav", size: 5, symlink: true },
+    ])
+    expect(rejected.accepted).toBe(false)
+    expect(rejected.errors.join(" ")).toMatch(/路径冲突|符号链接/)
+  })
 })

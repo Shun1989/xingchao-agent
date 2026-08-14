@@ -3,12 +3,14 @@ import type { AppLocale } from "./app-locale.ts"
 import type { AuthRuntimeAccount } from "./auth/store.ts"
 import type { BrowserControlConnection } from "./browser/control-server.ts"
 import type { AppUpdateState } from "./update/common.ts"
+import type { MessageBoxOptions, OpenDialogOptions } from "electron"
 
 import { ConnectionServer } from "@oomol/connection"
 import { ElectronServerAdapter } from "@oomol/connection-electron-adapter/server"
 import {
   app,
   BrowserWindow,
+  dialog,
   ipcMain,
   Menu,
   nativeImage,
@@ -112,6 +114,7 @@ import {
 } from "./window/title-bar-overlay.ts"
 import { createHideOnCloseHandler, revealMainWindow } from "./window/window-close-behavior.ts"
 import { createWindowsTrayLifecycle } from "./window/windows-tray-lifecycle.ts"
+import { ContentPackServiceImpl } from "./xingchao/node.ts"
 
 declare const __APP_COMMIT__: string | undefined
 
@@ -391,6 +394,31 @@ const knowledgeService = new KnowledgeServiceImpl({
   runtime: { managedLibraryDir: wikiGraphLibraryDir, stateDir: wikiGraphStateDir },
   trustedImportPaths: trustedAttachmentPaths,
 })
+const contentPackService = new ContentPackServiceImpl({
+  appVersion: app.getVersion(),
+  confirmRemoval: async (pack) => {
+    const options: MessageBoxOptions = {
+      buttons: ["取消", "移除"],
+      cancelId: 0,
+      defaultId: 0,
+      detail: `${pack.name} ${pack.version} 将从本机移除。内置舰队与其他版本不会受影响。`,
+      message: "确认移除补给包？",
+      noLink: true,
+      type: "warning",
+    }
+    const result = mainWindow ? await dialog.showMessageBox(mainWindow, options) : await dialog.showMessageBox(options)
+    return result.response === 1
+  },
+  selectArchivePath: async () => {
+    const options: OpenDialogOptions = {
+      filters: [{ extensions: ["xcp", "zip"], name: "星潮补给包" }],
+      properties: ["openFile"],
+    }
+    const result = mainWindow ? await dialog.showOpenDialog(mainWindow, options) : await dialog.showOpenDialog(options)
+    return result.canceled ? undefined : result.filePaths[0]
+  },
+  userDataDirectory: app.getPath("userData"),
+})
 
 chatService.sessionActivity.on(({ sessionId, usedAt }) => {
   void sessionService.recordUseAndEmit(sessionId, usedAt).catch((error: unknown) => {
@@ -423,6 +451,7 @@ server.registerService(gitService)
 server.registerService(knowledgeService)
 server.registerService(linkRuntimeService)
 server.registerService(browserService)
+server.registerService(contentPackService)
 settingsService.applyStartupTheme()
 registerAttachmentDialogHandlers(trustedAttachmentPaths, {
   createSpreadsheetPreview: (filePath, mime, size) => spreadsheetPreviewWorker.preview(filePath, mime, size),

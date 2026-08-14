@@ -7,5 +7,6 @@ export type AppShellRoute =
   | "knowledge"
   | "teams"
   | "skills"
+  | "supply"
   | "voyage"
   | "settings"

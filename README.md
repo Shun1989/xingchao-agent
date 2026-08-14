@@ -1,257 +1,114 @@
 <div align="center">
-
-**English** · [简体中文](README.zh-CN.md) · [日本語](README.ja.md) · [Español](README.es.md) · [한국어](README.ko.md)
-
-<img src="resources/branding/logo.png" width="112" alt="Wanta logo" />
-
-# Wanta
-
-**An open-source foundation for building desktop AI agents with OpenCode.**
-
-Start with a working product—not a chat UI demo. Wanta brings together an Agent runtime, local tools,
-permission controls, connected services, artifacts, and a polished cross-platform desktop interface.
-
-[Website](https://wanta.ai/) · [OpenConnector](https://github.com/oomol-lab/open-connector) ·
-[Documentation](docs/project-overview.md) · [Development Guide](docs/development.md)
-
-[![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](LICENSE)
-![Node.js 22.22.2+](https://img.shields.io/badge/Node.js-22.22.2%2B-339933)
-
+  <img src="resources/branding/xingchao-logo.svg" width="112" alt="星潮航局标志" />
+  <h1>星潮航局 · Xingchao Navigation</h1>
+  <p><strong>本地优先、会交付真实文件的多 Agent 桌面工作台</strong></p>
+  <p>原创航海世界观 · 动态团队主题 · Windows / macOS · 自带模型接入</p>
 </div>
 
-<p align="center">
-  <img src="docs/assets/wanta-gmail-analysis.png" alt="Wanta analyzing Gmail with connected tools and previewing the resulting spreadsheet artifact" />
-</p>
+> 当前状态：早期开发版。核心桌面壳、十个原创航海团、六十名 Agent、航海图、动态主题与补给包管理器已经进入代码；生产级 Live2D、完整五层记忆、导入包运行时激活、签名和公开发行仍在推进。
 
-<p align="center"><em>From a connected-service task to a reusable, interactive artifact in one workspace.</em></p>
+## 它解决什么问题
 
-Wanta is built by [OOMOL](https://oomol.com/) for developers who want to create useful desktop Agents
-without rebuilding the product infrastructure around the Agent loop. Fork it, replace the model,
-prompt, tools, connectors, interface, and brand, then ship an Agent for your own product or workflow.
+多数 Agent 产品只给出一段建议。星潮航局的目标是让一个女性总助理“澜汐”理解目标、推荐团队、组织分工、申请敏感权限、操作真实工具，并交付可直接打开的文档、表格、代码、图片或项目文件。
 
-You can also use Wanta as it is: run locally with your own OpenAI-compatible model, or sign in to use
-OOMOL-hosted models, connectors, OAuth authorization, and team workspaces.
+这不是角色扮演聊天软件。航海叙事负责辨识度和决策风格，专业能力、工具权限、事实核验与交付标准保持独立、可审计。
 
-## Why We Open-Sourced Wanta
+## 当前能力
 
-A convincing Agent demo can begin with a model and a chat input. A desktop Agent people can rely on
-needs much more: runtime lifecycle management, streaming events, local access controls, secure model
-credentials, sessions and projects, tool activity, file artifacts, recovery, packaging, and a UI that
-makes autonomous work understandable.
+- **澜汐总助理**：面向用户的唯一主控人格，负责目标澄清、选团建议、协调和最终复核。
+- **十团六十人**：战略调研、写作传播、品牌设计、软件研发、数据财务、项目行政、法务风险、学习知识、多媒体和生活旅行。
+- **航海图**：生成任务 DAG，选择一个主团和最多两个支援团，确认后再派发到 Agent 内核。
+- **动态换肤**：主团切换时同步改变颜色、纹理、导航装饰和角色舞台；支援团只提供辅助色。
+- **真实执行**：继承成熟的本地文件、终端、集成浏览器、审批、MCP/OpenConnector、Skills 和产物预览链路。
+- **自带模型**：支持用户配置 OpenAI-compatible 模型；API Key 由 Electron `safeStorage` 加密，渲染层无法读取。
+- **补给仓**：导入、列出和移除声明式内容包。主进程执行版本、路径、类型、大小、符号链接、冲突路径和 SHA-256 检查，并使用暂存目录原子安装。
 
-Developers should not have to rebuild all of that before working on the capability that makes their
-Agent unique. Wanta opens up the complete desktop foundation so you can:
-
-- use OpenCode as the runtime for Agents beyond software development;
-- build domain-specific tools, Skills, prompts, and workflows;
-- combine local computer work with authenticated SaaS actions;
-- distribute a branded desktop product instead of a developer-only prototype;
-- choose how much infrastructure to operate yourself.
-
-## What You Can Build
-
-Wanta is a general work Agent today, but the architecture is intended to be adapted. It can become an
-operations Agent, research Agent, support Agent, ecommerce Agent, enterprise knowledge Agent, internal
-tool, or another vertical desktop product.
-
-| Start with                                                           | Make it yours                                                    |
-| -------------------------------------------------------------------- | ---------------------------------------------------------------- |
-| OpenCode Agent runtime managed as an isolated local sidecar          | Replace the Agent role, instructions, modes, and permissions     |
-| Local files, shell, scripts, search, and web access                  | Add tools for your product, industry, or internal systems        |
-| OpenAI-compatible custom models and OOMOL-hosted models              | Bring your own model catalog and provider defaults               |
-| Streaming chat, tool activity, approvals, questions, and attachments | Redesign the workflow while keeping the runtime integration      |
-| Artifact handling for generated work                                 | Add product-specific outputs, previews, and actions              |
-| Cross-platform Electron packaging and updates                        | Apply your own name, identity, distribution, and release process |
-| OpenConnector-compatible SaaS action discovery and execution         | Connect your own Providers or use the hosted connector ecosystem |
-
-## See Wanta in Action
-
-Wanta can reason directly, inspect projects and files, run commands and scripts, access the web, and
-use authenticated SaaS Actions when a task needs private account data. Tool execution streams into the
-conversation so the user can see what the Agent is doing.
-
-High-risk local actions pass through an explicit permission flow. The Agent can also pause for missing
-task information using structured question prompts. Build and Plan modes provide separate execution
-contracts, and users can select the model, reasoning level, project, and access mode for the task.
-
-Generated files remain attached to the task instead of disappearing into the conversation. Wanta can
-open and review code, text, images, PDFs, Word documents, and full interactive spreadsheet workbooks in
-the Artifacts panel.
-
-The optional hosted experience adds managed account connections and team workspaces without putting
-stored Provider credentials into the Agent. Teams can share connections and Skills, control Provider
-access, and manage usage without operating identity, OAuth credential, and governance infrastructure.
-
-## Choose Your Path
-
-Wanta separates the open-source desktop foundation from optional hosted services. Pick the path that
-matches what you want to operate.
-
-| Your goal                                               | Recommended path                                                                                             |
-| ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| Run a private desktop Agent with your own model         | Use the **Local BYOK** workspace. No Wanta account is required.                                              |
-| Build a desktop Agent for your own product              | Fork Wanta and customize the Agent, tools, models, UI, and branding.                                         |
-| Connect your own OpenConnector deployment               | Build a distribution against a compatible endpoint today. In-app self-hosted OpenConnector setup is planned. |
-| Use managed models and authenticated SaaS connections   | Sign in to Wanta and use OOMOL-hosted services.                                                              |
-| Share connectors, Skills, access, and usage with a team | Use a hosted Wanta team workspace.                                                                           |
-
-### Runtime modes
-
-| Mode                      | Account required | Models                             | Local tools | Connectors                    | Team features      |
-| ------------------------- | ---------------- | ---------------------------------- | ----------- | ----------------------------- | ------------------ |
-| Local BYOK                | No               | Custom OpenAI-compatible providers | Yes         | Unavailable                   | No                 |
-| Wanta hosted              | Yes              | OOMOL models and custom providers  | Yes         | OOMOL/OpenConnector ecosystem | Yes                |
-| Self-hosted OpenConnector | Planned in app   | Deployment-defined                 | Yes         | Planned                       | Deployment-defined |
-
-Local sessions, projects, and model settings remain available after signing out or when an OOMOL
-session expires. Wanta does not silently upload local sessions into an OOMOL team workspace.
-
-The current `WANTA_ENDPOINT` option is a **build-time distribution setting**, not an end-user runtime
-switch. It derives the complete compatible service environment, not only a Connector Base URL. The
-application-level Base URL and optional Runtime Token flow for self-hosted OpenConnector is visible as
-a coming-soon product surface and is not complete yet.
-
-## Build Your Own Agent
-
-Wanta uses OpenCode as a pinned local runtime and customizes it without maintaining an OpenCode source
-fork. The desktop main process controls the sidecar over HTTP and SSE; Wanta supplies the Agent
-contract, models, permissions, tools, sessions, product UI, and desktop integration.
-
-### Agent Engine: OpenCode
-
-The application starts the pinned `opencode-ai@1.18.10` binary as a loopback-only `opencode serve`
-sidecar and drives it through `@opencode-ai/sdk@1.18.10`. The OpenCode packages are MIT-licensed and
-acknowledged in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). Wanta pins the runtime, SDK, and
-plugin to the same exact version because their APIs are not treated as stable.
-
-The most important extension points are:
-
-| Area                                        | Start here                                                           |
-| ------------------------------------------- | -------------------------------------------------------------------- |
-| Agent identity and operating contract       | [`electron/agent/system-prompt.ts`](electron/agent/system-prompt.ts) |
-| Agent modes, models, tools, and permissions | [`electron/agent/config.ts`](electron/agent/config.ts)               |
-| Connector and domain-specific tools         | [`electron/agent/tool-sources.ts`](electron/agent/tool-sources.ts)   |
-| Built-in and custom model support           | [`electron/models/`](electron/models/)                               |
-| Chat and artifact experience                | [`src/routes/Chat/`](src/routes/Chat/)                               |
-| Connection experience                       | [`src/routes/Connections/`](src/routes/Connections/)                 |
-| Application identity                        | [`electron/branding.ts`](electron/branding.ts)                       |
-
-Agent capability is one product contract expressed in three places: enabled tools, permission rules,
-and the system prompt. Change them together so runtime behavior, safety, and UI expectations stay
-aligned. Read the [architecture guide](docs/architecture.md) and
-[code conventions](docs/conventions.md) before changing these boundaries.
-
-## How It Works
+## 产品结构
 
 ```mermaid
-flowchart TB
-  User["User request"] --> UI["Wanta desktop experience"]
-  UI --> Agent["OpenCode Agent runtime"]
-  Agent --> Local["Local files, shell, scripts, and web"]
-  Agent --> Link["Connector meta-tools"]
-  Link --> Hosted["OOMOL-hosted Connector"]
-  Link -.-> SelfHosted["Self-hosted OpenConnector<br/>in-app setup planned"]
-  Local --> Result["Task results and artifacts"]
-  Hosted --> Result
-  SelfHosted -.-> Result
-  Result --> UI
+flowchart LR
+  U["用户"] --> L["澜汐总助理"]
+  L --> R["团队推荐与用户确认"]
+  R --> C["主团船长"]
+  C --> D["任务 DAG"]
+  D --> A1["主团船员"]
+  D --> A2["支援团船长与船员"]
+  A1 --> K["OpenCode Agent Engine"]
+  A2 --> K
+  K --> T["本地工具 / 浏览器 / MCP / Skills"]
+  T --> O["真实产物与执行日志"]
+  O --> L
+  L --> U
 ```
 
-Wanta avoids registering hundreds of Provider-specific tools in the model context. Its Connector
-integration uses progressive discovery instead:
+桌面端保持严格进程边界：Electron 主进程掌管凭据、文件选择、内容包、进程和高风险确认；React 渲染层只消费服务契约和事件，不直接读取密钥或任意文件。Agent 核心使用固定版本的 `opencode-ai@1.18.10`，通过 HTTP + SSE 运行在 loopback-only sidecar 中。
 
-```text
-list connected apps → search for an Action → inspect its schema → call it with validated parameters
-```
+## 十个原创航海团
 
-This keeps the tool surface small, makes the action contract explicit, and lets authorization failures
-return as structured product states instead of free-form model text.
+| 航海团 | 能力域     | 主题色          |
+| ------ | ---------- | --------------- |
+| 望潮团 | 战略与调研 | 深海蓝 × 铜     |
+| 墨帆团 | 写作与传播 | 酒红 × 纸白     |
+| 绮港团 | 品牌与设计 | 孔雀青 × 珊瑚   |
+| 铸舟团 | 软件研发   | 午夜蓝 × 电光青 |
+| 金秤团 | 数据与财务 | 祖母绿 × 金     |
+| 舵序团 | 项目与行政 | 岩灰 × 琥珀     |
+| 铁律团 | 法务与风险 | 暗红 × 象牙     |
+| 灯塔团 | 学习与知识 | 靛蓝 × 烛金     |
+| 幻浪团 | 多媒体制作 | 紫罗兰 × 洋红   |
+| 栖湾团 | 生活与旅行 | 海沫绿 × 晨橙   |
 
-### OpenCode, OpenConnector, Wanta, and OOMOL
+公开内容全部使用原创姓名、外观和经历。仓库不分发任何第三方作品的角色姓名、头像、台词、服装或标志性美术；私人内容可通过本地补给包导入。
 
-- **OpenCode** is the local Agent runtime. Wanta manages its lifecycle and supplies the Agent
-  configuration, permissions, prompts, and custom tools.
-- **OpenConnector** is the open-source sibling for building and running Providers in the shared
-  connector ecosystem.
-- **Wanta** is the desktop Agent product and the reusable application foundation in this repository.
-- **OOMOL** provides the optional hosted layer for sign-in, models, Connector credentials, OAuth,
-  teams, Skills, usage, billing, and distribution.
+## 本地开发
 
-The Local BYOK core does not require an OOMOL account. Signing in enables the hosted Connector and team
-layer; it is not required to inspect, fork, or develop the desktop application.
+### 前置条件
 
-For the complete process, trust-boundary, IPC, streaming, authentication, and storage design, read the
-[architecture guide](docs/architecture.md).
-
-## Run from Source
-
-Requirements: Node.js 22.22.2 or newer and pnpm through Corepack.
+- Node.js `>=22.22.2`
+- Corepack
+- Git
+- Windows 11，或当前受支持的 macOS
 
 ```bash
-git clone https://github.com/oomol-lab/wanta.git
-cd wanta
-corepack pnpm install
-corepack pnpm run dev
+git clone https://github.com/Shun1989/xingchao-agent.git
+cd xingchao-agent
+corepack pnpm run bootstrap
+corepack pnpm run dev:worktree
 ```
 
-That is the short path for trying the repository. Environment configuration, test commands, runtime
-verification, packaging, signing, and release workflows live in the
-[Development Guide](docs/development.md).
+首次启动需要配置一个兼容模型。项目不会内置或默认选中付费模型供应商。
 
-## Security and Data Boundaries
+### 质量门禁
 
-- OpenCode listens only on loopback and uses a random per-process server password.
-- OOMOL session tokens and custom model API keys have separate storage and lifecycles.
-- Custom model keys are encrypted with Electron `safeStorage` and are never returned to the renderer.
-- Connector credentials remain in the selected hosted or self-operated Connector environment; the
-  Agent receives action results, not stored provider credentials.
-- High-risk local operations are connected to Wanta's explicit approval UI.
-- Local sessions are not silently uploaded into an OOMOL team workspace.
+```bash
+corepack pnpm run ts-check
+corepack pnpm run lint
+corepack pnpm run format
+corepack pnpm test
+corepack pnpm run build
+```
 
-See [SECURITY.md](SECURITY.md) for private vulnerability reporting and the
-[architecture guide](docs/architecture.md) for complete trust boundaries.
+Windows 上部分上游测试使用 POSIX 路径、文件模式或符号链接权限，可能需要管理员开发者模式或在 macOS/Linux CI 中运行。星潮航局新增测试不得依赖真实 API Key、付费模型或联网服务。
 
-## Project Map
+## 补给包格式
 
-| Path                                       | Purpose                                                               |
-| ------------------------------------------ | --------------------------------------------------------------------- |
-| [`electron/`](electron/)                   | Main process, preload, Agent runtime, and desktop services            |
-| [`src/`](src/)                             | React renderer, routes, hooks, and UI components                      |
-| [`scripts/`](scripts/)                     | Development, binary preparation, packaging, and release support       |
-| [`resources/`](resources/)                 | Branding and resources bundled with the application                   |
-| [`docs/`](docs/)                           | Product, architecture, development, conventions, and decision records |
-| [`.github/workflows/`](.github/workflows/) | Pull request and release automation                                   |
+补给包是 `.xcp` 或 `.zip` 归档，根目录必须包含 `manifest.json`。清单声明包版本、最低应用版本、公开/私人属性、航海团、角色、主题和所有资产的 SHA-256；`executableCode` 必须为 `false`。
 
-The stack is Electron 42, Vite 8, React 19, Tailwind CSS 4, OpenCode, TypeScript, Vitest, oxlint, and
-oxfmt. Wanta packages for macOS, Windows, and Linux.
+当前补给仓只负责安全安装和管理。导入团队、主题、声音及 Skill 引用尚未进入运行时激活阶段，不能把“安装成功”理解为“已参与任务路由”。版本化 Schema 位于 [`schemas/content-pack-manifest.v1.schema.json`](schemas/content-pack-manifest.v1.schema.json)。
 
-## Documentation
+## 路线图
 
-- [Project overview](docs/project-overview.md) — product scope and ecosystem relationships
-- [Architecture](docs/architecture.md) — processes, Agent runtime, IPC, streaming, auth, and data flow
-- [Development guide](docs/development.md) — install, run, test, package, sign, and release
-- [Code conventions](docs/conventions.md) — implementation rules and security boundaries
-- [Key technical decisions](docs/key-decisions.md) — why the architecture is shaped this way
-- [Contributing guide](CONTRIBUTING.md) — branches, pull requests, verification, and contribution rules
-- [Security policy](SECURITY.md) — private vulnerability reporting
-- [Trademark policy](TRADEMARKS.md) and [third-party notices](THIRD_PARTY_NOTICES.md)
+- 将已安装补给包以命名空间方式接入舰队注册表、路由器和主题引擎。
+- 完成模型/语音能力探测、STT/TTS 适配器与本地 `whisper.cpp` 可选下载。
+- 建立任务 DAG 的真实多 Agent 事件编排和崩溃恢复。
+- 迁移到 SQLite/FTS，完成五层记忆的查看、编辑、删除、导出和关闭自动提取。
+- 接入原创 Cubism 模型、八态动作、实时口型和十套主题饰品层。
+- 完成 Windows/macOS 安装包、签名、公证、升级与发行审计。
 
-## Contributing
+真实进度与未完成项见 [`docs/implementation-status.md`](docs/implementation-status.md)，研究来源见 [`docs/research-baseline.md`](docs/research-baseline.md) 与 [`docs/research-watch.md`](docs/research-watch.md)。
 
-Issues and pull requests are welcome. Before making a substantial behavior or UI change, open an issue
-so the product direction and scope can be agreed first. Read [CONTRIBUTING.md](CONTRIBUTING.md) before
-opening a pull request; it contains the repository workflow, required verification, and the security
-boundaries that contributions must preserve.
+## 上游与许可证
 
-By submitting a contribution, you agree that it is provided under the Apache License, Version 2.0,
-unless you clearly state otherwise in writing.
+星潮航局以 [OOMOL Wanta](https://github.com/oomol-lab/wanta) 的 Apache-2.0 桌面基础为工程起点，并保留原始许可证、NOTICE、商标说明和第三方声明。Agent Engine: OpenCode，固定为 `opencode-ai@1.18.10`。完整归属见 [`NOTICE`](NOTICE)、[`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) 和 [`TRADEMARKS.md`](TRADEMARKS.md)。
 
-## License Scope
-
-Unless otherwise noted, source code, scripts, tests, and documentation authored for this repository
-are licensed under the [Apache License, Version 2.0](LICENSE).
-
-This license does not grant rights to third-party products, services, APIs, trademarks, trade names,
-logos, icons, screenshots, or other materials owned by their respective holders. Third-party names and
-assets are used only for identification and interoperability; their inclusion does not imply
-endorsement, sponsorship, or partnership.
+本仓库代码依据 [Apache License 2.0](LICENSE) 发布。

@@ -13,9 +13,9 @@
   restarts the agent on change — exactly parallel to the three named stores) and the
   session/chat store family (`SessionActivityStore`, `SessionMetadataStore`, `SessionProjectStore`,
   `ArtifactBundleStore`, `AuthorizationOverlayStore`, `StoppedGenerationStore`, `TurnOutputStore`,
-  `UserAttachmentStore`); then instantiates and registers the **twelve services** (`chat` / `attention`
+  `UserAttachmentStore`); then instantiates and registers the **thirteen services** (`chat` / `attention`
   / `session` / `skill` / `models` / `settings` / `auth` / `update` / `git` / `knowledge` /
-  `link-runtime` / `browser`) with
+  `link-runtime` / `browser` / `content-pack`) with
   `server.registerService(...)` (**must run before `server.start()`**). `attention` records unread
   tasks only on a clean completion after the turn output has settled, persists them asynchronously,
   and drives system notifications plus the app-icon badge (macOS / a supporting Linux launcher
@@ -71,7 +71,7 @@ version }` (from the vite defines `__APP_COMMIT__` / `__APP_VERSION__`), the `Wa
   locale, and app commands). It **exposes no network/credential surface** — renderer-direct requests
   authenticate automatically via the session cookie and never pass through preload (see §4).
 - **Renderer process** `src/main.tsx`: `ConnectionClient(new ElectronClientAdapter())` →
-  `client.use()` the twelve service contracts → `AppContext.Provider`. The renderer syncs the currently
+  `client.use()` the thirteen service contracts → `AppContext.Provider`. The renderer syncs the currently
   visible session through the attention service, consumes the persisted unread set, and switches back
   to the matching task when a system notification is clicked. The renderer **directly imports** the
   contract types from `electron/*/common.ts` (cross-directory shared types, never copied); since the

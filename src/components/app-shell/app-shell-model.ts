@@ -275,6 +275,7 @@ export function initialRoute(): Route {
   return route === "settings" ||
     route === "connections" ||
     route === "fleet" ||
+    route === "supply" ||
     route === "skills" ||
     route === "knowledge" ||
     route === "teams" ||
