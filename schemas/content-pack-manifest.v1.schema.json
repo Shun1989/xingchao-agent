@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://xingchao.local/schemas/content-pack-manifest.v1.schema.json",
+  "title": "Xingchao ContentPackManifest v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "id",
+    "version",
+    "name",
+    "description",
+    "visibility",
+    "minimumAppVersion",
+    "checksums",
+    "crews",
+    "agents",
+    "themes",
+    "executableCode"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "1.0.0" },
+    "id": { "$ref": "#/$defs/id" },
+    "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+    "name": { "type": "string", "minLength": 1, "maxLength": 80 },
+    "description": { "type": "string", "minLength": 1, "maxLength": 500 },
+    "visibility": { "enum": ["public-original", "private-local"] },
+    "minimumAppVersion": { "type": "string" },
+    "checksums": { "type": "object", "additionalProperties": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" } },
+    "crews": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "name", "captainId", "memberIds", "theme"],
+        "properties": {
+          "id": { "$ref": "#/$defs/id" },
+          "name": { "type": "string" },
+          "captainId": { "$ref": "#/$defs/id" },
+          "memberIds": { "type": "array", "minItems": 6, "maxItems": 6, "items": { "$ref": "#/$defs/id" } },
+          "theme": { "type": "object" }
+        }
+      }
+    },
+    "agents": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "crewId", "name", "title", "persona", "professional"],
+        "properties": {
+          "id": { "$ref": "#/$defs/id" },
+          "crewId": { "$ref": "#/$defs/id" },
+          "name": { "type": "string" },
+          "title": { "type": "string" },
+          "persona": { "type": "object" },
+          "professional": { "type": "object" }
+        }
+      }
+    },
+    "themes": {
+      "type": "array",
+      "items": { "type": "object", "required": ["id", "primary", "secondary", "accent", "surface", "foreground"] }
+    },
+    "executableCode": { "const": false }
+  },
+  "$defs": { "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{1,63}$" } }
+}

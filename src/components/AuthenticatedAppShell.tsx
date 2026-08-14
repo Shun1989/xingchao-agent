@@ -121,7 +121,6 @@ function OperatingModeGate({ auth }: { auth: UseAuth }) {
   if (initialSetupRequired(authenticated, operatingMode)) {
     return (
       <InitialSetupRoute
-        auth={auth}
         completing={completing}
         linkRuntime={linkRuntime}
         models={models}

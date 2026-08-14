@@ -1,11 +1,9 @@
-import type { UseAuth } from "@/hooks/useAuth"
 import type { UseLinkRuntime } from "@/hooks/useLinkRuntime"
 import type { UserFacingError } from "@/lib/user-facing-error"
 import type { UseModelCatalog } from "@/routes/Chat/useModelCatalog"
 
-import { ArrowLeft, ArrowRight, BrainCircuit, Check, ChevronDown, LogIn, Server, Settings2 } from "lucide-react"
+import { ArrowRight, BrainCircuit, Check, ChevronDown, Server } from "lucide-react"
 import * as React from "react"
-import { LoginBrandPanel } from "./LoginBrandPanel.tsx"
 import { Loader } from "@/components/ai-elements/loader"
 import { BrandIcon } from "@/components/BrandIcon"
 import { ErrorNotice } from "@/components/ErrorNotice"
@@ -22,90 +20,28 @@ import { resolveUserFacingError } from "@/lib/user-facing-error"
 import { cn } from "@/lib/utils"
 import { AddCustomModelDialog } from "@/routes/Chat/AddCustomModelDialog"
 
-type SetupView = "choice" | "self-managed"
-
 export function InitialSetupRoute({
-  auth,
   completing,
   linkRuntime,
   models,
   onCompleteSelfManaged,
 }: {
-  auth: UseAuth
   completing: boolean
   linkRuntime: UseLinkRuntime
   models: UseModelCatalog
   onCompleteSelfManaged: () => Promise<void>
 }) {
-  const t = useT()
-  const [view, setView] = React.useState<SetupView>("choice")
-
   return (
     <div className="relative flex h-full flex-col bg-background text-foreground">
       <header className="absolute inset-x-0 top-0 z-10 h-[var(--app-titlebar-height)] [-webkit-app-region:drag]" />
       <main className="oo-login-main min-h-0 flex-1">
-        {view === "choice" ? (
-          <div className="mx-auto grid h-full max-w-[1480px] grid-cols-[minmax(0,0.96fr)_minmax(0,1.04fr)] gap-4 md:gap-6 lg:gap-8 xl:grid-cols-[minmax(36rem,0.96fr)_minmax(30rem,1.04fr)]">
-            <section className="flex min-h-0 items-center">
-              <SetupChoice auth={auth} onSelfManaged={() => setView("self-managed")} />
-            </section>
-            <LoginBrandPanel t={t} />
-          </div>
-        ) : (
-          <SelfManagedSetup
-            completing={completing}
-            linkRuntime={linkRuntime}
-            models={models}
-            onBack={() => setView("choice")}
-            onComplete={onCompleteSelfManaged}
-            onSkip={onCompleteSelfManaged}
-          />
-        )}
+        <SelfManagedSetup
+          completing={completing}
+          linkRuntime={linkRuntime}
+          models={models}
+          onComplete={onCompleteSelfManaged}
+        />
       </main>
-    </div>
-  )
-}
-
-function SetupChoice({ auth, onSelfManaged }: { auth: UseAuth; onSelfManaged: () => void }) {
-  const t = useT()
-  return (
-    <div className="w-full max-w-[40rem] px-2 py-8 md:px-6 lg:-translate-y-5 lg:px-10 xl:px-12">
-      <div className="flex items-center">
-        <BrandIcon className="size-14" />
-      </div>
-
-      <div className="mt-10 space-y-6">
-        <h1 className="text-[1.8rem] leading-[1.15] font-semibold tracking-normal text-foreground md:text-[2rem] lg:whitespace-nowrap">
-          {t("login.title")}
-        </h1>
-        <p className="text-sm leading-6 font-medium text-muted-foreground">{t("login.tagline")}</p>
-        <h2 className="max-w-[27rem] text-sm leading-6 font-medium text-muted-foreground">
-          {t("login.featureSummary")}
-        </h2>
-      </div>
-
-      <div className="mt-16 flex flex-wrap items-center gap-3 xl:flex-nowrap">
-        <Button
-          className="px-6 [-webkit-app-region:no-drag] has-[>svg]:px-5"
-          disabled={auth.loggingIn}
-          size="lg"
-          onClick={() => void auth.login()}
-        >
-          {auth.loggingIn ? <Loader /> : <LogIn />}
-          {auth.loggingIn ? t("login.waiting") : t("login.button")}
-        </Button>
-        <Button
-          className="[-webkit-app-region:no-drag]"
-          disabled={auth.loggingIn}
-          size="lg"
-          variant="outline"
-          onClick={onSelfManaged}
-        >
-          <Settings2 />
-          {t("setup.selfManagedAction")}
-        </Button>
-      </div>
-      {auth.error ? <ErrorNotice error={auth.error} compact className="mt-3" /> : null}
     </div>
   )
 }
@@ -114,16 +50,12 @@ function SelfManagedSetup({
   completing,
   linkRuntime,
   models,
-  onBack,
   onComplete,
-  onSkip,
 }: {
   completing: boolean
   linkRuntime: UseLinkRuntime
   models: UseModelCatalog
-  onBack: () => void
   onComplete: () => Promise<void>
-  onSkip: () => Promise<void>
 }) {
   const t = useT()
   const saved = linkRuntime.state?.openConnector
@@ -177,14 +109,7 @@ function SelfManagedSetup({
 
   return (
     <div className="mx-auto flex h-full w-full max-w-[64rem] flex-col overflow-y-auto px-5 py-8 sm:px-8 lg:px-12">
-      <button
-        type="button"
-        className="mb-5 inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground"
-        onClick={onBack}
-      >
-        <ArrowLeft className="size-3.5" />
-        {t("setup.back")}
-      </button>
+      <BrandIcon className="mb-5 size-12" />
       <div className="max-w-[44rem]">
         <h1 className="text-2xl font-semibold md:text-[1.75rem]">{t("setup.selfManagedSetupTitle")}</h1>
         <p className="mt-2 text-sm leading-6 text-muted-foreground">{t("setup.selfManagedSetupDescription")}</p>
@@ -286,19 +211,7 @@ function SelfManagedSetup({
       {models.catalogError ? <ErrorNotice error={models.catalogError} compact className="mt-3" /> : null}
       {actionError ? <ErrorNotice error={actionError} compact className="mt-3" /> : null}
 
-      <div className="mt-6 flex flex-wrap items-start justify-between gap-4 border-t pt-5">
-        <div>
-          <button
-            type="button"
-            className="inline-flex items-center gap-1.5 py-1 text-sm font-medium text-muted-foreground underline underline-offset-4 transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50"
-            disabled={completing || linkRuntime.busy}
-            onClick={() => runActivation(onSkip)}
-          >
-            {t("setup.skip")}
-            <ArrowRight className="size-3.5" />
-          </button>
-          <p className="mt-1 text-xs text-muted-foreground">{t("setup.skipDescription")}</p>
-        </div>
+      <div className="mt-6 flex justify-end border-t pt-5">
         <Button
           size="lg"
           disabled={!hasModel || completing || linkRuntime.busy}

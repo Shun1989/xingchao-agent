@@ -15,8 +15,10 @@ import {
   FolderPlus,
   LibraryBig,
   ListChecks,
+  Map,
   Package,
   Plug,
+  ShipWheel,
   SquarePen,
 } from "lucide-react"
 import * as React from "react"
@@ -299,6 +301,28 @@ export const AppShellNavigationSidebar = React.memo(function AppShellNavigationS
           >
             <SquarePen className="size-4 shrink-0" />
             <span className="oo-sidebar-nav-label truncate">{t("sidebar.newSession")}</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => onNavigate("fleet")}
+            className={cn(
+              "oo-sidebar-nav-item oo-text-body flex h-[var(--sidebar-item-height)] items-center gap-2 rounded-md px-2",
+              activeRoute === "fleet" && "bg-sidebar-accent text-sidebar-accent-foreground",
+            )}
+          >
+            <ShipWheel className="size-4 shrink-0" />
+            <span className="oo-sidebar-nav-label truncate">舰队港口</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => onNavigate("voyage")}
+            className={cn(
+              "oo-sidebar-nav-item oo-text-body flex h-[var(--sidebar-item-height)] items-center gap-2 rounded-md px-2",
+              activeRoute === "voyage" && "bg-sidebar-accent text-sidebar-accent-foreground",
+            )}
+          >
+            <Map className="size-4 shrink-0" />
+            <span className="oo-sidebar-nav-label truncate">航海图</span>
           </button>
           <button
             type="button"

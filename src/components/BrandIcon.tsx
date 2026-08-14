@@ -1,5 +1,5 @@
 import * as React from "react"
-import appLogoUrl from "../../resources/branding/logo.png"
+import appLogoUrl from "../../resources/branding/xingchao-logo.svg"
 import { cn } from "@/lib/utils"
 
 function BrandIcon({ className, ...props }: React.ComponentProps<"span">) {

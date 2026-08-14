@@ -8,20 +8,21 @@
 
 export const branding = {
   /** 产品显示名（窗口标题、应用菜单、侧边栏 logo 文案）。 */
-  appName: "Wanta",
+  appName: "星潮航局",
   /** OOMOL 公司/服务品牌名（如内置模型 provider、官方技能维护者）。 */
   companyName: "OOMOL",
   /** 生产包 appId（electron-builder.ts 从这里派生）。 */
-  appId: "com.oomol.wanta",
+  appId: "cn.xingchao.navigation",
   /** 本地开发版 Electron 的 bundle id（download-electron 改写 .electron-dist 的 plist）。 */
-  devBundleId: "com.oomol.wanta-local",
+  devBundleId: "cn.xingchao.navigation-local",
   /** 生产 deep-link scheme（electron-builder.ts 从这里派生）。 */
-  protocolScheme: "wanta",
+  protocolScheme: "xingchao",
   /** 本地开发 deep-link scheme。 */
-  devProtocolScheme: "wanta-local",
+  devProtocolScheme: "xingchao-local",
   /** 应用内部本地 Artifact 流式资源协议，不注册为系统 deep-link。 */
-  artifactResourceProtocolScheme: "wanta-resource",
+  artifactResourceProtocolScheme: "xingchao-resource",
   /** @oomol/connection ServiceName 的命名空间前缀（产品内部约定）。 */
+  // Compatibility identifiers stay stable so existing local data and IPC clients keep working.
   servicePrefix: "wanta",
   /** preload 暴露到 renderer 的全局 bridge 名（window.<windowBridge>）。 */
   windowBridge: "wanta",
@@ -30,7 +31,7 @@ export const branding = {
   /** localStorage / 前端持久化 key 前缀。 */
   storageKeyPrefix: "wanta",
   /** 自动更新 OSS/CDN 路径段（完整基址在 domain.ts 由 endpoint 派生，见 R2/阶段 6）。 */
-  updateFeedPath: "release/apps/wanta",
+  updateFeedPath: "release/apps/xingchao",
 } as const
 
 /** 拼接一个 ServiceName 字符串，如 `serviceName("ping-service") === "wanta/ping-service"`。 */

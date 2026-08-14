@@ -38,7 +38,7 @@ export default {
   extraResources: [
     {
       from: "LICENSE",
-      to: "licenses/Wanta-LICENSE",
+      to: "licenses/Xingchao-LICENSE",
     },
     {
       from: "NOTICE",
@@ -114,12 +114,7 @@ export default {
         arch: ["x64"],
       },
     ],
-    // Windows 代码签名（CI 自托管 runner + USB 证书；指纹为 CI 配置，本地不签名）。
-    signExts: [".exe", ".dll", ".node"],
-    signtoolOptions: {
-      certificateSha1: "9F84845385AA9282C764044D307EF4044B47E966",
-      signingHashAlgorithms: ["sha256"],
-    },
+    // Release signing is injected by the publisher environment. Never inherit the upstream certificate identity.
     artifactName: "${productName}-${version}-Setup.${ext}",
   },
   nsis: {

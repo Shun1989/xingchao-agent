@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="星潮航局">
+  <defs><linearGradient id="sea" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#173650"/><stop offset="1" stop-color="#0a7f8d"/></linearGradient></defs>
+  <circle cx="64" cy="64" r="58" fill="#f4ead2" stroke="#b47a3d" stroke-width="6"/>
+  <circle cx="64" cy="64" r="43" fill="url(#sea)"/>
+  <path d="M64 25 72 52 101 60 74 69 64 103 54 70 27 61 55 52Z" fill="#f3d486"/>
+  <circle cx="64" cy="64" r="10" fill="#173650" stroke="#f4ead2" stroke-width="4"/>
+  <path d="M31 83c9-8 18-8 27 0s18 8 27 0 18-8 27 0" fill="none" stroke="#7dd7dc" stroke-width="5" stroke-linecap="round"/>
+</svg>

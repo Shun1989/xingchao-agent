@@ -3,6 +3,7 @@ import { resolveAppEntryState } from "@/app-entry"
 import { ErrorBoundary } from "@/components/ErrorBoundary"
 import { ThemeProvider } from "@/components/ThemeProvider"
 import { Button } from "@/components/ui/button"
+import { XingchaoThemeProvider } from "@/components/XingchaoThemeProvider"
 import { AuthProvider, useAuth } from "@/hooks/useAuth"
 import { useGlobalScrollbars } from "@/hooks/useGlobalScrollbars"
 import { RuntimeCapabilitiesProvider, useRuntimeCapabilities } from "@/hooks/useRuntimeCapabilities"
@@ -65,11 +66,13 @@ export function App() {
     <ErrorBoundary fallback={<RootFallback />}>
       <I18nProvider>
         <ThemeProvider>
-          <AuthProvider>
-            <RuntimeCapabilitiesProvider>
-              <AuthGate />
-            </RuntimeCapabilitiesProvider>
-          </AuthProvider>
+          <XingchaoThemeProvider>
+            <AuthProvider>
+              <RuntimeCapabilitiesProvider>
+                <AuthGate />
+              </RuntimeCapabilitiesProvider>
+            </AuthProvider>
+          </XingchaoThemeProvider>
         </ThemeProvider>
       </I18nProvider>
     </ErrorBoundary>

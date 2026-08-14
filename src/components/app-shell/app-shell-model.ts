@@ -274,11 +274,13 @@ export function initialRoute(): Route {
   const route = configuredRoute === "organizations" ? "teams" : configuredRoute
   return route === "settings" ||
     route === "connections" ||
+    route === "fleet" ||
     route === "skills" ||
     route === "knowledge" ||
     route === "teams" ||
     route === "billing" ||
-    route === "archived"
+    route === "archived" ||
+    route === "voyage"
     ? route
     : "chat"
 }

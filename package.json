@@ -1,19 +1,11 @@
 {
-  "name": "wanta",
-  "displayName": "Wanta",
-  "version": "0.0.0",
+  "name": "xingchao-navigation",
+  "displayName": "星潮航局",
+  "version": "0.1.0",
   "private": true,
-  "description": "Wanta — open-source desktop AI agent for connected apps, local files, and automation.",
-  "homepage": "https://wanta.ai/",
-  "bugs": {
-    "url": "https://github.com/oomol-lab/wanta/issues"
-  },
+  "description": "星潮航局：本地优先、可执行真实任务的原创航海主题多 Agent 桌面工作台。",
   "license": "Apache-2.0",
-  "author": "OOMOL",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/oomol-lab/wanta.git"
-  },
+  "author": "Xingchao Navigation contributors",
   "type": "module",
   "main": "dist-electron/main.js",
   "scripts": {

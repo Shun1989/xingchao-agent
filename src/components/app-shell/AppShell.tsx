@@ -14,6 +14,7 @@ import type { PendingChatTransition } from "./pending-chat.ts"
 import type { SidebarSegment, SidebarTaskSortMode } from "./sidebar-persistence.ts"
 import type { ChatConnectionDrawerState } from "./use-chat-connection-retry.ts"
 import type { BillingDetailsTarget } from "@/components/app-shell/BillingUsagePopover"
+import type { Mission } from "@/domain/xingchao/types.ts"
 import type { UseAuth } from "@/hooks/useAuth"
 import type { KnowledgeBaseIdsUpdate } from "@/hooks/useSessions"
 import type { ChatTurnRetrySource } from "@/routes/Chat/chat-turns"
@@ -91,6 +92,7 @@ import { ProjectContextBar } from "@/components/app-shell/ProjectContextBar"
 import { useAttentionService, useBrowserService, useChatService } from "@/components/AppContext"
 import { useSkillInventoryResource } from "@/components/AppDataHooks"
 import { AppUpdateTitlebarEntry } from "@/components/AppUpdateTitlebarEntry"
+import { missionLaunchPrompt } from "@/domain/xingchao/routing.ts"
 import { useAppSettings } from "@/hooks/useAppSettings"
 import { useAppUpdate } from "@/hooks/useAppUpdate"
 import { useAttention } from "@/hooks/useAttention"
@@ -152,6 +154,10 @@ const SettingsRoute = React.lazy(() =>
   import("@/routes/Settings").then((module) => ({ default: module.SettingsRoute })),
 )
 const SkillsRoute = React.lazy(() => import("@/routes/Skills").then((module) => ({ default: module.SkillsRoute })))
+const FleetHarborRoute = React.lazy(() =>
+  import("@/routes/Fleet").then((module) => ({ default: module.FleetHarborRoute })),
+)
+const VoyageRoute = React.lazy(() => import("@/routes/Voyage").then((module) => ({ default: module.VoyageRoute })))
 
 /** Selections map seeded with the sticky draft entry, or empty when none. */
 function draftSelectionEntry(prefs: {
@@ -978,7 +984,11 @@ export function AppShell({ auth }: { auth: UseAuth }) {
                 ? t("teams.title")
                 : route === "archived"
                   ? t("archived.title")
-                  : (activeSession?.title ?? t("chat.newSession"))
+                  : route === "fleet"
+                    ? "舰队港口"
+                    : route === "voyage"
+                      ? "航海图"
+                      : (activeSession?.title ?? t("chat.newSession"))
   const titlebarEditable = route === "chat" && Boolean(activeSession)
   const titlebarBreadcrumbs =
     route === "knowledge" && knowledgeBaseBetaEnabled
@@ -1504,6 +1514,16 @@ export function AppShell({ auth }: { auth: UseAuth }) {
       sendNow,
       sessionScope,
     ],
+  )
+
+  const handleMissionLaunch = React.useCallback(
+    async (mission: Mission): Promise<void> => {
+      setRoute("chat")
+      const result = await handleSend({ text: missionLaunchPrompt(mission), mode: "build" })
+      if (result.status === "failed") throw result.error
+      if (result.status === "rejected") throw new Error("任务尚未准备好，请稍后重试。")
+    },
+    [handleSend],
   )
 
   const handleAnswerQuestion = React.useCallback(
@@ -2168,7 +2188,11 @@ export function AppShell({ auth }: { auth: UseAuth }) {
 
           <main className="oo-content-surface min-h-0 min-w-0 overflow-hidden">
             <React.Suspense fallback={<RouteLoadingFallback />}>
-              {route === "connections" ? (
+              {route === "fleet" ? (
+                <FleetHarborRoute onOpenVoyage={() => setRoute("voyage")} />
+              ) : route === "voyage" ? (
+                <VoyageRoute onLaunch={handleMissionLaunch} />
+              ) : route === "connections" ? (
                 linkRuntime.state?.active === "openconnector" ? (
                   <OpenConnectorConnectionsPanel runtime={linkRuntime} onOpenSettings={handleOpenSettingsCommand} />
                 ) : oomolLinkActive ? (
