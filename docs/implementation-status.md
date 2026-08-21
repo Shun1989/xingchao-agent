@@ -60,5 +60,11 @@ This document separates implemented behavior from planned release work. A passin
 - As the next activation prerequisite, content-pack validation now requires complete runtime Agent, crew, and theme
   profiles; rejects duplicate IDs, unknown Agent crew assignments, and missing crew themes; and keeps the published JSON
   Schema synchronized with the runtime validator.
-- Imported packs still are not active in fleet selection, routing, mission planning, or themes. Namespace rewriting and a
-  user-visible activation policy remain unimplemented.
+- Imported packs still are not active in fleet selection, routing, mission planning, or themes. Runtime catalog
+  integration and a user-visible activation policy remain unimplemented.
+- Added a pure runtime content-catalog builder that keeps built-in IDs stable, namespaces imported crew, Agent, and theme
+  IDs plus their internal references, records per-entity pack provenance, rejects selecting multiple versions of one pack,
+  and fails closed on ambiguous runtime-ID collisions.
+- The catalog is not yet persisted or connected to the Supply Depot, fleet registry, router, mission planner, or theme
+  provider. Imported packs therefore remain inactive until a user-visible selection policy and main-process integration
+  are implemented.
