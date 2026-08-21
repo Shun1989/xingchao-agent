@@ -72,15 +72,15 @@ failure mode: Git reported 972 modified files even though their normalized blobs
 | Deepseek Hareness | N/A                                                                       |     N/A | No official repository was verified; the supplied name still appears misspelled or non-public.                     |
 | Alice Agent       | N/A                                                                       |     N/A | No official open-source product main repository was verified; `itshen/Alice_methodology` remains methodology-only. |
 
-The effective stop threshold is **233,794 Stars**. The current `stargazers_count` for
-[Shun1989/xingchao-agent](https://github.com/Shun1989/xingchao-agent) is **not verified in this run**: `gh auth status`
-reports an invalid Shun1989 token, authenticated repository metadata returns HTTP 401, and the public API endpoint was
-not reachable through this host's TLS path. The previous value is not reused as if current, so the stop comparison is
-blocked rather than guessed.
+The effective stop threshold is **233,794 Stars**. On 2026-08-21, GitHub repository metadata reports
+[Shun1989/xingchao-agent](https://github.com/Shun1989/xingchao-agent) at **0 Stars**. The threshold has not been reached,
+so the weekly iteration continues.
 
 ## Publication prerequisite status on 2026-08-21
 
 - `origin` remains `https://github.com/Shun1989/xingchao-agent.git`.
 - `upstream` remains fetch-only; its push URL is `DISABLED`.
-- `gh auth status` reports that the active Shun1989 token is invalid. Push permission is therefore not verified, and no
-  push is permitted until `gh auth login -h github.com` succeeds and `viewerPermission` is read from the origin repository.
+- `gh auth status` succeeds for `Shun1989`; repository metadata reports `viewerPermission: ADMIN` and confirms origin as
+  `Shun1989/xingchao-agent`.
+- The three audited local commits through `2977376d887952fe54e58b6f89257b458fc29db8` were fast-forward pushed to
+  `origin/codex/xingchao-platform`. A read-only remote SHA check matched the local head; upstream remained untouched.
