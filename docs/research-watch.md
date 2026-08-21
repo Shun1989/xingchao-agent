@@ -68,11 +68,11 @@ failure mode: Git reported 972 modified files even though their normalized blobs
 | Compared object   | Confirmed official public main repository                                 |   Stars | Status                                                                                                             |
 | ----------------- | ------------------------------------------------------------------------- | ------: | ------------------------------------------------------------------------------------------------------------------ |
 | WorkBuddy         | N/A                                                                       |     N/A | Search did not verify an official open-source main repository; unrelated same-name repositories remain excluded.   |
-| Hermes Agent      | [NousResearch/hermes-agent](https://github.com/NousResearch/hermes-agent) | 233,794 | Verified through the Nous Research organization and GitHub public repository API on 2026-08-21; MIT.               |
+| Hermes Agent      | [NousResearch/hermes-agent](https://github.com/NousResearch/hermes-agent) | 233,866 | Verified through the Nous Research organization and GitHub repository API at 2026-08-21 23:58 +08:00; MIT.         |
 | Deepseek Hareness | N/A                                                                       |     N/A | No official repository was verified; the supplied name still appears misspelled or non-public.                     |
 | Alice Agent       | N/A                                                                       |     N/A | No official open-source product main repository was verified; `itshen/Alice_methodology` remains methodology-only. |
 
-The effective stop threshold is **233,794 Stars**. On 2026-08-21, GitHub repository metadata reports
+The effective stop threshold is **233,866 Stars**. On 2026-08-21 at 23:58 +08:00, GitHub repository metadata reports
 [Shun1989/xingchao-agent](https://github.com/Shun1989/xingchao-agent) at **0 Stars**. The threshold has not been reached,
 so the weekly iteration continues.
 
