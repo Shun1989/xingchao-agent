@@ -48,3 +48,12 @@ This document separates implemented behavior from planned release work. A passin
 - Added the Supply Depot route and a narrow main-process IPC service for list/import/remove operations.
 - Added compatibility, reserved-ID, path-collision, symlink, inventory, removal, picker-cancellation, and confirmation tests.
 - Imported pack activation remains intentionally unimplemented and must not be represented as complete.
+
+## Weekly slice on 2026-08-21
+
+- Added a repository-level Git attributes contract that keeps text files on LF across Windows and Unix while excluding
+  packaged applications, archives, fonts, documents, and raster assets from text conversion.
+- Recovered an auditable Windows worktree after Git had reported 972 false modifications: tracked file content matched
+  the index, but cached CRLF sizes conflicted with the LF checkout under the machine-wide `core.autocrlf=true` setting.
+- This slice fixes repository and build reproducibility only. It does not implement imported-pack runtime activation or
+  change any product behavior.

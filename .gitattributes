@@ -1,0 +1,21 @@
+* text=auto eol=lf
+
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+*.7z binary
+*.dmg binary
+*.dll binary
+*.exe binary
+*.gif binary
+*.ico binary
+*.jpeg binary
+*.jpg binary
+*.node binary
+*.pdf binary
+*.png binary
+*.webp binary
+*.woff binary
+*.woff2 binary
+*.xcp binary
+*.zip binary
