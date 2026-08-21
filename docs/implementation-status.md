@@ -57,3 +57,8 @@ This document separates implemented behavior from planned release work. A passin
   the index, but cached CRLF sizes conflicted with the LF checkout under the machine-wide `core.autocrlf=true` setting.
 - This slice fixes repository and build reproducibility only. It does not implement imported-pack runtime activation or
   change any product behavior.
+- As the next activation prerequisite, content-pack validation now requires complete runtime Agent, crew, and theme
+  profiles; rejects duplicate IDs, unknown Agent crew assignments, and missing crew themes; and keeps the published JSON
+  Schema synchronized with the runtime validator.
+- Imported packs still are not active in fleet selection, routing, mission planning, or themes. Namespace rewriting and a
+  user-visible activation policy remain unimplemented.

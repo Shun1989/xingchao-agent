@@ -29,38 +29,196 @@
     "checksums": { "type": "object", "additionalProperties": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" } },
     "crews": {
       "type": "array",
-      "items": {
-        "type": "object",
-        "required": ["id", "name", "captainId", "memberIds", "theme"],
-        "properties": {
-          "id": { "$ref": "#/$defs/id" },
-          "name": { "type": "string" },
-          "captainId": { "$ref": "#/$defs/id" },
-          "memberIds": { "type": "array", "minItems": 6, "maxItems": 6, "items": { "$ref": "#/$defs/id" } },
-          "theme": { "type": "object" }
-        }
-      }
+      "items": { "$ref": "#/$defs/crew" }
     },
     "agents": {
       "type": "array",
-      "items": {
-        "type": "object",
-        "required": ["id", "crewId", "name", "title", "persona", "professional"],
-        "properties": {
-          "id": { "$ref": "#/$defs/id" },
-          "crewId": { "$ref": "#/$defs/id" },
-          "name": { "type": "string" },
-          "title": { "type": "string" },
-          "persona": { "type": "object" },
-          "professional": { "type": "object" }
-        }
-      }
+      "items": { "$ref": "#/$defs/agent" }
     },
     "themes": {
       "type": "array",
-      "items": { "type": "object", "required": ["id", "primary", "secondary", "accent", "surface", "foreground"] }
+      "items": { "$ref": "#/$defs/theme" }
     },
     "executableCode": { "const": false }
   },
-  "$defs": { "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{1,63}$" } }
+  "$defs": {
+    "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{1,63}$" },
+    "nonEmptyString": { "type": "string", "minLength": 1 },
+    "hexColor": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" },
+    "theme": {
+      "type": "object",
+      "required": [
+        "id",
+        "name",
+        "primary",
+        "secondary",
+        "accent",
+        "surface",
+        "foreground",
+        "texture",
+        "motion",
+        "soundCue",
+        "live2dOverlay",
+        "highContrast"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "name": { "$ref": "#/$defs/nonEmptyString" },
+        "primary": { "$ref": "#/$defs/hexColor" },
+        "secondary": { "$ref": "#/$defs/hexColor" },
+        "accent": { "$ref": "#/$defs/hexColor" },
+        "surface": { "$ref": "#/$defs/hexColor" },
+        "foreground": { "$ref": "#/$defs/hexColor" },
+        "texture": { "enum": ["chart", "paper", "wood", "metal", "mist"] },
+        "motion": { "enum": ["tide", "ink", "glimmer", "pulse", "drift"] },
+        "soundCue": { "type": "string" },
+        "live2dOverlay": { "type": "string" },
+        "highContrast": {
+          "type": "object",
+          "required": ["primary", "background", "foreground"],
+          "properties": {
+            "primary": { "$ref": "#/$defs/hexColor" },
+            "background": { "$ref": "#/$defs/hexColor" },
+            "foreground": { "$ref": "#/$defs/hexColor" }
+          }
+        }
+      }
+    },
+    "crew": {
+      "type": "object",
+      "required": [
+        "id",
+        "name",
+        "domain",
+        "motto",
+        "description",
+        "captainId",
+        "memberIds",
+        "routingSignals",
+        "supportSignals",
+        "standardWorkflow",
+        "theme"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "name": { "$ref": "#/$defs/nonEmptyString" },
+        "domain": { "$ref": "#/$defs/nonEmptyString" },
+        "motto": { "$ref": "#/$defs/nonEmptyString" },
+        "description": { "$ref": "#/$defs/nonEmptyString" },
+        "captainId": { "$ref": "#/$defs/id" },
+        "memberIds": { "type": "array", "minItems": 6, "maxItems": 6, "items": { "$ref": "#/$defs/id" } },
+        "routingSignals": {
+          "type": "array",
+          "minItems": 3,
+          "items": { "$ref": "#/$defs/nonEmptyString" }
+        },
+        "supportSignals": { "type": "array", "items": { "$ref": "#/$defs/nonEmptyString" } },
+        "standardWorkflow": {
+          "type": "array",
+          "minItems": 3,
+          "items": { "$ref": "#/$defs/nonEmptyString" }
+        },
+        "theme": { "$ref": "#/$defs/theme" }
+      }
+    },
+    "capability": {
+      "type": "object",
+      "required": ["id", "label", "level"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "label": { "$ref": "#/$defs/nonEmptyString" },
+        "level": { "type": "integer", "minimum": 1, "maximum": 5 }
+      }
+    },
+    "persona": {
+      "type": "object",
+      "required": ["temperament", "decisionStyle", "communicationStyle", "signature", "tension"],
+      "properties": {
+        "temperament": { "$ref": "#/$defs/nonEmptyString" },
+        "decisionStyle": { "$ref": "#/$defs/nonEmptyString" },
+        "communicationStyle": { "$ref": "#/$defs/nonEmptyString" },
+        "signature": { "$ref": "#/$defs/nonEmptyString" },
+        "tension": { "$ref": "#/$defs/nonEmptyString" }
+      }
+    },
+    "professional": {
+      "type": "object",
+      "required": ["capabilities", "allowedTools", "prohibitedActions", "deliverables"],
+      "properties": {
+        "capabilities": { "type": "array", "items": { "$ref": "#/$defs/capability" } },
+        "allowedTools": { "type": "array", "items": { "$ref": "#/$defs/nonEmptyString" } },
+        "prohibitedActions": { "type": "array", "items": { "$ref": "#/$defs/nonEmptyString" } },
+        "deliverables": { "type": "array", "items": { "$ref": "#/$defs/nonEmptyString" } }
+      }
+    },
+    "evaluation": {
+      "type": "object",
+      "required": ["id", "prompt", "expectedBehaviors", "forbiddenBehaviors"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "prompt": { "$ref": "#/$defs/nonEmptyString" },
+        "expectedBehaviors": { "type": "array", "items": { "$ref": "#/$defs/nonEmptyString" } },
+        "forbiddenBehaviors": { "type": "array", "items": { "$ref": "#/$defs/nonEmptyString" } }
+      }
+    },
+    "agent": {
+      "type": "object",
+      "required": [
+        "id",
+        "crewId",
+        "name",
+        "title",
+        "role",
+        "biography",
+        "persona",
+        "professional",
+        "delegatesTo",
+        "relationships",
+        "voice",
+        "visual",
+        "evaluations"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "crewId": { "$ref": "#/$defs/id" },
+        "name": { "$ref": "#/$defs/nonEmptyString" },
+        "title": { "$ref": "#/$defs/nonEmptyString" },
+        "role": { "enum": ["captain", "crew"] },
+        "biography": { "$ref": "#/$defs/nonEmptyString" },
+        "persona": { "$ref": "#/$defs/persona" },
+        "professional": { "$ref": "#/$defs/professional" },
+        "delegatesTo": { "type": "array", "items": { "$ref": "#/$defs/id" } },
+        "relationships": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["agentId", "description"],
+            "properties": {
+              "agentId": { "$ref": "#/$defs/id" },
+              "description": { "$ref": "#/$defs/nonEmptyString" }
+            }
+          }
+        },
+        "voice": {
+          "type": "object",
+          "required": ["style", "rate", "pitch"],
+          "properties": {
+            "style": { "$ref": "#/$defs/nonEmptyString" },
+            "rate": { "type": "number", "exclusiveMinimum": 0 },
+            "pitch": { "type": "number", "exclusiveMinimum": 0 }
+          }
+        },
+        "visual": {
+          "type": "object",
+          "required": ["accent", "silhouette"],
+          "properties": {
+            "portrait": { "type": "string" },
+            "accent": { "$ref": "#/$defs/hexColor" },
+            "silhouette": { "$ref": "#/$defs/nonEmptyString" }
+          }
+        },
+        "evaluations": { "type": "array", "items": { "$ref": "#/$defs/evaluation" } }
+      }
+    }
+  }
 }
