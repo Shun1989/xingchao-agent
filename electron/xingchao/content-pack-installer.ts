@@ -44,7 +44,7 @@ function isZipSymlink(entry: JSZip.JSZipObject): boolean {
   return typeof permissions === "number" && (permissions & 0o170000) === 0o120000
 }
 
-function compareVersions(left: string, right: string): number {
+export function compareVersions(left: string, right: string): number {
   const leftParts = left.split(".").map(Number)
   const rightParts = right.split(".").map(Number)
   for (let index = 0; index < 3; index += 1) {

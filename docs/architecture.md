@@ -10,8 +10,10 @@
   (`settings.json` / `auth.json` / `attention.json`), plus the private
   `LinkRuntimeManager` (`link-runtime.json`) and `ModelsStore`
   (`models.json`, which backs the `models` service, feeds `AgentManager` custom models, and
-  restarts the agent on change — exactly parallel to the three named stores) and the
-  session/chat store family (`SessionActivityStore`, `SessionMetadataStore`, `SessionProjectStore`,
+  restarts the agent on change — exactly parallel to the three named stores), the
+  unregistered `ContentPackRuntimeManager` and its `ContentPackSelectionStore` (`content-pack-selections.json`, one
+  validated selected version per installed pack ID), and
+  the session/chat store family (`SessionActivityStore`, `SessionMetadataStore`, `SessionProjectStore`,
   `ArtifactBundleStore`, `AuthorizationOverlayStore`, `StoppedGenerationStore`, `TurnOutputStore`,
   `UserAttachmentStore`); then instantiates and registers the **thirteen services** (`chat` / `attention`
   / `session` / `skill` / `models` / `settings` / `auth` / `update` / `git` / `knowledge` /

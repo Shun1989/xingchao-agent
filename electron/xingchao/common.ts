@@ -12,6 +12,7 @@ export interface ContentPackSummary {
   minimumAppVersion: string
   name: string
   removable: boolean
+  selected: boolean
   source: "builtin" | "installed"
   themeCount: number
   version: string
@@ -23,8 +24,14 @@ export interface RemoveContentPackRequest {
   version: string
 }
 
+export interface SetContentPackSelectionRequest {
+  id: string
+  selected: boolean
+  version: string
+}
+
 export interface ContentPacksChangedEvent {
-  reason: "installed" | "removed"
+  reason: "installed" | "removed" | "selection-changed"
 }
 
 export type ContentPackService = typeof ContentPackService
@@ -36,5 +43,6 @@ export const ContentPackService = serviceName("content-pack-service") as Service
     install(): Promise<ContentPackSummary | null>
     list(): Promise<ContentPackSummary[]>
     remove(request: RemoveContentPackRequest): Promise<boolean>
+    setSelection(request: SetContentPackSelectionRequest): Promise<boolean>
   }
 }>

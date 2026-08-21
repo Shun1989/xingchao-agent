@@ -60,11 +60,18 @@ This document separates implemented behavior from planned release work. A passin
 - As the next activation prerequisite, content-pack validation now requires complete runtime Agent, crew, and theme
   profiles; rejects duplicate IDs, unknown Agent crew assignments, and missing crew themes; and keeps the published JSON
   Schema synchronized with the runtime validator.
-- Imported packs still are not active in fleet selection, routing, mission planning, or themes. Runtime catalog
-  integration and a user-visible activation policy remain unimplemented.
+- Imported packs still are not active in fleet selection, routing, mission planning, or themes. Downstream catalog
+  consumption and a user-visible activation policy remain unimplemented.
 - Added a pure runtime content-catalog builder that keeps built-in IDs stable, namespaces imported crew, Agent, and theme
   IDs plus their internal references, records per-entity pack provenance, rejects selecting multiple versions of one pack,
   and fails closed on ambiguous runtime-ID collisions.
-- The catalog is not yet persisted or connected to the Supply Depot, fleet registry, router, mission planner, or theme
-  provider. Imported packs therefore remain inactive until a user-visible selection policy and main-process integration
-  are implemented.
+- Added an atomic main-process selection store for installed pack versions. The service accepts only installed versions,
+  keeps at most one selected version per pack ID, requires a native confirmation before changing selection, survives app
+  restart, clears selections when a selected version is removed, and repairs persisted selections that no longer point to
+  a valid installed package.
+- An unregistered main-process runtime manager can now build the namespaced catalog from the built-in fleet plus the
+  explicitly selected installed versions. It serializes selection, installation, removal, and catalog reads; revalidates
+  app-version compatibility after restart; and keeps inventory paths and catalog internals outside the registered RPC
+  facade. The selection contract is not yet exposed as a Supply Depot control, and the resulting catalog is not connected
+  to the fleet registry, router, mission planner, Agent kernel, or theme provider. Imported packs therefore remain
+  unavailable to user tasks and must not be represented as fully activated.

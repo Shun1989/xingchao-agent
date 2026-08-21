@@ -115,6 +115,7 @@ import {
 import { createHideOnCloseHandler, revealMainWindow } from "./window/window-close-behavior.ts"
 import { createWindowsTrayLifecycle } from "./window/windows-tray-lifecycle.ts"
 import { ContentPackServiceImpl } from "./xingchao/node.ts"
+import { ContentPackRuntimeManager } from "./xingchao/runtime-manager.ts"
 
 declare const __APP_COMMIT__: string | undefined
 
@@ -394,8 +395,11 @@ const knowledgeService = new KnowledgeServiceImpl({
   runtime: { managedLibraryDir: wikiGraphLibraryDir, stateDir: wikiGraphStateDir },
   trustedImportPaths: trustedAttachmentPaths,
 })
-const contentPackService = new ContentPackServiceImpl({
+const contentPackRuntimeManager = new ContentPackRuntimeManager({
   appVersion: app.getVersion(),
+  userDataDirectory: app.getPath("userData"),
+})
+const contentPackService = new ContentPackServiceImpl({
   confirmRemoval: async (pack) => {
     const options: MessageBoxOptions = {
       buttons: ["取消", "移除"],
@@ -409,6 +413,22 @@ const contentPackService = new ContentPackServiceImpl({
     const result = mainWindow ? await dialog.showMessageBox(mainWindow, options) : await dialog.showMessageBox(options)
     return result.response === 1
   },
+  confirmSelection: async (pack, selected) => {
+    const options: MessageBoxOptions = {
+      buttons: ["取消", selected ? "加入目录" : "移出目录"],
+      cancelId: 0,
+      defaultId: 0,
+      detail: selected
+        ? `${pack.name} ${pack.version} 将被纳入运行时内容目录。同一补给包的其他版本会取消选择。`
+        : `${pack.name} ${pack.version} 将从运行时内容目录移出，但仍保留在本机。`,
+      message: selected ? "确认选择此补给包版本？" : "确认取消选择此补给包版本？",
+      noLink: true,
+      type: "warning",
+    }
+    const result = mainWindow ? await dialog.showMessageBox(mainWindow, options) : await dialog.showMessageBox(options)
+    return result.response === 1
+  },
+  runtimeManager: contentPackRuntimeManager,
   selectArchivePath: async () => {
     const options: OpenDialogOptions = {
       filters: [{ extensions: ["xcp", "zip"], name: "星潮补给包" }],
@@ -417,7 +437,6 @@ const contentPackService = new ContentPackServiceImpl({
     const result = mainWindow ? await dialog.showOpenDialog(mainWindow, options) : await dialog.showOpenDialog(options)
     return result.canceled ? undefined : result.filePaths[0]
   },
-  userDataDirectory: app.getPath("userData"),
 })
 
 chatService.sessionActivity.on(({ sessionId, usedAt }) => {
