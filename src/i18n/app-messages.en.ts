@@ -12,6 +12,8 @@ export const enMessages = {
   "supply.install": "Import content pack",
   "supply.security":
     "Every pack is checked in the main process for compatibility, paths, file types, size, and SHA-256 coverage before it is atomically installed in private app storage.",
+  "supply.selectionNotice":
+    "Selecting a pack prepares its content for the runtime catalog. Imported crews, routing, and themes are not active in tasks yet.",
   "supply.error": "Content pack operation failed",
   "supply.installed": "Installed content packs",
   "supply.installedDescription":
@@ -21,6 +23,13 @@ export const enMessages = {
   "supply.local": "Local install",
   "supply.private": "Private content",
   "supply.publicOriginal": "Public original",
+  "supply.alwaysActive": "Always active",
+  "supply.selected": "Selected version",
+  "supply.notSelected": "Not selected",
+  "supply.select": "Select this version",
+  "supply.selecting": "Selecting",
+  "supply.deselect": "Stop using",
+  "supply.deselecting": "Stopping",
   "supply.remove": "Remove content pack",
   "supply.removePack": "Remove {name}",
   "supply.crews": "Crews",

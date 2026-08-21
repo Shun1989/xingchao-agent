@@ -21,7 +21,7 @@
 - **动态换肤**：主团切换时同步改变颜色、纹理、导航装饰和角色舞台；支援团只提供辅助色。
 - **真实执行**：继承成熟的本地文件、终端、集成浏览器、审批、MCP/OpenConnector、Skills 和产物预览链路。
 - **自带模型**：支持用户配置 OpenAI-compatible 模型；API Key 由 Electron `safeStorage` 加密，渲染层无法读取。
-- **补给仓**：导入、列出和移除声明式内容包。主进程执行版本、路径、类型、大小、符号链接、冲突路径和 SHA-256 检查，并使用暂存目录原子安装。
+- **补给仓**：导入、列出、选用和移除声明式内容包。主进程执行版本、路径、类型、大小、符号链接、冲突路径和 SHA-256 检查，使用暂存目录原子安装，并在系统确认后持久化每个包唯一的选用版本。
 
 ## 产品结构
 
@@ -94,7 +94,7 @@ Windows 上部分上游测试使用 POSIX 路径、文件模式或符号链接�
 
 补给包是 `.xcp` 或 `.zip` 归档，根目录必须包含 `manifest.json`。清单声明包版本、最低应用版本、公开/私人属性、航海团、角色、主题和所有资产的 SHA-256；`executableCode` 必须为 `false`。
 
-当前补给仓只负责安全安装和管理。导入团队、主题、声音及 Skill 引用尚未进入运行时激活阶段，不能把“安装成功”理解为“已参与任务路由”。版本化 Schema 位于 [`schemas/content-pack-manifest.v1.schema.json`](schemas/content-pack-manifest.v1.schema.json)。
+当前补给仓负责安全安装、版本选用和管理；“选用”只会把内容纳入主进程运行时目录。导入团队、主题、声音及 Skill 引用尚未接入舰队、任务路由或主题运行时，不能把“安装成功”或“已选用”理解为“已参与任务”。版本化 Schema 位于 [`schemas/content-pack-manifest.v1.schema.json`](schemas/content-pack-manifest.v1.schema.json)。
 
 ## 路线图
 

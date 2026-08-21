@@ -11,7 +11,10 @@ This document separates implemented behavior from planned release work. A passin
 - Fleet Harbor and Mission Chart routes. The user can enter a goal, receive a deterministic recommendation, change one primary and up to two support crews, inspect the DAG, confirm the crew theme, and dispatch the confirmed mission into the existing Agent kernel.
 - Lanxi orchestration rules in the kernel system prompt, using the existing OpenCode task helpers, permission cards, local tools, connectors, and artifact pipeline.
 - A versioned content-pack JSON Schema plus manifest validation, path-traversal rejection, file-type allowlist, and unpacked-size limits. Packs cannot declare executable code.
-- A user-facing Supply Depot backed by a main-process content-pack service. Users can list, import, and remove local packs; file selection, compatibility checks, path/collision/symlink rejection, SHA-256 coverage, atomic installation, and removal confirmation stay outside the renderer.
+- A user-facing Supply Depot backed by a main-process content-pack service. Users can list, import, select one installed
+  version per pack ID, clear that selection, and remove local packs. File selection, compatibility checks,
+  path/collision/symlink rejection, SHA-256 coverage, atomic installation, selection/removal confirmation, and selection
+  persistence stay outside the renderer.
 - Eight-state Lanxi visual controller, six expression classes, static key-art fallback, crew overlay contract, and system-TTS preview. This is an adapter seam, not a Cubism model.
 - The existing custom-model flow remains the credential boundary: keys stay encrypted through Electron `safeStorage` and are never returned to the renderer. First launch now requires a user-supplied model; OpenConnector stays optional.
 
@@ -72,6 +75,7 @@ This document separates implemented behavior from planned release work. A passin
 - An unregistered main-process runtime manager can now build the namespaced catalog from the built-in fleet plus the
   explicitly selected installed versions. It serializes selection, installation, removal, and catalog reads; revalidates
   app-version compatibility after restart; and keeps inventory paths and catalog internals outside the registered RPC
-  facade. The selection contract is not yet exposed as a Supply Depot control, and the resulting catalog is not connected
-  to the fleet registry, router, mission planner, Agent kernel, or theme provider. Imported packs therefore remain
-  unavailable to user tasks and must not be represented as fully activated.
+  facade. The Supply Depot now exposes the confirmed selection contract, shows persisted selected/unselected state, and
+  explicitly warns that selection only prepares the runtime catalog. The resulting catalog is not connected to the fleet
+  registry, router, mission planner, Agent kernel, or theme provider. Imported packs therefore remain unavailable to user
+  tasks and must not be represented as fully activated.

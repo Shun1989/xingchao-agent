@@ -1,6 +1,17 @@
 import type { ReactNode } from "react"
 
-import { LoaderCircle, PackageOpen, Palette, ShieldCheck, Trash2, Upload, UsersRound } from "lucide-react"
+import {
+  CircleCheck,
+  CircleDashed,
+  Info,
+  LoaderCircle,
+  PackageOpen,
+  Palette,
+  ShieldCheck,
+  Trash2,
+  Upload,
+  UsersRound,
+} from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -26,7 +37,7 @@ export function SupplyDepotRoute() {
               <p className="text-sm leading-6 text-muted-foreground">{t("supply.description")}</p>
             </div>
             <Button disabled={packs.busy !== null} onClick={() => void packs.install()}>
-              {packs.busy === "install" ? <LoaderCircle className="animate-spin" /> : <Upload />}
+              {packs.busy?.kind === "install" ? <LoaderCircle className="animate-spin" /> : <Upload />}
               {t("supply.install")}
             </Button>
           </div>
@@ -35,6 +46,11 @@ export function SupplyDepotRoute() {
         <div className="flex items-start gap-3 rounded-xl border border-primary/20 bg-primary/5 p-4 text-sm">
           <ShieldCheck className="mt-0.5 size-5 shrink-0 text-primary" />
           <p className="leading-6 text-muted-foreground">{t("supply.security")}</p>
+        </div>
+
+        <div className="flex items-start gap-3 rounded-xl border border-border/70 bg-muted/30 p-4 text-sm">
+          <Info className="mt-0.5 size-5 shrink-0 text-muted-foreground" />
+          <p className="leading-6 text-muted-foreground">{t("supply.selectionNotice")}</p>
         </div>
 
         {packs.error ? (
@@ -73,6 +89,13 @@ export function SupplyDepotRoute() {
                       <Badge variant="outline">
                         {pack.visibility === "private-local" ? t("supply.private") : t("supply.publicOriginal")}
                       </Badge>
+                      <Badge variant={pack.selected ? "default" : "outline"}>
+                        {pack.source === "builtin"
+                          ? t("supply.alwaysActive")
+                          : pack.selected
+                            ? t("supply.selected")
+                            : t("supply.notSelected")}
+                      </Badge>
                     </div>
                     <CardTitle className="text-base">{pack.name}</CardTitle>
                     <CardDescription className="line-clamp-3 leading-5">{pack.description}</CardDescription>
@@ -86,7 +109,13 @@ export function SupplyDepotRoute() {
                           variant="ghost"
                           onClick={() => void packs.remove(pack.id, pack.version)}
                         >
-                          {packs.busy === "remove" ? <LoaderCircle className="animate-spin" /> : <Trash2 />}
+                          {packs.busy?.kind === "remove" &&
+                          packs.busy.id === pack.id &&
+                          packs.busy.version === pack.version ? (
+                            <LoaderCircle className="animate-spin" />
+                          ) : (
+                            <Trash2 />
+                          )}
                         </Button>
                       </CardAction>
                     ) : null}
@@ -95,6 +124,33 @@ export function SupplyDepotRoute() {
                     <PackMetric icon={<UsersRound />} label={t("supply.crews")} value={pack.crewCount} />
                     <PackMetric icon={<PackageOpen />} label={t("supply.agents")} value={pack.agentCount} />
                     <PackMetric icon={<Palette />} label={t("supply.themes")} value={pack.themeCount} />
+                    {pack.source === "installed" ? (
+                      <Button
+                        className="col-span-3"
+                        disabled={packs.busy !== null}
+                        variant={pack.selected ? "outline" : "default"}
+                        onClick={() => void packs.select(pack.id, pack.version, !pack.selected)}
+                      >
+                        {packs.busy?.kind === "selection" &&
+                        packs.busy.id === pack.id &&
+                        packs.busy.version === pack.version ? (
+                          <LoaderCircle className="animate-spin" />
+                        ) : pack.selected ? (
+                          <CircleCheck />
+                        ) : (
+                          <CircleDashed />
+                        )}
+                        {packs.busy?.kind === "selection" &&
+                        packs.busy.id === pack.id &&
+                        packs.busy.version === pack.version
+                          ? packs.busy.selected
+                            ? t("supply.selecting")
+                            : t("supply.deselecting")
+                          : pack.selected
+                            ? t("supply.deselect")
+                            : t("supply.select")}
+                      </Button>
+                    ) : null}
                   </CardContent>
                 </Card>
               ))}
