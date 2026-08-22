@@ -9,6 +9,7 @@ export const enMessages = {
   "fleet.builtinCount": "Built-in baseline: 10 crews · 60 original Agents",
   "fleet.runtimeCount": "{crews} crews · {agents} original Agents",
   "fleet.runtimeFallback": "Selected content is temporarily unavailable; only the trusted built-in fleet is shown.",
+  "voyage.fleetChanged": "Fleet content changed; regenerate the voyage plan.",
   "runtimeFleet.loadFailed": "Selected content could not be activated; using the built-in fleet. {error}",
   "supply.title": "Supply Depot",
   "supply.description":

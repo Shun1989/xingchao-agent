@@ -92,6 +92,7 @@ import { ProjectContextBar } from "@/components/app-shell/ProjectContextBar"
 import { useAttentionService, useBrowserService, useChatService } from "@/components/AppContext"
 import { useSkillInventoryResource } from "@/components/AppDataHooks"
 import { AppUpdateTitlebarEntry } from "@/components/AppUpdateTitlebarEntry"
+import { useRuntimeFleet } from "@/components/runtime-fleet-context.ts"
 import { missionLaunchPrompt } from "@/domain/xingchao/routing.ts"
 import { useAppSettings } from "@/hooks/useAppSettings"
 import { useAppUpdate } from "@/hooks/useAppUpdate"
@@ -195,6 +196,7 @@ function RouteLoadingFallback({ className }: { className?: string }) {
 
 export function AppShell({ auth }: { auth: UseAuth }) {
   const t = useT()
+  const runtimeFleet = useRuntimeFleet()
   const attentionService = useAttentionService()
   const browserService = useBrowserService()
   const chatService = useChatService()
@@ -1523,12 +1525,16 @@ export function AppShell({ auth }: { auth: UseAuth }) {
 
   const handleMissionLaunch = React.useCallback(
     async (mission: Mission): Promise<void> => {
+      if (mission.fleetRevision !== runtimeFleet.snapshot.revision) {
+        toast.error(t("voyage.fleetChanged"))
+        return
+      }
       setRoute("chat")
-      const result = await handleSend({ text: missionLaunchPrompt(mission), mode: "build" })
+      const result = await handleSend({ text: missionLaunchPrompt(mission, runtimeFleet.index), mode: "build" })
       if (result.status === "failed") throw result.error
       if (result.status === "rejected") throw new Error("任务尚未准备好，请稍后重试。")
     },
-    [handleSend],
+    [handleSend, runtimeFleet.index, runtimeFleet.snapshot.revision, t],
   )
 
   const handleAnswerQuestion = React.useCallback(

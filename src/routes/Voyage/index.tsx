@@ -2,12 +2,13 @@ import type { CrewId, Mission } from "@/domain/xingchao/types.ts"
 
 import { CheckCircle2, Circle, GitBranch, Play, ShieldAlert, Users } from "lucide-react"
 import * as React from "react"
+import { useRuntimeFleet } from "@/components/runtime-fleet-context.ts"
 import { useXingchaoTheme } from "@/components/xingchao-theme-context.ts"
-import { agentById, crewById, crews } from "@/domain/xingchao/crews.ts"
 import { draftMissionForCrews, recommendCrews } from "@/domain/xingchao/routing.ts"
 import { cn } from "@/lib/utils"
 
 export function VoyageRoute({ onLaunch }: { onLaunch: (mission: Mission) => Promise<void> }) {
+  const runtimeFleet = useRuntimeFleet()
   const { setActiveCrewId } = useXingchaoTheme()
   const [goal, setGoal] = React.useState("")
   const [primaryCrewId, setPrimaryCrewId] = React.useState<CrewId>("helm-order")
@@ -15,21 +16,28 @@ export function VoyageRoute({ onLaunch }: { onLaunch: (mission: Mission) => Prom
   const [mission, setMission] = React.useState<Mission | null>(null)
   const [launching, setLaunching] = React.useState(false)
 
-  const createPlan = () => {
-    if (!goal.trim()) return
-    const recommendation = recommendCrews(goal)
-    setPrimaryCrewId(recommendation.primary.id)
-    setSupportCrewIds(recommendation.support.map((crew) => crew.id))
-    setMission(
-      draftMissionForCrews(
-        goal.trim(),
+  const buildPlan = React.useCallback(
+    (nextGoal: string) => {
+      const recommendation = recommendCrews(nextGoal, runtimeFleet.index)
+      const nextMission = draftMissionForCrews(
+        nextGoal,
         recommendation.primary.id,
         recommendation.support.map((crew) => crew.id),
-      ),
-    )
+        runtimeFleet.index,
+      )
+      setPrimaryCrewId(nextMission.primaryCrewId)
+      setSupportCrewIds(nextMission.supportCrewIds)
+      setMission(nextMission)
+    },
+    [runtimeFleet.index],
+  )
+  const createPlan = () => {
+    const trimmedGoal = goal.trim()
+    if (!trimmedGoal) return
+    buildPlan(trimmedGoal)
   }
   const refreshMission = (primary: CrewId, support: CrewId[]) =>
-    setMission(draftMissionForCrews(goal.trim(), primary, support))
+    setMission(draftMissionForCrews(mission?.goal ?? goal.trim(), primary, support, runtimeFleet.index))
   const choosePrimary = (crewId: CrewId) => {
     const support = supportCrewIds.filter((id) => id !== crewId)
     setPrimaryCrewId(crewId)
@@ -44,8 +52,13 @@ export function VoyageRoute({ onLaunch }: { onLaunch: (mission: Mission) => Prom
     setSupportCrewIds(next)
     refreshMission(primaryCrewId, next)
   }
+  React.useEffect(() => {
+    if (!mission || mission.fleetRevision === runtimeFleet.snapshot.revision) return
+    buildPlan(mission.goal)
+  }, [buildPlan, mission, runtimeFleet.snapshot.revision])
+
   const launch = async () => {
-    if (!mission) return
+    if (!mission || mission.fleetRevision !== runtimeFleet.snapshot.revision) return
     setLaunching(true)
     setActiveCrewId(mission.primaryCrewId)
     try {
@@ -90,7 +103,7 @@ export function VoyageRoute({ onLaunch }: { onLaunch: (mission: Mission) => Prom
                 <span className="ml-auto text-xs text-muted-foreground">1 个主团 · 最多 2 个支援团</span>
               </div>
               <div className="grid grid-cols-2 gap-2 lg:grid-cols-5">
-                {crews.map((crew) => (
+                {runtimeFleet.snapshot.crews.map((crew) => (
                   <div
                     key={crew.id}
                     className={cn(
@@ -132,8 +145,8 @@ export function VoyageRoute({ onLaunch }: { onLaunch: (mission: Mission) => Prom
               </div>
               <div className="grid gap-3">
                 {mission.nodes.map((node, index) => {
-                  const agent = agentById.get(node.agentId)
-                  const crew = crewById.get(node.crewId)
+                  const agent = runtimeFleet.index.agentById.get(node.agentId)
+                  const crew = runtimeFleet.index.crewById.get(node.crewId)
                   return (
                     <article
                       key={node.id}
@@ -172,12 +185,12 @@ export function VoyageRoute({ onLaunch }: { onLaunch: (mission: Mission) => Prom
             </section>
             <section className="flex items-center justify-between gap-4 rounded-2xl bg-[var(--xingchao-primary)] p-5 text-white">
               <div>
-                <strong>确认后将切换至 {crewById.get(primaryCrewId)?.name} 主题</strong>
+                <strong>确认后将切换至 {runtimeFleet.index.crewById.get(primaryCrewId)?.name} 主题</strong>
                 <p className="mt-1 text-sm text-white/70">随后由现有 Agent 内核执行，危险操作仍会逐项审批。</p>
               </div>
               <button
                 type="button"
-                disabled={launching}
+                disabled={launching || mission.fleetRevision !== runtimeFleet.snapshot.revision}
                 onClick={() => void launch()}
                 className="flex shrink-0 items-center gap-2 rounded-lg bg-white px-4 py-2.5 text-sm font-semibold text-[var(--xingchao-primary)]"
               >

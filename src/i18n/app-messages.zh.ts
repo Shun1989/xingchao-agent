@@ -9,6 +9,7 @@ export const zhCNMessages = {
   "fleet.builtinCount": "内置基线：10 团 · 60 位原创 Agent",
   "fleet.runtimeCount": "{crews} 团 · {agents} 位原创 Agent",
   "fleet.runtimeFallback": "所选内容暂不可用，当前仅显示可信内置舰队。",
+  "voyage.fleetChanged": "舰队内容已变更，请重新生成航海图。",
   "runtimeFleet.loadFailed": "所选内容无法激活，当前使用内置舰队。{error}",
   "supply.title": "补给仓",
   "supply.description": "安装和管理航海团、角色、主题与声音资源。补给包只包含声明式内容，不获得自动执行代码的权限。",
