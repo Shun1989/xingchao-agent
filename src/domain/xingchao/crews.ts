@@ -1,6 +1,7 @@
 import type {
   AgentEvaluationCase,
   AgentProfile,
+  BuiltinCrewId,
   CrewId,
   CrewProfile,
   PersonaProfile,
@@ -22,8 +23,11 @@ type MemberSeed = {
   tools?: string[]
 }
 
-type CrewSeed = Omit<CrewProfile, "captainId" | "memberIds" | "theme"> & {
-  theme: ThemeProfile
+type BuiltinThemeProfile = Omit<ThemeProfile, "id"> & { id: BuiltinCrewId }
+
+type CrewSeed = Omit<CrewProfile, "captainId" | "id" | "memberIds" | "theme"> & {
+  id: BuiltinCrewId
+  theme: BuiltinThemeProfile
   members: [MemberSeed, MemberSeed, MemberSeed, MemberSeed, MemberSeed, MemberSeed]
 }
 

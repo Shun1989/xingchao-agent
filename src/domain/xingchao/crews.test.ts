@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 import { originalFleetPack, validateContentPack } from "./content-pack.ts"
 import { agents, crews } from "./crews.ts"
 import { draftMission, recommendCrews } from "./routing.ts"
+import { BUILTIN_CREW_IDS } from "./types.ts"
 
 describe("星潮原创舰队", () => {
   it("包含十团六十名不重复角色", () => {
@@ -9,6 +10,10 @@ describe("星潮原创舰队", () => {
     expect(agents).toHaveLength(60)
     expect(new Set(agents.map((agent) => agent.id)).size).toBe(60)
     expect(crews.every((crew) => crew.memberIds.length === 6)).toBe(true)
+  })
+
+  it("仅定义受信任的内建航海团 ID", () => {
+    expect(crews.map((crew) => crew.id)).toEqual(BUILTIN_CREW_IDS)
   })
 
   it("每名角色分离人格与专业能力并有三项评测", () => {
