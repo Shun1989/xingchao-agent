@@ -33,6 +33,7 @@ export function RuntimeFleetProvider({ children }: { children: React.ReactNode }
     void service
       .invoke("runtimeFleet")
       .then((snapshot) => {
+        if (!mountedRef.current || generation !== generationRef.current) return
         const index = indexRuntimeFleet(snapshot)
         if (mountedRef.current && generation === generationRef.current) {
           setValue({ snapshot, index, status: "ready", error: null })

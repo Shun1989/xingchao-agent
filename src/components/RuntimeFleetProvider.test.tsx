@@ -45,6 +45,21 @@ function importedSnapshot(packId: string): RuntimeFleetSnapshot {
   return projectRuntimeFleetCatalog(buildRuntimeContentCatalog(originalFleetPack, [pack]))
 }
 
+function indexTrackedSnapshot(packId: string) {
+  const snapshot = importedSnapshot(packId)
+  const crews = snapshot.crews
+  let crewReads = 0
+  Object.defineProperty(snapshot, "crews", {
+    configurable: true,
+    enumerable: true,
+    get: () => {
+      crewReads += 1
+      return crews
+    },
+  })
+  return { crewReads: () => crewReads, snapshot }
+}
+
 function Probe({ onRender }: { onRender: (value: string) => void }) {
   const { error, snapshot, status } = useRuntimeFleet()
   const value = `${status}:${snapshot.revision}:${snapshot.crews.length}:${error ?? ""}`
@@ -206,26 +221,33 @@ describe("RuntimeFleetProvider", () => {
     expect(host.textContent).toContain("missing-agent")
   })
 
-  it("ignores successful and failed completions after unmount without reporting diagnostics", async () => {
-    const completions = [
-      (pending: ReturnType<typeof deferred<RuntimeFleetSnapshot>>) => pending.resolve(importedSnapshot("aurora-pack")),
-      (pending: ReturnType<typeof deferred<RuntimeFleetSnapshot>>) =>
-        pending.reject(new Error("unmounted projection failed")),
-    ]
+  it("does not index or commit a successful completion after unmount", async () => {
+    const pending = deferred<RuntimeFleetSnapshot>()
+    const tracked = indexTrackedSnapshot("aurora-pack")
+    const { renderedStates, unmount } = await renderProviderProbe([pending.promise])
+    const statesBeforeUnmount = renderedStates()
+    expect(statesBeforeUnmount.at(-1)).toBe(`loading:${builtinRuntimeFleetSnapshot.revision}:10:`)
 
-    for (const complete of completions) {
-      const pending = deferred<RuntimeFleetSnapshot>()
-      const { renderedStates, unmount } = await renderProviderProbe([pending.promise])
-      const statesBeforeUnmount = renderedStates()
-      expect(statesBeforeUnmount.at(-1)).toBe(`loading:${builtinRuntimeFleetSnapshot.revision}:10:`)
+    await unmount()
+    pending.resolve(tracked.snapshot)
+    await flush()
 
-      await unmount()
-      complete(pending)
-      await flush()
+    expect(tracked.crewReads()).toBe(0)
+    expect(renderedStates()).toEqual(statesBeforeUnmount)
+    expect(reportRendererError).not.toHaveBeenCalled()
+  })
 
-      expect(renderedStates()).toEqual(statesBeforeUnmount)
-    }
+  it("does not commit or report a failed completion after unmount", async () => {
+    const pending = deferred<RuntimeFleetSnapshot>()
+    const { renderedStates, unmount } = await renderProviderProbe([pending.promise])
+    const statesBeforeUnmount = renderedStates()
+    expect(statesBeforeUnmount.at(-1)).toBe(`loading:${builtinRuntimeFleetSnapshot.revision}:10:`)
 
+    await unmount()
+    pending.reject(new Error("unmounted projection failed"))
+    await flush()
+
+    expect(renderedStates()).toEqual(statesBeforeUnmount)
     expect(reportRendererError).not.toHaveBeenCalled()
   })
 
