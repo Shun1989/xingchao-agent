@@ -1,20 +1,16 @@
 export const CONTENT_PACK_SCHEMA_VERSION = "1.0.0" as const
 
-export const BUILTIN_CREW_IDS = [
-  "watchtide",
-  "ink-sail",
-  "brocade-harbor",
-  "forge-vessel",
-  "golden-scale",
-  "helm-order",
-  "iron-code",
-  "lighthouse",
-  "phantom-wave",
-  "rest-harbor",
-] as const
-
-export type BuiltinCrewId = (typeof BUILTIN_CREW_IDS)[number]
-export type CrewId = string
+export type CrewId =
+  | "watchtide"
+  | "ink-sail"
+  | "brocade-harbor"
+  | "forge-vessel"
+  | "golden-scale"
+  | "helm-order"
+  | "iron-code"
+  | "lighthouse"
+  | "phantom-wave"
+  | "rest-harbor"
 
 export type AgentRole = "captain" | "crew"
 export type PackVisibility = "public-original" | "private-local"
