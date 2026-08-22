@@ -15,7 +15,8 @@ export const zhCNMessages = {
   "supply.description": "安装和管理航海团、角色、主题与声音资源。补给包只包含声明式内容，不获得自动执行代码的权限。",
   "supply.install": "导入补给包",
   "supply.security": "所有补给包都由主进程检查版本、路径、文件类型、大小和 SHA-256 校验和，并原子安装到应用私有目录。",
-  "supply.selectionNotice": "选用补给包只会把内容准备到运行时目录；导入的航海团、任务路由和主题目前尚未参与任务。",
+  "supply.selectionNotice":
+    "选用补给包仅会保存你希望使用的版本，并不等于内容已经激活。只有通过运行时校验与投影后，航海团、编制、路由信号、任务规划和调色板主题才会激活；失败时继续使用可信内置舰队。路径、任意资产、声音、Skills、完整 persona、工具声明和系统提示词 roster 注入仍未激活。",
   "supply.error": "补给包操作失败",
   "supply.installed": "已安装补给包",
   "supply.installedDescription": "内置原创舰队不可移除；本地导入包在移除前需要系统级确认。",

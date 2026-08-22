@@ -18,7 +18,7 @@ export const enMessages = {
   "supply.security":
     "Every pack is checked in the main process for compatibility, paths, file types, size, and SHA-256 coverage before it is atomically installed in private app storage.",
   "supply.selectionNotice":
-    "Selecting a pack prepares its content for the runtime catalog. Imported crews, routing, and themes are not active in tasks yet.",
+    "Selecting a pack only saves the version you intend to use; it does not itself activate content. Crews, rosters, routing signals, mission planning, and palette themes become active only after runtime validation and projection succeed; failure keeps the trusted built-in fleet active. Paths, arbitrary assets, voices, Skills, full personas, tool declarations, and system-prompt roster injection remain inactive.",
   "supply.error": "Content pack operation failed",
   "supply.installed": "Installed content packs",
   "supply.installedDescription":

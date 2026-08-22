@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 
 import type { ContentPackSummary } from "../../../electron/xingchao/common.ts"
+import type { Locale } from "@/i18n/i18n"
 
 import * as React from "react"
 import { act } from "react"
@@ -57,7 +58,7 @@ const selectedPack: ContentPackSummary = {
 
 const roots: Array<ReturnType<typeof createRoot>> = []
 
-async function renderSupply(overrides: Record<string, unknown> = {}) {
+async function renderSupply(overrides: Record<string, unknown> = {}, locale: Locale = "en") {
   const select = vi.fn()
   useContentPacksMock.mockReturnValue({
     busy: null,
@@ -77,7 +78,7 @@ async function renderSupply(overrides: Record<string, unknown> = {}) {
   await act(async () => {
     root.render(
       <I18nContext.Provider
-        value={{ locale: "en", setLocale: () => undefined, t: (key, vars) => translate("en", key, vars) }}
+        value={{ locale, setLocale: () => undefined, t: (key, vars) => translate(locale, key, vars) }}
       >
         <SupplyDepotRoute />
       </I18nContext.Provider>,
@@ -105,9 +106,26 @@ describe("SupplyDepotRoute content-pack selection", () => {
     expect(host.textContent).toContain("Always active")
     expect(host.textContent).toContain("Selected version")
     expect(host.textContent).toContain("Not selected")
-    expect(host.textContent).toContain("Imported crews, routing, and themes are not active in tasks yet")
     expect(buttonWithText(host, "Select this version")).toBeDefined()
     expect(buttonWithText(host, "Stop using")).toBeDefined()
+  })
+
+  it("explains selection, activation, fallback, and inactive capability boundaries in both locales", async () => {
+    const { host: englishHost } = await renderSupply({}, "en")
+    expect(englishHost.textContent).toContain("only saves the version you intend to use")
+    expect(englishHost.textContent).toContain("only after runtime validation and projection succeed")
+    expect(englishHost.textContent).toContain("failure keeps the trusted built-in fleet active")
+    expect(englishHost.textContent).toContain(
+      "Paths, arbitrary assets, voices, Skills, full personas, tool declarations, and system-prompt roster injection remain inactive",
+    )
+
+    const { host: chineseHost } = await renderSupply({}, "zh-CN")
+    expect(chineseHost.textContent).toContain("仅会保存你希望使用的版本")
+    expect(chineseHost.textContent).toContain("只有通过运行时校验与投影后")
+    expect(chineseHost.textContent).toContain("失败时继续使用可信内置舰队")
+    expect(chineseHost.textContent).toContain(
+      "路径、任意资产、声音、Skills、完整 persona、工具声明和系统提示词 roster 注入仍未激活",
+    )
   })
 
   it("maps the two selection actions to the requested installed version", async () => {
