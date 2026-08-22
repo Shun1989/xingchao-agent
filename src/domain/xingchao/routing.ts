@@ -19,9 +19,8 @@ function scoreCrew(input: string, crew: RuntimeFleetCrew): { score: number; matc
     return index < 0 ? earliest : Math.min(earliest, index)
   }, Number.POSITIVE_INFINITY)
   const leadingIntentBonus = earliestPrimaryIntent < 8 ? 10 : 0
-  const literalSpecificityBonus = matchedSignals.reduce((longest, signal) => Math.max(longest, signal.length), 0)
   return {
-    score: matchedSignals.length * 3 + supportMatches.length + leadingIntentBonus + literalSpecificityBonus,
+    score: matchedSignals.length * 3 + supportMatches.length + leadingIntentBonus,
     matchedSignals: [...matchedSignals, ...supportMatches],
   }
 }
