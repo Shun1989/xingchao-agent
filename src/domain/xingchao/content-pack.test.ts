@@ -49,4 +49,30 @@ describe("content pack runtime contract", () => {
 
     expect(() => validateContentPack(pack)).toThrow()
   })
+
+  it("rejects prompt-bound crew text beyond the published maximum", () => {
+    const pack = structuredClone(originalFleetPack)
+    pack.crews[0]!.description = "x".repeat(1_001)
+
+    expect(() => validateContentPack(pack)).toThrow(/too big|maximum|1000/i)
+  })
+
+  it("rejects control characters in runtime display text", () => {
+    const pack = structuredClone(originalFleetPack)
+    pack.agents[0]!.title = "trusted\u0000override"
+
+    expect(() => validateContentPack(pack)).toThrow(/control/i)
+  })
+
+  it("rejects a pack inventory beyond its crew maximum", () => {
+    const pack = structuredClone(originalFleetPack)
+    pack.crews.push(
+      ...Array.from({ length: 16 }, (_, index) => ({
+        ...structuredClone(originalFleetPack.crews[0]!),
+        id: `crew-${index}` as (typeof pack.crews)[number]["id"],
+      })),
+    )
+
+    expect(() => validateContentPack(pack)).toThrow(/25|too big|maximum/i)
+  })
 })

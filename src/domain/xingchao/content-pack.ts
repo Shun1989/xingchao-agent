@@ -2,6 +2,7 @@ import type { AgentProfile, ContentPackManifest, CrewProfile, ThemeProfile } fro
 
 import { z } from "zod"
 import { agents, crews } from "./crews.ts"
+import { CONTENT_PACK_LIMITS, runtimeText } from "./content-pack-limits.ts"
 import { CONTENT_PACK_SCHEMA_VERSION } from "./types.ts"
 
 const safeId = z.string().regex(/^[a-z0-9][a-z0-9-]{1,63}$/)
@@ -9,7 +10,7 @@ const hexColor = z.string().regex(/^#[0-9a-fA-F]{6}$/)
 
 const capabilityScoreSchema = z.object({
   id: safeId,
-  label: z.string().min(1),
+  label: runtimeText(CONTENT_PACK_LIMITS.shortText),
   level: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4), z.literal(5)]),
 })
 
@@ -23,8 +24,8 @@ const personaProfileSchema = z.object({
 
 const professionalProfileSchema = z.object({
   allowedTools: z.array(z.string().min(1)),
-  capabilities: z.array(capabilityScoreSchema),
-  deliverables: z.array(z.string().min(1)),
+  capabilities: z.array(capabilityScoreSchema).max(CONTENT_PACK_LIMITS.capabilities),
+  deliverables: z.array(runtimeText(CONTENT_PACK_LIMITS.deliverableText)).max(CONTENT_PACK_LIMITS.deliverables),
   prohibitedActions: z.array(z.string().min(1)),
 })
 
@@ -40,43 +41,49 @@ const themeProfileSchema = z.object({
   foreground: hexColor,
   highContrast: z.object({ background: hexColor, foreground: hexColor, primary: hexColor }),
   id: safeId,
-  live2dOverlay: z.string(),
+  live2dOverlay: runtimeText(CONTENT_PACK_LIMITS.shortText),
   motion: z.enum(["tide", "ink", "glimmer", "pulse", "drift"]),
-  name: z.string().min(1),
+  name: runtimeText(CONTENT_PACK_LIMITS.shortText),
   primary: hexColor,
   secondary: hexColor,
-  soundCue: z.string(),
+  soundCue: runtimeText(CONTENT_PACK_LIMITS.shortText),
   surface: hexColor,
   texture: z.enum(["chart", "paper", "wood", "metal", "mist"]),
 })
 
 const crewProfileSchema = z.object({
   captainId: safeId,
-  description: z.string().min(1),
-  domain: z.string().min(1),
+  description: runtimeText(CONTENT_PACK_LIMITS.longText),
+  domain: runtimeText(CONTENT_PACK_LIMITS.shortText),
   id: safeId,
   memberIds: z.array(safeId).length(6),
-  motto: z.string().min(1),
-  name: z.string().min(1),
-  routingSignals: z.array(z.string().min(1)).min(3),
-  standardWorkflow: z.array(z.string().min(1)).min(3),
-  supportSignals: z.array(z.string().min(1)),
+  motto: runtimeText(CONTENT_PACK_LIMITS.shortText),
+  name: runtimeText(CONTENT_PACK_LIMITS.shortText),
+  routingSignals: z.array(runtimeText(CONTENT_PACK_LIMITS.signalText)).min(3).max(CONTENT_PACK_LIMITS.signals),
+  standardWorkflow: z.array(runtimeText(CONTENT_PACK_LIMITS.shortText))
+    .min(3)
+    .max(CONTENT_PACK_LIMITS.workflowSteps),
+  supportSignals: z.array(runtimeText(CONTENT_PACK_LIMITS.signalText)).max(CONTENT_PACK_LIMITS.signals),
   theme: themeProfileSchema,
 })
 
 const agentProfileSchema = z.object({
-  biography: z.string().min(1),
+  biography: runtimeText(CONTENT_PACK_LIMITS.longText),
   crewId: safeId,
   delegatesTo: z.array(safeId),
   evaluations: z.array(agentEvaluationCaseSchema),
   id: safeId,
-  name: z.string().min(1),
+  name: runtimeText(CONTENT_PACK_LIMITS.shortText),
   persona: personaProfileSchema,
   professional: professionalProfileSchema,
   relationships: z.array(z.object({ agentId: safeId, description: z.string().min(1) })),
   role: z.enum(["captain", "crew"]),
-  title: z.string().min(1),
-  visual: z.object({ accent: hexColor, portrait: z.string().optional(), silhouette: z.string().min(1) }),
+  title: runtimeText(CONTENT_PACK_LIMITS.shortText),
+  visual: z.object({
+    accent: hexColor,
+    portrait: z.string().optional(),
+    silhouette: runtimeText(CONTENT_PACK_LIMITS.shortText),
+  }),
   voice: z.object({
     pitch: z.number().finite().positive(),
     rate: z.number().finite().positive(),
@@ -112,9 +119,9 @@ export const contentPackManifestSchema = z
     visibility: z.enum(["public-original", "private-local"]),
     minimumAppVersion: z.string().regex(/^\d+\.\d+\.\d+$/),
     checksums: z.record(z.string(), z.string().regex(/^[0-9a-fA-F]{64}$/)),
-    crews: z.array(crewProfileSchema),
-    agents: z.array(agentProfileSchema),
-    themes: z.array(themeProfileSchema),
+    crews: z.array(crewProfileSchema).max(CONTENT_PACK_LIMITS.packCrews),
+    agents: z.array(agentProfileSchema).max(CONTENT_PACK_LIMITS.packAgents),
+    themes: z.array(themeProfileSchema).max(CONTENT_PACK_LIMITS.packThemes),
     executableCode: z.literal(false),
   })
   .superRefine((pack, context) => {

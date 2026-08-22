@@ -29,14 +29,17 @@
     "checksums": { "type": "object", "additionalProperties": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" } },
     "crews": {
       "type": "array",
+      "maxItems": 25,
       "items": { "$ref": "#/$defs/crew" }
     },
     "agents": {
       "type": "array",
+      "maxItems": 150,
       "items": { "$ref": "#/$defs/agent" }
     },
     "themes": {
       "type": "array",
+      "maxItems": 25,
       "items": { "$ref": "#/$defs/theme" }
     },
     "executableCode": { "const": false }
@@ -44,6 +47,30 @@
   "$defs": {
     "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{1,63}$" },
     "nonEmptyString": { "type": "string", "minLength": 1 },
+    "shortText": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160,
+      "pattern": "^[^\\u0000-\\u0008\\u000B\\u000C\\u000E-\\u001F\\u007F]*$"
+    },
+    "longText": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1000,
+      "pattern": "^[^\\u0000-\\u0008\\u000B\\u000C\\u000E-\\u001F\\u007F]*$"
+    },
+    "signalText": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80,
+      "pattern": "^[^\\u0000-\\u0008\\u000B\\u000C\\u000E-\\u001F\\u007F]*$"
+    },
+    "deliverableText": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 240,
+      "pattern": "^[^\\u0000-\\u0008\\u000B\\u000C\\u000E-\\u001F\\u007F]*$"
+    },
     "hexColor": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" },
     "theme": {
       "type": "object",
@@ -63,7 +90,7 @@
       ],
       "properties": {
         "id": { "$ref": "#/$defs/id" },
-        "name": { "$ref": "#/$defs/nonEmptyString" },
+        "name": { "$ref": "#/$defs/shortText" },
         "primary": { "$ref": "#/$defs/hexColor" },
         "secondary": { "$ref": "#/$defs/hexColor" },
         "accent": { "$ref": "#/$defs/hexColor" },
@@ -71,8 +98,8 @@
         "foreground": { "$ref": "#/$defs/hexColor" },
         "texture": { "enum": ["chart", "paper", "wood", "metal", "mist"] },
         "motion": { "enum": ["tide", "ink", "glimmer", "pulse", "drift"] },
-        "soundCue": { "type": "string" },
-        "live2dOverlay": { "type": "string" },
+        "soundCue": { "$ref": "#/$defs/shortText" },
+        "live2dOverlay": { "$ref": "#/$defs/shortText" },
         "highContrast": {
           "type": "object",
           "required": ["primary", "background", "foreground"],
@@ -101,22 +128,28 @@
       ],
       "properties": {
         "id": { "$ref": "#/$defs/id" },
-        "name": { "$ref": "#/$defs/nonEmptyString" },
-        "domain": { "$ref": "#/$defs/nonEmptyString" },
-        "motto": { "$ref": "#/$defs/nonEmptyString" },
-        "description": { "$ref": "#/$defs/nonEmptyString" },
+        "name": { "$ref": "#/$defs/shortText" },
+        "domain": { "$ref": "#/$defs/shortText" },
+        "motto": { "$ref": "#/$defs/shortText" },
+        "description": { "$ref": "#/$defs/longText" },
         "captainId": { "$ref": "#/$defs/id" },
         "memberIds": { "type": "array", "minItems": 6, "maxItems": 6, "items": { "$ref": "#/$defs/id" } },
         "routingSignals": {
           "type": "array",
           "minItems": 3,
-          "items": { "$ref": "#/$defs/nonEmptyString" }
+          "maxItems": 32,
+          "items": { "$ref": "#/$defs/signalText" }
         },
-        "supportSignals": { "type": "array", "items": { "$ref": "#/$defs/nonEmptyString" } },
+        "supportSignals": {
+          "type": "array",
+          "maxItems": 32,
+          "items": { "$ref": "#/$defs/signalText" }
+        },
         "standardWorkflow": {
           "type": "array",
           "minItems": 3,
-          "items": { "$ref": "#/$defs/nonEmptyString" }
+          "maxItems": 16,
+          "items": { "$ref": "#/$defs/shortText" }
         },
         "theme": { "$ref": "#/$defs/theme" }
       }
@@ -126,7 +159,7 @@
       "required": ["id", "label", "level"],
       "properties": {
         "id": { "$ref": "#/$defs/id" },
-        "label": { "$ref": "#/$defs/nonEmptyString" },
+        "label": { "$ref": "#/$defs/shortText" },
         "level": { "type": "integer", "minimum": 1, "maximum": 5 }
       }
     },
@@ -145,10 +178,10 @@
       "type": "object",
       "required": ["capabilities", "allowedTools", "prohibitedActions", "deliverables"],
       "properties": {
-        "capabilities": { "type": "array", "items": { "$ref": "#/$defs/capability" } },
+        "capabilities": { "type": "array", "maxItems": 32, "items": { "$ref": "#/$defs/capability" } },
         "allowedTools": { "type": "array", "items": { "$ref": "#/$defs/nonEmptyString" } },
         "prohibitedActions": { "type": "array", "items": { "$ref": "#/$defs/nonEmptyString" } },
-        "deliverables": { "type": "array", "items": { "$ref": "#/$defs/nonEmptyString" } }
+        "deliverables": { "type": "array", "maxItems": 16, "items": { "$ref": "#/$defs/deliverableText" } }
       }
     },
     "evaluation": {
@@ -181,10 +214,10 @@
       "properties": {
         "id": { "$ref": "#/$defs/id" },
         "crewId": { "$ref": "#/$defs/id" },
-        "name": { "$ref": "#/$defs/nonEmptyString" },
-        "title": { "$ref": "#/$defs/nonEmptyString" },
+        "name": { "$ref": "#/$defs/shortText" },
+        "title": { "$ref": "#/$defs/shortText" },
         "role": { "enum": ["captain", "crew"] },
-        "biography": { "$ref": "#/$defs/nonEmptyString" },
+        "biography": { "$ref": "#/$defs/longText" },
         "persona": { "$ref": "#/$defs/persona" },
         "professional": { "$ref": "#/$defs/professional" },
         "delegatesTo": { "type": "array", "items": { "$ref": "#/$defs/id" } },
@@ -214,7 +247,7 @@
           "properties": {
             "portrait": { "type": "string" },
             "accent": { "$ref": "#/$defs/hexColor" },
-            "silhouette": { "$ref": "#/$defs/nonEmptyString" }
+            "silhouette": { "$ref": "#/$defs/shortText" }
           }
         },
         "evaluations": { "type": "array", "items": { "$ref": "#/$defs/evaluation" } }
