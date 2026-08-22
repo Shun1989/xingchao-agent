@@ -6,6 +6,7 @@ export const enMessages = {
   "common.confirm": "Confirm",
   "common.save": "Save",
   "common.submit": "Submit",
+  "runtimeFleet.loadFailed": "Selected content could not be activated; using the built-in fleet. {error}",
   "supply.title": "Supply Depot",
   "supply.description":
     "Install and manage crews, characters, themes, and voice assets. Content packs are declarative and never gain permission to execute code.",

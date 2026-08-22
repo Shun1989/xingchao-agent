@@ -6,6 +6,7 @@ export const zhCNMessages = {
   "common.confirm": "确认",
   "common.save": "保存",
   "common.submit": "提交",
+  "runtimeFleet.loadFailed": "所选内容无法激活，当前使用内置舰队。{error}",
   "supply.title": "补给仓",
   "supply.description": "安装和管理航海团、角色、主题与声音资源。补给包只包含声明式内容，不获得自动执行代码的权限。",
   "supply.install": "导入补给包",

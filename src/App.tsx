@@ -1,6 +1,7 @@
 import { lazy, Suspense } from "react"
 import { resolveAppEntryState } from "@/app-entry"
 import { ErrorBoundary } from "@/components/ErrorBoundary"
+import { RuntimeFleetProvider } from "@/components/RuntimeFleetProvider"
 import { ThemeProvider } from "@/components/ThemeProvider"
 import { Button } from "@/components/ui/button"
 import { XingchaoThemeProvider } from "@/components/XingchaoThemeProvider"
@@ -66,13 +67,15 @@ export function App() {
     <ErrorBoundary fallback={<RootFallback />}>
       <I18nProvider>
         <ThemeProvider>
-          <XingchaoThemeProvider>
-            <AuthProvider>
-              <RuntimeCapabilitiesProvider>
-                <AuthGate />
-              </RuntimeCapabilitiesProvider>
-            </AuthProvider>
-          </XingchaoThemeProvider>
+          <RuntimeFleetProvider>
+            <XingchaoThemeProvider>
+              <AuthProvider>
+                <RuntimeCapabilitiesProvider>
+                  <AuthGate />
+                </RuntimeCapabilitiesProvider>
+              </AuthProvider>
+            </XingchaoThemeProvider>
+          </RuntimeFleetProvider>
         </ThemeProvider>
       </I18nProvider>
     </ErrorBoundary>
