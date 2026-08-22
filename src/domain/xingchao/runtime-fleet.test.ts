@@ -1,8 +1,9 @@
+import type { RuntimeContentCatalog } from "./runtime-catalog.ts"
 import type { ContentPackManifest } from "./types.ts"
 
 import { describe, expect, it } from "vitest"
 import { originalFleetPack } from "./content-pack.ts"
-import { buildRuntimeContentCatalog, type RuntimeContentCatalog } from "./runtime-catalog.ts"
+import { buildRuntimeContentCatalog } from "./runtime-catalog.ts"
 import { builtinRuntimeFleetSnapshot, indexRuntimeFleet, projectRuntimeFleetCatalog } from "./runtime-fleet.ts"
 
 function installedPack(id: string, signal = "极光信号"): ContentPackManifest {
@@ -97,7 +98,7 @@ describe("runtime fleet snapshot", () => {
       "relationships",
       "voice",
     ]) {
-      expect(JSON.stringify(encoded)).not.toContain(`\"${field}\"`)
+      expect(JSON.stringify(encoded)).not.toContain(`"${field}"`)
     }
   })
 

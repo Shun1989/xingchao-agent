@@ -1,13 +1,9 @@
+import type { RuntimeContentCatalog, RuntimeContentSource, RuntimeThemeProfile } from "./runtime-catalog.ts"
 import type { AgentRole, CapabilityScore, CrewId } from "./types.ts"
 
 import { CONTENT_PACK_LIMITS } from "./content-pack-limits.ts"
 import { originalFleetPack } from "./content-pack.ts"
-import {
-  buildRuntimeContentCatalog,
-  type RuntimeContentCatalog,
-  type RuntimeContentSource,
-  type RuntimeThemeProfile,
-} from "./runtime-catalog.ts"
+import { buildRuntimeContentCatalog } from "./runtime-catalog.ts"
 
 const RUNTIME_FLEET_LIMITS = {
   crews: CONTENT_PACK_LIMITS.packCrews * 4,
