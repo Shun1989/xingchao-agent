@@ -6,6 +6,9 @@ export const enMessages = {
   "common.confirm": "Confirm",
   "common.save": "Save",
   "common.submit": "Submit",
+  "fleet.builtinCount": "Built-in baseline: 10 crews · 60 original Agents",
+  "fleet.runtimeCount": "{crews} crews · {agents} original Agents",
+  "fleet.runtimeFallback": "Selected content is temporarily unavailable; only the trusted built-in fleet is shown.",
   "runtimeFleet.loadFailed": "Selected content could not be activated; using the built-in fleet. {error}",
   "supply.title": "Supply Depot",
   "supply.description":

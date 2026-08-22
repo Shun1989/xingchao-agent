@@ -1,11 +1,12 @@
-import type { CrewId, ThemeProfile } from "@/domain/xingchao/types.ts"
+import type { RuntimeFleetTheme } from "@/domain/xingchao/runtime-fleet.ts"
+import type { CrewId } from "@/domain/xingchao/types.ts"
 
 import * as React from "react"
 
 export interface XingchaoThemeContextValue {
   activeCrewId: CrewId
   setActiveCrewId: (crewId: CrewId) => void
-  theme: ThemeProfile
+  theme: RuntimeFleetTheme
 }
 
 export const XingchaoThemeContext = React.createContext<XingchaoThemeContextValue | null>(null)

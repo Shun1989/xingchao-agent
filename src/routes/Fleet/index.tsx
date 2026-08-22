@@ -1,14 +1,18 @@
 import { Anchor, Check, Compass, ShipWheel } from "lucide-react"
 import * as React from "react"
 import { LanxiStage } from "@/components/LanxiStage.tsx"
+import { useRuntimeFleet } from "@/components/runtime-fleet-context.ts"
 import { useXingchaoTheme } from "@/components/xingchao-theme-context.ts"
-import { agentsForCrew, crewById, crews } from "@/domain/xingchao/crews.ts"
+import { useT } from "@/i18n"
 import { cn } from "@/lib/utils"
 
 export function FleetHarborRoute({ onOpenVoyage }: { onOpenVoyage: () => void }) {
+  const t = useT()
+  const runtimeFleet = useRuntimeFleet()
   const { activeCrewId, setActiveCrewId, theme } = useXingchaoTheme()
-  const activeCrew = crewById.get(activeCrewId)!
-  const members = agentsForCrew(activeCrewId)
+  const crews = runtimeFleet.snapshot.crews
+  const activeCrew = runtimeFleet.index.crewById.get(activeCrewId) ?? runtimeFleet.index.crewById.get("watchtide")!
+  const members = runtimeFleet.index.agentsForCrew(activeCrew.id)
 
   return (
     <div className="xingchao-route h-full overflow-y-auto">
@@ -31,7 +35,14 @@ export function FleetHarborRoute({ onOpenVoyage }: { onOpenVoyage: () => void })
                 <ShipWheel className="size-4" /> 规划新航程
               </button>
               <span className="flex items-center gap-2 rounded-full border bg-background/60 px-4 py-2 text-sm">
-                <Check className="size-4 text-[var(--xingchao-primary)]" /> 10 团 · 60 位原创 Agent
+                <Check className="size-4 text-[var(--xingchao-primary)]" />
+                {t("fleet.runtimeCount", {
+                  crews: crews.length,
+                  agents: runtimeFleet.snapshot.agents.length,
+                })}
+              </span>
+              <span className="flex items-center rounded-full border bg-background/60 px-4 py-2 text-sm">
+                {t("fleet.builtinCount")}
               </span>
             </div>
           </div>
@@ -46,22 +57,37 @@ export function FleetHarborRoute({ onOpenVoyage }: { onOpenVoyage: () => void })
             </div>
             <span className="text-sm text-muted-foreground">当前：{theme.name}</span>
           </div>
+          {runtimeFleet.status === "fallback" && (
+            <p
+              className="mb-4 rounded-lg border border-amber-400/40 bg-amber-50/70 px-4 py-3 text-sm text-amber-950"
+              role="status"
+            >
+              {t("fleet.runtimeFallback")}
+            </p>
+          )}
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-            {crews.map((crew) => (
-              <button
-                key={crew.id}
-                type="button"
-                onClick={() => setActiveCrewId(crew.id)}
-                className={cn("xingchao-crew-card text-left", activeCrewId === crew.id && "is-active")}
-                style={
-                  { "--crew-color": crew.theme.primary, "--crew-accent": crew.theme.accent } as React.CSSProperties
-                }
-              >
-                <span className="mb-4 block h-1.5 w-12 rounded-full bg-[var(--crew-color)]" />
-                <strong className="block text-base">{crew.name}</strong>
-                <span className="mt-1 block text-xs leading-5 text-muted-foreground">{crew.domain}</span>
-              </button>
-            ))}
+            {crews.map((crew) => {
+              const crewTheme = runtimeFleet.index.themeById.get(crew.themeId)!
+              return (
+                <button
+                  data-crew-id={crew.id}
+                  key={crew.id}
+                  type="button"
+                  onClick={() => setActiveCrewId(crew.id)}
+                  className={cn("xingchao-crew-card text-left", activeCrewId === crew.id && "is-active")}
+                  style={
+                    {
+                      "--crew-color": crewTheme.primary,
+                      "--crew-accent": crewTheme.accent,
+                    } as React.CSSProperties
+                  }
+                >
+                  <span className="mb-4 block h-1.5 w-12 rounded-full bg-[var(--crew-color)]" />
+                  <strong className="block text-base">{crew.name}</strong>
+                  <span className="mt-1 block text-xs leading-5 text-muted-foreground">{crew.domain}</span>
+                </button>
+              )
+            })}
           </div>
         </section>
 
@@ -90,7 +116,7 @@ export function FleetHarborRoute({ onOpenVoyage }: { onOpenVoyage: () => void })
           </article>
           <div className="grid grid-cols-2 gap-3 max-[640px]:grid-cols-1 xl:grid-cols-3">
             {members.map((agent) => (
-              <article key={agent.id} className="xingchao-panel p-5">
+              <article data-agent-id={agent.id} key={agent.id} className="xingchao-panel p-5">
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <p className="text-xs text-[var(--xingchao-primary)]">
@@ -103,7 +129,7 @@ export function FleetHarborRoute({ onOpenVoyage }: { onOpenVoyage: () => void })
                 </div>
                 <p className="mt-4 line-clamp-3 text-sm leading-6 text-muted-foreground">{agent.biography}</p>
                 <div className="mt-4 flex flex-wrap gap-1.5">
-                  {agent.professional.capabilities.map((capability) => (
+                  {agent.capabilities.map((capability) => (
                     <span key={capability.id} className="rounded bg-muted px-2 py-1 text-[11px]">
                       {capability.label}
                     </span>
