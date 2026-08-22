@@ -1,8 +1,8 @@
 import type { AgentProfile, ContentPackManifest, CrewProfile, ThemeProfile } from "./types.ts"
 
 import { z } from "zod"
-import { agents, crews } from "./crews.ts"
 import { CONTENT_PACK_LIMITS, runtimeText } from "./content-pack-limits.ts"
+import { agents, crews } from "./crews.ts"
 import { CONTENT_PACK_SCHEMA_VERSION } from "./types.ts"
 
 const safeId = z.string().regex(/^[a-z0-9][a-z0-9-]{1,63}$/)
@@ -60,9 +60,7 @@ const crewProfileSchema = z.object({
   motto: runtimeText(CONTENT_PACK_LIMITS.shortText),
   name: runtimeText(CONTENT_PACK_LIMITS.shortText),
   routingSignals: z.array(runtimeText(CONTENT_PACK_LIMITS.signalText)).min(3).max(CONTENT_PACK_LIMITS.signals),
-  standardWorkflow: z.array(runtimeText(CONTENT_PACK_LIMITS.shortText))
-    .min(3)
-    .max(CONTENT_PACK_LIMITS.workflowSteps),
+  standardWorkflow: z.array(runtimeText(CONTENT_PACK_LIMITS.shortText)).min(3).max(CONTENT_PACK_LIMITS.workflowSteps),
   supportSignals: z.array(runtimeText(CONTENT_PACK_LIMITS.signalText)).max(CONTENT_PACK_LIMITS.signals),
   theme: themeProfileSchema,
 })

@@ -14,12 +14,22 @@ export const CONTENT_PACK_LIMITS = {
   deliverables: 16,
 } as const
 
-const forbiddenControlCharacters = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/u
+const forbiddenControlCharacters = (value: string) =>
+  Array.from(value).some((character) => {
+    const codePoint = character.codePointAt(0)!
+    return (
+      (codePoint >= 0x00 && codePoint <= 0x08) ||
+      codePoint === 0x0b ||
+      codePoint === 0x0c ||
+      (codePoint >= 0x0e && codePoint <= 0x1f) ||
+      codePoint === 0x7f
+    )
+  })
 
 export function runtimeText(maxLength: number) {
   return z
     .string()
     .min(1)
     .max(maxLength)
-    .refine((value) => !forbiddenControlCharacters.test(value), "Runtime text contains a control character")
+    .refine((value) => !forbiddenControlCharacters(value), "Runtime text contains a control character")
 }
