@@ -1,9 +1,9 @@
-import type { AgentProfile, ContentPackManifest, CrewProfile, ThemeProfile } from "./types.ts"
+import type { AgentProfile, ContentPackManifest, CrewId, CrewProfile, ThemeProfile } from "./types.ts"
 
-export type RuntimeAgentProfile = Omit<AgentProfile, "crewId"> & { crewId: string }
-export type RuntimeThemeProfile = Omit<ThemeProfile, "id"> & { id: string }
+export type RuntimeAgentProfile = Omit<AgentProfile, "crewId"> & { crewId: CrewId }
+export type RuntimeThemeProfile = Omit<ThemeProfile, "id"> & { id: CrewId }
 export type RuntimeCrewProfile = Omit<CrewProfile, "id" | "theme"> & {
-  id: string
+  id: CrewId
   theme: RuntimeThemeProfile
 }
 
