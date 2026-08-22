@@ -47,8 +47,7 @@ export function useContentPacks(): UseContentPacks {
 
   React.useEffect(() => {
     void load()
-    return service.serverEvents.on("contentPacksChanged", () => void load())
-  }, [load, service])
+  }, [load])
 
   const install = React.useCallback(async () => {
     setBusy({ id: null, kind: "install", version: null })

@@ -12,9 +12,6 @@ import { useContentPacks } from "./useContentPacks.ts"
 
 interface TestContentPackService {
   invoke: (method: string, request?: unknown) => Promise<unknown>
-  serverEvents: {
-    on: (event: string, listener: () => void) => () => void
-  }
 }
 
 const testState = vi.hoisted(() => ({ service: null as TestContentPackService | null }))
@@ -97,7 +94,6 @@ describe("useContentPacks selection", () => {
         }
         throw new Error(`Unexpected method: ${method}`)
       },
-      serverEvents: { on: () => () => undefined },
     }
 
     const { host } = await renderProbe()
@@ -119,7 +115,6 @@ describe("useContentPacks selection", () => {
         if (method === "setSelection") throw new Error("Selection was rejected")
         throw new Error(`Unexpected method: ${method}`)
       },
-      serverEvents: { on: () => () => undefined },
     }
 
     const { host } = await renderProbe()
