@@ -84,3 +84,27 @@ so the weekly iteration continues.
   `Shun1989/xingchao-agent`.
 - The three audited local commits through `2977376d887952fe54e58b6f89257b458fc29db8` were fast-forward pushed to
   `origin/codex/xingchao-platform`. A read-only remote SHA check matched the local head; upstream remained untouched.
+
+## Star benchmark and Runtime Fleet publication refresh on 2026-08-22
+
+GitHub repository metadata was refreshed after Windows keyring authentication succeeded for `Shun1989`.
+
+| Compared object   | Confirmed official public main repository                                 |   Stars | Status                                                                                                          |
+| ----------------- | ------------------------------------------------------------------------- | ------: | --------------------------------------------------------------------------------------------------------------- |
+| WorkBuddy         | N/A                                                                       |     N/A | Search returned guides, integrations, and third-party clones, but no verifiable official open-source main repo. |
+| Hermes Agent      | [NousResearch/hermes-agent](https://github.com/NousResearch/hermes-agent) | 234,169 | Official Nous Research repository; MIT; pushed on 2026-08-22.                                                   |
+| Deepseek Hareness | N/A                                                                       |     N/A | Exact-name repository search returned no results; the supplied name remains unverified or misspelled.           |
+| Alice Agent       | N/A                                                                       |     N/A | Search returned unrelated small projects with no evidence of being the named product's official main repo.      |
+
+The effective stop threshold is therefore **234,169 Stars**. GitHub reports
+[Shun1989/xingchao-agent](https://github.com/Shun1989/xingchao-agent) at **0 Stars** on 2026-08-22, so the threshold has
+not been reached.
+
+Publication evidence for Runtime Fleet Activation:
+
+- `gh auth status` succeeded for `Shun1989`; token scopes include `repo` and `workflow`.
+- GitHub reports `viewerPermission: ADMIN`, default branch `codex/xingchao-platform`, and the expected project owner.
+- A fresh focused matrix passed 16 test files / 100 tests before publication.
+- Fetch reported 0 behind / 20 ahead; an ordinary non-force push advanced `origin/codex/xingchao-platform` from
+  `253440c` through `04bbaa2be2102981d541decc7970ebdde9b81b1d`.
+- The upstream push URL remained `DISABLED`; no Release, Prerelease, or installer was created or uploaded.

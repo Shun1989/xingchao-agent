@@ -1270,9 +1270,9 @@ git add -- src/routes/Voyage/index.tsx src/routes/Voyage/index.test.tsx src/comp
 git commit -m "feat: activate runtime crews in voyage planning"
 ```
 
-- [ ] **Step 10: Final branch and GitHub audit without releasing**
+- [x] **Step 10: Final branch and GitHub audit without releasing**
 
-Blocked on 2026-08-22: the configured `Shun1989` GitHub CLI token is invalid, so repository permission cannot be verified and no push is allowed. `origin` is the project repository and the upstream push URL remains `DISABLED`; no Release or installer was published.
+Completed on 2026-08-22: Windows keyring authentication succeeded for `Shun1989`; GitHub reported `ADMIN` permission on `Shun1989/xingchao-agent`. After a fresh 100-test feature matrix, the branch was 0 behind / 20 ahead and was ordinarily fast-forward pushed to `origin/codex/xingchao-platform`. The upstream push URL remained `DISABLED`; no Release or installer was published.
 
 ```powershell
 git status --short --branch
@@ -1298,4 +1298,4 @@ Require a clean worktree, `origin` equal to `Shun1989/xingchao-agent`, `viewerPe
 - [x] Built-in 10/60 behavior remains unchanged with no selected imported pack.
 - [x] Focused tests, lint, type check, changed-file format, and renderer/main/preload builds pass with fresh output.
 - [x] Documentation lists every still-inactive content-pack capability and makes no release claim.
-- [ ] Only the project `origin` development branch is ordinarily pushed; no Release or installer is published.
+- [x] Only the project `origin` development branch is ordinarily pushed; no Release or installer is published.
