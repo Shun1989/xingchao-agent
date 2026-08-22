@@ -10,6 +10,116 @@ import { ContentPackSelectionStore } from "./selection-store.ts"
 
 const temporaryDirectories: string[] = []
 
+const builtinRuntimeSourceKeys = {
+  agents: [
+    "bh-chenhuguang",
+    "bh-luoqinglan",
+    "bh-qiaoyingchuan",
+    "bh-songchisu",
+    "bh-xiazhiwei",
+    "bh-yeying",
+    "fv-heli",
+    "fv-luxun",
+    "fv-peizhao",
+    "fv-qinjiao",
+    "fv-xiegou",
+    "fv-zhouzhan",
+    "gs-fangge",
+    "gs-gushu",
+    "gs-luotu",
+    "gs-ningce",
+    "gs-shangheng",
+    "gs-shengailv",
+    "ho-baijian",
+    "ho-chengwen",
+    "ho-linxu",
+    "ho-shenqi",
+    "ho-tanghe",
+    "ho-xulantu",
+    "ic-guyin",
+    "ic-hanjie",
+    "ic-jizheng",
+    "ic-ludian",
+    "ic-peishen",
+    "ic-wenyue",
+    "is-chengjian",
+    "is-guxingzhou",
+    "is-jiangxu",
+    "is-linzhaoyue",
+    "is-suyanqiu",
+    "is-tangweiyang",
+    "lh-hengchi",
+    "lh-jimo",
+    "lh-lucang",
+    "lh-mingchuan",
+    "lh-suke",
+    "lh-yanchu",
+    "pw-gujian",
+    "pw-jiangjing",
+    "pw-linzhen",
+    "pw-shijian",
+    "pw-susheng",
+    "pw-yehui",
+    "rh-anxu",
+    "rh-chengshi",
+    "rh-guxuan",
+    "rh-leji",
+    "rh-xiaqi",
+    "rh-yunyao",
+    "wt-baisu",
+    "wt-jilan",
+    "wt-lingyue",
+    "wt-shenyan",
+    "wt-wenxian",
+    "wt-xuxingheng",
+  ],
+  crews: [
+    "brocade-harbor",
+    "forge-vessel",
+    "golden-scale",
+    "helm-order",
+    "ink-sail",
+    "iron-code",
+    "lighthouse",
+    "phantom-wave",
+    "rest-harbor",
+    "watchtide",
+  ],
+  themes: [
+    "brocade-harbor",
+    "forge-vessel",
+    "golden-scale",
+    "helm-order",
+    "ink-sail",
+    "iron-code",
+    "lighthouse",
+    "phantom-wave",
+    "rest-harbor",
+    "watchtide",
+  ],
+} as const
+
+const selectedInstalledRuntimeSourceKeys = {
+  agents: [
+    ...builtinRuntimeSourceKeys.agents,
+    ...builtinRuntimeSourceKeys.agents.map((id) => `service-test-pack--${id}`),
+  ].sort(),
+  crews: [
+    ...builtinRuntimeSourceKeys.crews,
+    ...builtinRuntimeSourceKeys.crews.map((id) => `service-test-pack--${id}`),
+  ].sort(),
+  themes: [
+    ...builtinRuntimeSourceKeys.themes,
+    ...builtinRuntimeSourceKeys.themes.map((id) => `service-test-pack--${id}`),
+  ].sort(),
+}
+
+interface RuntimeSourceKeys {
+  agents: readonly string[]
+  crews: readonly string[]
+  themes: readonly string[]
+}
+
 afterEach(async () => {
   await Promise.all(temporaryDirectories.splice(0).map((directory) => rm(directory, { force: true, recursive: true })))
 })
@@ -20,6 +130,118 @@ async function createArchivePath(root: string, version = "1.0.0"): Promise<strin
   const filePath = path.join(root, `service-test-pack-${version}.xcp`)
   await writeFile(filePath, await zip.generateAsync({ type: "uint8array" }))
   return filePath
+}
+
+function expectPlainObject(value: unknown): Record<string, unknown> {
+  expect(value).not.toBeNull()
+  expect(Array.isArray(value)).toBe(false)
+  expect(value).not.toBeInstanceOf(Map)
+  expect(Object.getPrototypeOf(value)).toBe(Object.prototype)
+  return value as Record<string, unknown>
+}
+
+function expectPlainRecord(value: unknown, expectedKeys: readonly string[]): Record<string, unknown> {
+  const record = expectPlainObject(value)
+  expect(Object.keys(record).sort()).toEqual(expectedKeys)
+  return record
+}
+
+function expectNoPathLikeKeysOrValues(value: unknown, fixturePaths: readonly string[]): void {
+  if (typeof value === "string") {
+    for (const fixturePath of fixturePaths) expect(value).not.toContain(fixturePath)
+    return
+  }
+  if (!value || typeof value !== "object") return
+  for (const [key, nestedValue] of Object.entries(value)) {
+    expect(key).not.toMatch(/(?:directory|file|installation|path)/i)
+    expectNoPathLikeKeysOrValues(nestedValue, fixturePaths)
+  }
+}
+
+function expectNoMaps(value: unknown): void {
+  if (!value || typeof value !== "object") return
+  expect(value).not.toBeInstanceOf(Map)
+  for (const nestedValue of Object.values(value)) expectNoMaps(nestedValue)
+}
+
+function expectSafeRuntimeFleetSnapshot(
+  snapshot: unknown,
+  fixturePaths: readonly string[],
+  expectedSourceKeys?: RuntimeSourceKeys,
+): void {
+  const safeSnapshot = expectPlainRecord(snapshot, ["agents", "crews", "revision", "sources", "themes"])
+  const crews = safeSnapshot.crews as unknown[]
+  const agents = safeSnapshot.agents as unknown[]
+  const themes = safeSnapshot.themes as unknown[]
+
+  expect(Array.isArray(crews)).toBe(true)
+  expect(Array.isArray(agents)).toBe(true)
+  expect(Array.isArray(themes)).toBe(true)
+  for (const crew of crews) {
+    expectPlainRecord(crew, [
+      "captainId",
+      "description",
+      "domain",
+      "id",
+      "memberIds",
+      "motto",
+      "name",
+      "routingSignals",
+      "standardWorkflow",
+      "supportSignals",
+      "themeId",
+    ])
+  }
+  for (const agent of agents) {
+    const safeAgent = expectPlainRecord(agent, [
+      "biography",
+      "capabilities",
+      "crewId",
+      "deliverables",
+      "id",
+      "name",
+      "role",
+      "title",
+      "visual",
+    ])
+    for (const capability of safeAgent.capabilities as unknown[]) {
+      expectPlainRecord(capability, ["id", "label", "level"])
+    }
+    expectPlainRecord(safeAgent.visual, ["accent", "silhouette"])
+  }
+  for (const theme of themes) {
+    const safeTheme = expectPlainRecord(theme, [
+      "accent",
+      "foreground",
+      "highContrast",
+      "id",
+      "live2dOverlay",
+      "motion",
+      "name",
+      "primary",
+      "secondary",
+      "soundCue",
+      "surface",
+      "texture",
+    ])
+    expectPlainRecord(safeTheme.highContrast, ["background", "foreground", "primary"])
+  }
+
+  const sources = expectPlainRecord(safeSnapshot.sources, ["agents", "crews", "themes"])
+  for (const [sourceKind, sourceCollection] of Object.entries(sources)) {
+    const safeSourceCollection = expectedSourceKeys
+      ? expectPlainRecord(sourceCollection, expectedSourceKeys[sourceKind as keyof typeof expectedSourceKeys])
+      : expectPlainObject(sourceCollection)
+    for (const source of Object.values(safeSourceCollection)) {
+      expectPlainRecord(source, ["kind", "packId", "packVersion"])
+    }
+  }
+
+  expectNoPathLikeKeysOrValues(snapshot, fixturePaths)
+  expectNoMaps(snapshot)
+  const wire = JSON.stringify(snapshot)
+  for (const fixturePath of fixturePaths) expect(wire).not.toContain(fixturePath)
+  expect(wire).not.toMatch(/content-packs|checksums|allowedTools|evaluations|persona|voice|localId/i)
 }
 
 describe("ContentPackServiceImpl", () => {
@@ -78,14 +300,14 @@ describe("ContentPackServiceImpl", () => {
       packId: "xingchao-original-fleet",
       packVersion: "1.0.0",
     })
-    const wire = JSON.stringify(snapshot)
-    expect(wire).not.toMatch(/content-packs|checksums|allowedTools|evaluations|persona|voice|localId/i)
+    expectSafeRuntimeFleetSnapshot(snapshot, [root], builtinRuntimeSourceKeys)
   })
 
   it("persists one selected installed version and builds the runtime catalog from it", async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "xingchao-pack-service-"))
     temporaryDirectories.push(root)
     const archivePaths = [await createArchivePath(root, "1.0.0"), await createArchivePath(root, "2.0.0")]
+    const fixturePaths = [root, ...archivePaths]
     const confirmSelection = vi.fn(async () => true)
     const runtimeManager = new ContentPackRuntimeManager({ appVersion: "2.0.0", userDataDirectory: root })
     const service = new ContentPackServiceImpl({
@@ -129,8 +351,7 @@ describe("ContentPackServiceImpl", () => {
       packId: "service-test-pack",
       packVersion: "2.0.0",
     })
-    const wire = JSON.stringify(snapshot)
-    expect(wire).not.toMatch(/content-packs|checksums|allowedTools|evaluations|persona|voice|localId/i)
+    expectSafeRuntimeFleetSnapshot(snapshot, fixturePaths, selectedInstalledRuntimeSourceKeys)
     expect(confirmSelection).toHaveBeenCalledTimes(2)
   })
 
