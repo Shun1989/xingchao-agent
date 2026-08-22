@@ -143,6 +143,7 @@ export interface MissionNode {
 
 export interface Mission {
   id: string
+  fleetRevision: string
   goal: string
   deliverables: string[]
   constraints: string[]

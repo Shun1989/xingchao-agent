@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 import { originalFleetPack, validateContentPack } from "./content-pack.ts"
 import { agents, crews } from "./crews.ts"
 import { draftMission, recommendCrews } from "./routing.ts"
+import { builtinRuntimeFleetIndex } from "./runtime-fleet.ts"
 import { BUILTIN_CREW_IDS } from "./types.ts"
 
 describe("星潮原创舰队", () => {
@@ -44,6 +45,6 @@ describe("航海团路由", () => {
     expect(mission.primaryCrewId).toBe("watchtide")
     expect(mission.supportCrewIds.length).toBeLessThanOrEqual(2)
     expect(new Set([mission.primaryCrewId, ...mission.supportCrewIds]).size).toBe(1 + mission.supportCrewIds.length)
-    expect(mission.nodes.at(-1)?.agentId).toBe("chief-lanxi")
+    expect(mission.nodes.at(-1)?.agentId).toBe(builtinRuntimeFleetIndex.crewById.get(mission.primaryCrewId)?.captainId)
   })
 })
