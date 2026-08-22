@@ -300,6 +300,9 @@ describe("ContentPackServiceImpl", () => {
       packId: "xingchao-original-fleet",
       packVersion: "1.0.0",
     })
+    for (const sources of Object.values(snapshot.sources)) {
+      expect(Object.values(sources).every((source) => source.kind === "builtin")).toBe(true)
+    }
     expectSafeRuntimeFleetSnapshot(snapshot, [root], builtinRuntimeSourceKeys)
   })
 

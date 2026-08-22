@@ -131,14 +131,51 @@ export const contentPackManifestSchema = z
     const agentsById = new Map(pack.agents.map((agent) => [agent.id, agent]))
     const themesById = new Map(pack.themes.map((theme) => [theme.id, theme]))
     pack.crews.forEach((crew, crewIndex) => {
-      if (!agentsById.has(crew.captainId)) {
+      if (new Set(crew.memberIds).size !== 6) {
+        context.addIssue({
+          code: "custom",
+          message: "Crew member IDs must identify six different agents",
+          path: ["crews", crewIndex, "memberIds"],
+        })
+      }
+      const captain = agentsById.get(crew.captainId)
+      if (!captain) {
         context.addIssue({ code: "custom", message: `船长 ${crew.captainId} 不存在`, path: ["crews", crew.id] })
+      } else {
+        if (!crew.memberIds.includes(captain.id)) {
+          context.addIssue({
+            code: "custom",
+            message: `Captain ${captain.id} is not in crew ${crew.id} roster members`,
+            path: ["crews", crewIndex, "captainId"],
+          })
+        }
+        if (captain.crewId !== crew.id) {
+          context.addIssue({
+            code: "custom",
+            message: `Captain ${captain.id} belongs to crew ${captain.crewId}, not ${crew.id}`,
+            path: ["crews", crewIndex, "captainId"],
+          })
+        }
+        if (captain.role !== "captain") {
+          context.addIssue({
+            code: "custom",
+            message: `Captain ${captain.id} has Agent role ${captain.role}, not captain`,
+            path: ["crews", crewIndex, "captainId"],
+          })
+        }
       }
       crew.memberIds.forEach((memberId, memberIndex) => {
-        if (!agentsById.has(memberId)) {
+        const member = agentsById.get(memberId)
+        if (!member) {
           context.addIssue({
             code: "custom",
             message: `成员 ${memberId} 不存在`,
+            path: ["crews", crewIndex, "memberIds", memberIndex],
+          })
+        } else if (member.crewId !== crew.id) {
+          context.addIssue({
+            code: "custom",
+            message: `Member ${member.id} belongs to crew ${member.crewId}, not ${crew.id}`,
             path: ["crews", crewIndex, "memberIds", memberIndex],
           })
         }

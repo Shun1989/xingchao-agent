@@ -50,6 +50,59 @@ describe("content pack runtime contract", () => {
     expect(() => validateContentPack(pack)).toThrow()
   })
 
+  it("rejects a crew roster with fewer than six members", () => {
+    const pack = packFixture()
+    pack.crews[0]!.memberIds.pop()
+
+    expect(() => validateContentPack(pack)).toThrow(/6|six|六/i)
+  })
+
+  it("rejects six roster entries that do not identify six different agents", () => {
+    const pack = packFixture()
+    pack.crews[0]!.memberIds[1] = pack.crews[0]!.memberIds[0]!
+
+    expect(() => validateContentPack(pack)).toThrow(/member.*different|member.*unique|duplicate|成员.*不同|重复/i)
+  })
+
+  it("rejects a same-crew captain who is absent from the authoritative roster", () => {
+    const pack = packFixture()
+    const crew = pack.crews[0]!
+    const replacement = structuredClone(pack.agents.find((agent) => agent.crewId === crew.id && agent.role === "crew")!)
+    replacement.id = "extra-roster-member"
+    pack.agents.push(replacement)
+    crew.memberIds = crew.memberIds.map((memberId) => (memberId === crew.captainId ? replacement.id : memberId))
+
+    expect(() => validateContentPack(pack)).toThrow(/captain.*roster|captain.*member|船长.*成员/i)
+  })
+
+  it("rejects a captain assigned to another crew", () => {
+    const pack = packFixture()
+    const crew = pack.crews[0]!
+    const foreignCaptain = pack.agents.find((agent) => agent.crewId !== crew.id && agent.role === "captain")!
+    crew.memberIds = crew.memberIds.map((memberId) => (memberId === crew.captainId ? foreignCaptain.id : memberId))
+    crew.captainId = foreignCaptain.id
+
+    expect(() => validateContentPack(pack)).toThrow(/captain.*belong|captain.*crew|船长.*航海团/i)
+  })
+
+  it("rejects a roster captain whose Agent role is not captain", () => {
+    const pack = packFixture()
+    const crew = pack.crews[0]!
+    pack.agents.find((agent) => agent.id === crew.captainId)!.role = "crew"
+
+    expect(() => validateContentPack(pack)).toThrow(/captain.*role|船长.*角色/i)
+  })
+
+  it("rejects a roster member assigned to another crew", () => {
+    const pack = packFixture()
+    const crew = pack.crews[0]!
+    const memberIndex = crew.memberIds.findIndex((memberId) => memberId !== crew.captainId)
+    const foreignMember = pack.agents.find((agent) => agent.crewId !== crew.id && agent.role === "crew")!
+    crew.memberIds[memberIndex] = foreignMember.id
+
+    expect(() => validateContentPack(pack)).toThrow(/member.*belong|member.*crew|成员.*航海团/i)
+  })
+
   it("rejects prompt-bound crew text beyond the published maximum", () => {
     const pack = structuredClone(originalFleetPack)
     pack.crews[0]!.description = "x".repeat(1_001)

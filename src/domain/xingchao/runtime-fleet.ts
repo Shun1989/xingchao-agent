@@ -176,26 +176,44 @@ export function indexRuntimeFleet(snapshot: RuntimeFleetSnapshot): RuntimeFleetI
   const crewById = indexById(snapshot.crews, "crew")
   const agentById = indexById(snapshot.agents, "agent")
   const themeById = indexById(snapshot.themes, "theme")
-  const agentsByCrew = new Map<CrewId, RuntimeFleetAgent[]>()
+  const rosterByCrew = new Map<CrewId, RuntimeFleetAgent[]>()
 
   for (const agent of snapshot.agents) {
     if (!crewById.has(agent.crewId)) {
       throw new Error(`Agent ${agent.id} references missing crew ${agent.crewId}`)
     }
-    const crewAgents = agentsByCrew.get(agent.crewId) ?? []
-    crewAgents.push(agent)
-    agentsByCrew.set(agent.crewId, crewAgents)
   }
 
   for (const crew of snapshot.crews) {
-    if (!agentById.has(crew.captainId)) {
-      throw new Error(`Crew ${crew.id} captain ${crew.captainId} is missing`)
+    if (crew.memberIds.length !== 6 || new Set(crew.memberIds).size !== 6) {
+      throw new Error(`Crew ${crew.id} roster must contain six different member IDs`)
     }
-    for (const memberId of crew.memberIds) {
-      if (!agentById.has(memberId)) {
+    const roster = crew.memberIds.map((memberId) => {
+      const member = agentById.get(memberId)
+      if (!member) {
         throw new Error(`Crew ${crew.id} member ${memberId} is missing`)
       }
+      return member
+    })
+    const captain = agentById.get(crew.captainId)
+    if (!captain) {
+      throw new Error(`Crew ${crew.id} captain ${crew.captainId} is missing`)
     }
+    if (!crew.memberIds.includes(captain.id)) {
+      throw new Error(`Crew ${crew.id} captain ${captain.id} is not a roster member`)
+    }
+    if (captain.crewId !== crew.id) {
+      throw new Error(`Crew ${crew.id} captain ${captain.id} belongs to crew ${captain.crewId}`)
+    }
+    if (captain.role !== "captain") {
+      throw new Error(`Crew ${crew.id} captain ${captain.id} has Agent role ${captain.role}`)
+    }
+    for (const member of roster) {
+      if (member.crewId !== crew.id) {
+        throw new Error(`Crew ${crew.id} member ${member.id} belongs to crew ${member.crewId}`)
+      }
+    }
+    rosterByCrew.set(crew.id, roster)
     if (!themeById.has(crew.themeId)) {
       throw new Error(`Crew ${crew.id} theme ${crew.themeId} is missing`)
     }
@@ -206,7 +224,7 @@ export function indexRuntimeFleet(snapshot: RuntimeFleetSnapshot): RuntimeFleetI
     crewById,
     agentById,
     themeById,
-    agentsForCrew: (crewId) => [...(agentsByCrew.get(crewId) ?? [])],
+    agentsForCrew: (crewId) => [...(rosterByCrew.get(crewId) ?? [])],
   }
 }
 
