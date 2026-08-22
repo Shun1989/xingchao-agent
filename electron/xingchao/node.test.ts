@@ -60,6 +60,28 @@ describe("ContentPackServiceImpl", () => {
     await expect(service.remove({ id: "missing-pack", version: "1.0.0" })).resolves.toBe(false)
   })
 
+  it("returns the serializable built-in runtime fleet snapshot with no selected packs", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "xingchao-pack-service-"))
+    temporaryDirectories.push(root)
+    const service = new ContentPackServiceImpl({
+      confirmRemoval: async () => true,
+      confirmSelection: async () => true,
+      runtimeManager: new ContentPackRuntimeManager({ appVersion: "1.0.0", userDataDirectory: root }),
+      selectArchivePath: async () => undefined,
+    })
+
+    const snapshot = await service.runtimeFleet()
+
+    expect(snapshot.crews.some((crew) => crew.id === "watchtide")).toBe(true)
+    expect(snapshot.sources.crews.watchtide).toEqual({
+      kind: "builtin",
+      packId: "xingchao-original-fleet",
+      packVersion: "1.0.0",
+    })
+    const wire = JSON.stringify(snapshot)
+    expect(wire).not.toMatch(/content-packs|checksums|allowedTools|evaluations|persona|voice|localId/i)
+  })
+
   it("persists one selected installed version and builds the runtime catalog from it", async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "xingchao-pack-service-"))
     temporaryDirectories.push(root)
@@ -100,14 +122,35 @@ describe("ContentPackServiceImpl", () => {
     expect(summaries).toContainEqual(
       expect.objectContaining({ id: "service-test-pack", selected: true, version: "2.0.0" }),
     )
-    const catalog = await restartedRuntimeManager.runtimeCatalog()
-    expect(catalog.sources.crews.get("service-test-pack--watchtide")).toEqual({
+    const snapshot = await restartedService.runtimeFleet()
+    expect(snapshot.crews.some((crew) => crew.id === "service-test-pack--watchtide")).toBe(true)
+    expect(snapshot.sources.crews["service-test-pack--watchtide"]).toEqual({
       kind: "installed",
-      localId: "watchtide",
       packId: "service-test-pack",
       packVersion: "2.0.0",
     })
+    const wire = JSON.stringify(snapshot)
+    expect(wire).not.toMatch(/content-packs|checksums|allowedTools|evaluations|persona|voice|localId/i)
     expect(confirmSelection).toHaveBeenCalledTimes(2)
+  })
+
+  it("propagates runtime fleet projection failures without returning a partial snapshot", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "xingchao-pack-service-"))
+    temporaryDirectories.push(root)
+    const runtimeManager = new ContentPackRuntimeManager({ appVersion: "1.0.0", userDataDirectory: root })
+    const catalog = await runtimeManager.runtimeCatalog()
+    vi.spyOn(runtimeManager, "runtimeCatalog").mockResolvedValue({
+      ...catalog,
+      crews: Array.from({ length: 101 }, () => catalog.crews[0]),
+    })
+    const service = new ContentPackServiceImpl({
+      confirmRemoval: async () => true,
+      confirmSelection: async () => true,
+      runtimeManager,
+      selectArchivePath: async () => undefined,
+    })
+
+    await expect(service.runtimeFleet()).rejects.toThrow(/runtime fleet exceeds 100 crews/i)
   })
 
   it("does not change selection when confirmation is cancelled and rejects missing packs", async () => {

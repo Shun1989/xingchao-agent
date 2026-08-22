@@ -1,3 +1,4 @@
+import type { RuntimeFleetSnapshot } from "../../src/domain/xingchao/runtime-fleet.ts"
 import type { PackVisibility } from "../../src/domain/xingchao/types.ts"
 import type { ServiceName } from "@oomol/connection"
 
@@ -43,6 +44,7 @@ export const ContentPackService = serviceName("content-pack-service") as Service
     install(): Promise<ContentPackSummary | null>
     list(): Promise<ContentPackSummary[]>
     remove(request: RemoveContentPackRequest): Promise<boolean>
+    runtimeFleet(): Promise<RuntimeFleetSnapshot>
     setSelection(request: SetContentPackSelectionRequest): Promise<boolean>
   }
 }>

@@ -1,3 +1,4 @@
+import type { RuntimeFleetSnapshot } from "../../src/domain/xingchao/runtime-fleet.ts"
 import type {
   ContentPackService,
   ContentPackSummary,
@@ -12,6 +13,7 @@ import { ConnectionService } from "@oomol/connection"
 import { readFile, stat } from "node:fs/promises"
 import path from "node:path"
 import { originalFleetPack } from "../../src/domain/xingchao/content-pack.ts"
+import { projectRuntimeFleetCatalog } from "../../src/domain/xingchao/runtime-fleet.ts"
 import { ServiceEvent } from "../service-events.ts"
 import { ContentPackService as ContentPackServiceName } from "./common.ts"
 
@@ -65,6 +67,10 @@ export class ContentPackServiceImpl
       summaryFromManifest(originalFleetPack, "builtin", null, true),
       ...installed.map((pack) => summaryFromManifest(pack.manifest, "installed", pack.installedAt, pack.selected)),
     ]
+  }
+
+  public async runtimeFleet(): Promise<RuntimeFleetSnapshot> {
+    return projectRuntimeFleetCatalog(await this.#deps.runtimeManager.runtimeCatalog())
   }
 
   public async install(): Promise<ContentPackSummary | null> {
