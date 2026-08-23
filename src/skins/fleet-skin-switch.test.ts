@@ -251,6 +251,121 @@ describe("fleet skin atomic switch reducer", () => {
     expect(consumed.effectVersion).toBe(secondLoading.effectVersion)
   })
 
+  it("preserves an unconsumed commit persistence command across a newer request and its failure", () => {
+    const first = request("ink-sail", 20)
+    let state = settleRequired(reduce(createFleetSkinSwitchState("watchtide"), first), first)
+    const persistVersion = state.effectVersion
+    expect(state.effect).toEqual({ type: "persist-crew", crewId: "ink-sail" })
+
+    const second = request("brocade-harbor", 21)
+    state = reduce(state, second)
+    expect(state.pending?.crewId).toBe("brocade-harbor")
+    expect(state.pending?.preloadIssued).toBe(false)
+    expect(state.effect).toEqual({ type: "persist-crew", crewId: "ink-sail" })
+    expect(state.effectVersion).toBe(persistVersion)
+
+    state = reduce(state, {
+      type: "asset.failed",
+      generation: second.generation,
+      assetId: second.required[0],
+      required: true,
+    })
+    expect(state.committedCrewId).toBe("ink-sail")
+    expect(state.pending).toBeNull()
+    expect(state.error).toBe("required-asset-failed")
+    expect(state.effect).toEqual({ type: "persist-crew", crewId: "ink-sail" })
+
+    state = reduce(state, { type: "effect.consumed", version: persistVersion })
+    expect(state.effect).toEqual({ type: "report-error", code: "required-asset-failed" })
+    expect(state.effectVersion).toBeGreaterThan(persistVersion)
+  })
+
+  it("delays the latest pending preload until an older persistence command is consumed", () => {
+    const first = request("ink-sail", 22)
+    let state = settleRequired(reduce(createFleetSkinSwitchState("watchtide"), first), first)
+    const persistVersion = state.effectVersion
+
+    state = reduce(state, request("brocade-harbor", 23), request("forge-vessel", 24))
+    expect(state.pending?.crewId).toBe("forge-vessel")
+    expect(state.pending?.preloadIssued).toBe(false)
+    expect(state.effect).toEqual({ type: "persist-crew", crewId: "ink-sail" })
+    expect(reduce(state, request("forge-vessel", 24))).toBe(state)
+
+    state = reduce(state, { type: "effect.consumed", version: persistVersion })
+    expect(state.pending?.crewId).toBe("forge-vessel")
+    expect(state.pending?.preloadIssued).toBe(true)
+    expect(state.effect).toMatchObject({ type: "preload-resources", generation: 24 })
+  })
+
+  it("replaces an older unconsumed persistence command with the latest committed crew", () => {
+    const first = request("ink-sail", 25)
+    let state = settleRequired(reduce(createFleetSkinSwitchState("watchtide"), first), first)
+    const second = request("brocade-harbor", 26)
+
+    state = reduce(state, second)
+    state = settleRequired(state, second)
+
+    expect(state.committedCrewId).toBe("brocade-harbor")
+    expect(state.effect).toEqual({ type: "persist-crew", crewId: "brocade-harbor" })
+  })
+
+  it("freezes public transaction state and keeps pending/effect resource arrays independent", () => {
+    const event = request("ink-sail", 27)
+    const loading = reduce(createFleetSkinSwitchState("watchtide"), event)
+    const preload = loading.effect
+
+    expect(Object.isFrozen(event)).toBe(true)
+    expect(Object.isFrozen(event.required)).toBe(true)
+    expect(Object.isFrozen(event.optional)).toBe(true)
+    expect(Object.isFrozen(loading)).toBe(true)
+    expect(Object.isFrozen(loading.pending)).toBe(true)
+    expect(Object.isFrozen(loading.pending?.required)).toBe(true)
+    expect(Object.isFrozen(loading.pending?.optional)).toBe(true)
+    expect(Object.isFrozen(loading.pending?.ready)).toBe(true)
+    expect(Object.isFrozen(loading.pending?.failedOptional)).toBe(true)
+    expect(Object.isFrozen(preload)).toBe(true)
+    expect(Object.isFrozen(loading.degradedOptional)).toBe(true)
+    expect(preload?.type).toBe("preload-resources")
+    if (preload?.type !== "preload-resources" || loading.pending === null) throw new Error("Expected preload state")
+    expect(Object.isFrozen(preload.required)).toBe(true)
+    expect(Object.isFrozen(preload.optional)).toBe(true)
+    expect(preload.required).not.toBe(loading.pending.required)
+    expect(preload.optional).not.toBe(loading.pending.optional)
+
+    expect(() => (loading.pending!.required as unknown as string[]).pop()).toThrow(TypeError)
+    expect(() => (preload.required as unknown as string[]).pop()).toThrow(TypeError)
+    expect(() => (loading.pending!.ready as unknown as string[]).pop()).toThrow(TypeError)
+    expect(() => (loading.pending!.failedOptional as unknown as string[]).pop()).toThrow(TypeError)
+    expect(loading.pending.required).toHaveLength(event.required.length)
+    expect(preload.required).toHaveLength(event.required.length)
+  })
+
+  it("freezes every new resource snapshot without mutating prior snapshots", () => {
+    const event = request("ink-sail", 28)
+    const loading = reduce(createFleetSkinSwitchState("watchtide"), event)
+    const firstReady = reduce(loading, {
+      type: "asset.ready",
+      generation: event.generation,
+      assetId: event.required[0],
+      required: true,
+    })
+    const optionalFailed = reduce(firstReady, {
+      type: "asset.failed",
+      generation: event.generation,
+      assetId: event.optional[0],
+      required: false,
+    })
+
+    expect(loading.pending?.ready).toEqual([])
+    expect(firstReady.pending?.ready).toEqual([event.required[0]])
+    expect(Object.isFrozen(firstReady)).toBe(true)
+    expect(Object.isFrozen(firstReady.pending)).toBe(true)
+    expect(Object.isFrozen(firstReady.pending?.ready)).toBe(true)
+    expect(Object.isFrozen(optionalFailed)).toBe(true)
+    expect(Object.isFrozen(optionalFailed.pending?.failedOptional)).toBe(true)
+    expect(() => (optionalFailed.pending!.failedOptional as unknown as string[]).pop()).toThrow(TypeError)
+  })
+
   it("rejects duplicate, regressive, non-integer, and unknown crew requests", () => {
     const state = reduce(createFleetSkinSwitchState("watchtide"), request("ink-sail", 11))
     expect(reduce(state, request("brocade-harbor", 11))).toBe(state)

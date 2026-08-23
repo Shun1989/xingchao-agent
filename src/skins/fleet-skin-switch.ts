@@ -27,6 +27,7 @@ export interface FleetSkinSwitchPending {
   optional: readonly FleetSkinAssetId[]
   ready: readonly FleetSkinResourceId[]
   failedOptional: readonly FleetSkinAssetId[]
+  preloadIssued: boolean
 }
 
 export interface FleetSkinSwitchState {
@@ -104,12 +105,79 @@ function hasExactUniqueMembers<T extends string>(actual: readonly T[], expected:
   return actual.every((value) => expectedSet.has(value))
 }
 
-function withEffect(state: FleetSkinSwitchState, effect: FleetSkinSwitchEffect): FleetSkinSwitchState {
-  return {
-    ...state,
-    effect,
-    effectVersion: state.effectVersion + 1,
+function frozenArray<T>(values: readonly T[]): readonly T[] {
+  return Object.freeze([...values])
+}
+
+function isFrozenPending(pending: FleetSkinSwitchPending): boolean {
+  return (
+    Object.isFrozen(pending) &&
+    Object.isFrozen(pending.required) &&
+    Object.isFrozen(pending.optional) &&
+    Object.isFrozen(pending.ready) &&
+    Object.isFrozen(pending.failedOptional)
+  )
+}
+
+function freezePending(pending: FleetSkinSwitchPending): FleetSkinSwitchPending {
+  if (isFrozenPending(pending)) return pending
+  return Object.freeze({
+    ...pending,
+    required: frozenArray(pending.required),
+    optional: frozenArray(pending.optional),
+    ready: frozenArray(pending.ready),
+    failedOptional: frozenArray(pending.failedOptional),
+  })
+}
+
+function freezeEffect(effect: FleetSkinSwitchEffect): FleetSkinSwitchEffect {
+  if (effect.type !== "preload-resources") return Object.isFrozen(effect) ? effect : Object.freeze({ ...effect })
+  if (Object.isFrozen(effect) && Object.isFrozen(effect.required) && Object.isFrozen(effect.optional)) return effect
+  return Object.freeze({
+    ...effect,
+    required: frozenArray(effect.required),
+    optional: frozenArray(effect.optional),
+  })
+}
+
+function freezeState(state: FleetSkinSwitchState): FleetSkinSwitchState {
+  if (
+    Object.isFrozen(state) &&
+    (state.pending === null || isFrozenPending(state.pending)) &&
+    (state.effect === null ||
+      (Object.isFrozen(state.effect) &&
+        (state.effect.type !== "preload-resources" ||
+          (Object.isFrozen(state.effect.required) && Object.isFrozen(state.effect.optional))))) &&
+    Object.isFrozen(state.degradedOptional)
+  ) {
+    return state
   }
+  return Object.freeze({
+    ...state,
+    pending: state.pending === null ? null : freezePending(state.pending),
+    effect: state.effect === null ? null : freezeEffect(state.effect),
+    degradedOptional: frozenArray(state.degradedOptional),
+  })
+}
+
+function withEffect(state: FleetSkinSwitchState, effect: FleetSkinSwitchEffect): FleetSkinSwitchState {
+  return freezeState({
+    ...state,
+    effect: freezeEffect(effect),
+    effectVersion: state.effectVersion + 1,
+  })
+}
+
+function hasUnconsumedPersistence(state: FleetSkinSwitchState): boolean {
+  return state.effect?.type === "persist-crew"
+}
+
+function preservePersistenceOrEmit(
+  state: FleetSkinSwitchState,
+  nextState: FleetSkinSwitchState,
+  effect: FleetSkinSwitchEffect,
+): FleetSkinSwitchState {
+  return hasUnconsumedPersistence(state) ? freezeState(nextState) : withEffect(nextState, effect)
 }
 
 function reportRequestError(
@@ -117,16 +185,14 @@ function reportRequestError(
   generation: number,
   error: Exclude<FleetSkinSwitchError, "required-asset-failed">,
 ): FleetSkinSwitchState {
-  return withEffect(
-    {
-      ...state,
-      pending: null,
-      phase: "error",
-      error,
-      generation,
-    },
-    { type: "report-error", code: error },
-  )
+  const nextState = {
+    ...state,
+    pending: null,
+    phase: "error" as const,
+    error,
+    generation,
+  }
+  return preservePersistenceOrEmit(state, nextState, { type: "report-error", code: error })
 }
 
 function commitIfSettled(state: FleetSkinSwitchState): FleetSkinSwitchState {
@@ -175,22 +241,21 @@ function requestSwitch(state: FleetSkinSwitchState, event: FleetSkinSwitchReques
     optional,
     ready: [],
     failedOptional: [],
+    preloadIssued: !hasUnconsumedPersistence(state),
   }
-  return withEffect(
-    {
-      ...state,
-      pending,
-      phase: "loading",
-      error: null,
-      generation: event.generation,
-    },
-    {
-      type: "preload-resources",
-      generation: event.generation,
-      required,
-      optional,
-    },
-  )
+  const nextState = {
+    ...state,
+    pending,
+    phase: "loading" as const,
+    error: null,
+    generation: event.generation,
+  }
+  return preservePersistenceOrEmit(state, nextState, {
+    type: "preload-resources",
+    generation: event.generation,
+    required,
+    optional,
+  })
 }
 
 function resourceEvent(
@@ -211,15 +276,13 @@ function resourceEvent(
   if (ready.has(event.assetId) || failedOptional.has(event.assetId)) return state
 
   if (event.type === "asset.failed" && inRequired) {
-    return withEffect(
-      {
-        ...state,
-        pending: null,
-        phase: "error",
-        error: "required-asset-failed",
-      },
-      { type: "report-error", code: "required-asset-failed" },
-    )
+    const nextState = {
+      ...state,
+      pending: null,
+      phase: "error" as const,
+      error: "required-asset-failed" as const,
+    }
+    return preservePersistenceOrEmit(state, nextState, { type: "report-error", code: "required-asset-failed" })
   }
 
   const nextPending: FleetSkinSwitchPending =
@@ -227,7 +290,7 @@ function resourceEvent(
       ? { ...pending, ready: [...pending.ready, event.assetId as FleetSkinResourceId] }
       : { ...pending, failedOptional: [...pending.failedOptional, event.assetId as FleetSkinAssetId] }
 
-  return commitIfSettled({ ...state, pending: nextPending })
+  return commitIfSettled(freezeState({ ...state, pending: nextPending }))
 }
 
 export function committedCrewId(storedValue: unknown): BuiltinCrewId {
@@ -238,7 +301,7 @@ export function createFleetSkinSwitchState(storedValue?: unknown): FleetSkinSwit
   const crewId = committedCrewId(storedValue)
   const manifest = resolveFleetSkin(crewId)
   if (manifest === null) throw new Error("Built-in watchtide fleet skin is unavailable")
-  return {
+  return freezeState({
     committedCrewId: crewId,
     committedManifest: manifest,
     pending: null,
@@ -248,18 +311,18 @@ export function createFleetSkinSwitchState(storedValue?: unknown): FleetSkinSwit
     effectVersion: 0,
     generation: 0,
     degradedOptional: [],
-  }
+  })
 }
 
 export function beginFleetSkinSwitch(crewId: CrewId, generation: number): PreparedFleetSkinSwitchRequestEvent {
   const manifest = resolveFleetSkin(crewId)
-  return {
+  return Object.freeze({
     type: "request",
     crewId,
     generation,
-    required: manifest === null ? [] : canonicalRequiredResources(manifest),
-    optional: manifest === null ? [] : canonicalOptionalResources(manifest),
-  }
+    required: frozenArray(manifest === null ? [] : canonicalRequiredResources(manifest)),
+    optional: frozenArray(manifest === null ? [] : canonicalOptionalResources(manifest)),
+  })
 }
 
 export function fleetSkinSwitchReducer(state: FleetSkinSwitchState, event: FleetSkinSwitchEvent): FleetSkinSwitchState {
@@ -270,6 +333,22 @@ export function fleetSkinSwitchReducer(state: FleetSkinSwitchState, event: Fleet
     case "asset.failed":
       return resourceEvent(state, event)
     case "effect.consumed":
-      return event.version === state.effectVersion && state.effect !== null ? { ...state, effect: null } : state
+      if (event.version !== state.effectVersion || state.effect === null) return state
+      if (state.effect.type === "persist-crew" && state.pending !== null && !state.pending.preloadIssued) {
+        const pending = freezePending({ ...state.pending, preloadIssued: true })
+        return withEffect(
+          { ...state, pending },
+          {
+            type: "preload-resources",
+            generation: pending.generation,
+            required: pending.required,
+            optional: pending.optional,
+          },
+        )
+      }
+      if (state.effect.type === "persist-crew" && state.error !== null) {
+        return withEffect(state, { type: "report-error", code: state.error })
+      }
+      return freezeState({ ...state, effect: null })
   }
 }
