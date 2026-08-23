@@ -1,7 +1,12 @@
 import type { FleetSkinManifest } from "./fleet-skin-schema.ts"
 
 import { describe, expect, it } from "vitest"
-import { FLEET_SKIN_ASSET_IDS, requiredAssetIds, validateFleetSkinManifest } from "./fleet-skin-schema.ts"
+import {
+  FLEET_SKIN_ASSET_IDS,
+  fleetSkinManifestSchema,
+  requiredAssetIds,
+  validateFleetSkinManifest,
+} from "./fleet-skin-schema.ts"
 
 const systemFont = 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
 
@@ -234,6 +239,15 @@ describe("fleet skin closed contract", () => {
     const input = cloneManifest()
     input.scene.backdrop = "ink-sail.scene.backdrop" as FleetSkinManifest["scene"]["backdrop"]
     expect(() => validateFleetSkinManifest(input)).toThrow(/crew|asset/i)
+  })
+
+  it.each([
+    ["cross-crew", "ink-sail.scene.backdrop"],
+    ["wrong-role", "watchtide.scene.foreground"],
+  ])("keeps the public schema closed for %s asset bindings", (_label, backdrop) => {
+    const input = cloneManifest()
+    input.scene.backdrop = backdrop as FleetSkinManifest["scene"]["backdrop"]
+    expect(fleetSkinManifestSchema.safeParse(input).success).toBe(false)
   })
 
   it("requires both same-crew captain base and uniform layers", () => {

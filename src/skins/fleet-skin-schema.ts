@@ -310,79 +310,90 @@ const compositionSchema = z
     }
   })
 
-const manifestSchema = z.strictObject({
-  schemaVersion: z.literal(FLEET_SKIN_SCHEMA_VERSION),
-  identity: z.strictObject({
-    crewId: z.enum(BUILTIN_CREW_IDS),
-    name: safeTextSchema,
-    version: safeTextSchema,
-    description: safeTextSchema,
-    crest: assetIdSchema,
-  }),
-  palette: tokenSchema,
-  surfaces: z.strictObject({
-    sidebar: surfaceSchema,
-    titlebar: surfaceSchema,
-    content: surfaceSchema,
-    card: surfaceSchema,
-    dialog: surfaceSchema,
-    input: surfaceSchema,
-    overlay: surfaceSchema,
-  }),
-  typography: z.strictObject({
-    heading: fontSchema,
-    body: fontSchema,
-    numeric: fontSchema,
-    label: fontSchema,
-  }),
-  scene: z.strictObject({
-    backdrop: assetIdSchema,
-    foreground: assetIdSchema,
-    scrim: colorTokenSchema,
-    focalPoint: focalPointSchema,
-  }),
-  navigation: z.strictObject({
-    selectedShape: z.enum(["pill", "ticket", "frame", "underline"]),
-    divider: z.enum(["line", "notch", "nodes", "none"]),
-  }),
-  captain: z.strictObject({
-    layers: z.array(assetIdSchema).max(6),
-    stage: compositionSchema,
-    companion: compositionSchema,
-    compact: compositionSchema,
-    staticFallback: assetIdSchema,
-    motionStyle: z.enum([
-      "command",
-      "editorial",
-      "studio",
-      "engineering",
-      "precision",
-      "operations",
-      "tribunal",
-      "mentor",
-      "media",
-      "lifestyle",
-    ]),
-  }),
-  motion: z.strictObject({
-    switchMs: z.number().finite().int().min(250).max(450),
-    parallaxPx: z.number().finite().min(0).max(64),
-    particleDensity: z.number().finite().min(0).max(100),
-    feedbackMs: z.number().finite().int().min(0).max(2_000),
-  }),
-  audio: z.strictObject({
-    cue: z.enum(["bell", "paper", "glass", "relay", "scale", "stamp", "gavel", "beacon", "wave", "breeze"]),
-    ambient: z.literal("none"),
-  }),
-  accessibility: z.strictObject({
-    highContrast: tokenSchema,
-    reducedMotion: z.strictObject({
-      switchMs: z.literal(0),
-      parallaxPx: z.literal(0),
-      particleDensity: z.literal(0),
+const manifestSchema = z
+  .strictObject({
+    schemaVersion: z.literal(FLEET_SKIN_SCHEMA_VERSION),
+    identity: z.strictObject({
+      crewId: z.enum(BUILTIN_CREW_IDS),
+      name: safeTextSchema,
+      version: safeTextSchema,
+      description: safeTextSchema,
+      crest: assetIdSchema,
     }),
-  }),
-})
+    palette: tokenSchema,
+    surfaces: z.strictObject({
+      sidebar: surfaceSchema,
+      titlebar: surfaceSchema,
+      content: surfaceSchema,
+      card: surfaceSchema,
+      dialog: surfaceSchema,
+      input: surfaceSchema,
+      overlay: surfaceSchema,
+    }),
+    typography: z.strictObject({
+      heading: fontSchema,
+      body: fontSchema,
+      numeric: fontSchema,
+      label: fontSchema,
+    }),
+    scene: z.strictObject({
+      backdrop: assetIdSchema,
+      foreground: assetIdSchema,
+      scrim: colorTokenSchema,
+      focalPoint: focalPointSchema,
+    }),
+    navigation: z.strictObject({
+      selectedShape: z.enum(["pill", "ticket", "frame", "underline"]),
+      divider: z.enum(["line", "notch", "nodes", "none"]),
+    }),
+    captain: z.strictObject({
+      layers: z.array(assetIdSchema).max(6),
+      stage: compositionSchema,
+      companion: compositionSchema,
+      compact: compositionSchema,
+      staticFallback: assetIdSchema,
+      motionStyle: z.enum([
+        "command",
+        "editorial",
+        "studio",
+        "engineering",
+        "precision",
+        "operations",
+        "tribunal",
+        "mentor",
+        "media",
+        "lifestyle",
+      ]),
+    }),
+    motion: z.strictObject({
+      switchMs: z.number().finite().int().min(250).max(450),
+      parallaxPx: z.number().finite().min(0).max(64),
+      particleDensity: z.number().finite().min(0).max(100),
+      feedbackMs: z.number().finite().int().min(0).max(2_000),
+    }),
+    audio: z.strictObject({
+      cue: z.enum(["bell", "paper", "glass", "relay", "scale", "stamp", "gavel", "beacon", "wave", "breeze"]),
+      ambient: z.literal("none"),
+    }),
+    accessibility: z.strictObject({
+      highContrast: tokenSchema,
+      reducedMotion: z.strictObject({
+        switchMs: z.literal(0),
+        parallaxPx: z.literal(0),
+        particleDensity: z.literal(0),
+      }),
+    }),
+  })
+  .superRefine((manifest, context) => {
+    try {
+      assertManifestBindings(manifest as unknown as FleetSkinManifest)
+    } catch (error) {
+      context.addIssue({
+        code: "custom",
+        message: error instanceof Error ? error.message : "Invalid fleet skin asset binding",
+      })
+    }
+  })
 
 export const fleetSkinManifestSchema = manifestSchema
 
@@ -444,9 +455,7 @@ function assertManifestBindings(manifest: FleetSkinManifest): void {
 export function validateFleetSkinManifest(input: unknown): FleetSkinManifest {
   const result = manifestSchema.safeParse(input)
   if (!result.success) throw result.error
-  const manifest = result.data as FleetSkinManifest
-  assertManifestBindings(manifest)
-  return manifest
+  return result.data as FleetSkinManifest
 }
 
 export function requiredAssetIds(manifest: FleetSkinManifest): FleetSkinAssetId[] {
