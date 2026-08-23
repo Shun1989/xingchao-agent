@@ -30,8 +30,18 @@ export type CaptainEventType =
   | "event.dismissed"
 
 export type CaptainEventSource = "route" | "chat" | "task" | "tool" | "permission" | "speech" | "legacy"
-export type CaptainCaptionKey = `captain.${string}`
-export type CaptainCaptionPrimitive = string | number | boolean | null
+export const CAPTAIN_CAPTION_KEYS = Object.freeze([
+  "captain.idle",
+  "captain.listening",
+  "captain.thinking",
+  "captain.executing",
+  "captain.reporting",
+  "captain.success",
+  "captain.warning",
+  "captain.failure",
+] as const)
+export type CaptainCaptionKey = (typeof CAPTAIN_CAPTION_KEYS)[number]
+export type CaptainCaptionPrimitive = number | boolean
 export type CaptainCaptionParams = Readonly<Record<string, CaptainCaptionPrimitive>>
 
 /**
@@ -63,6 +73,8 @@ export interface CaptainSnapshot {
 export interface CaptainReducerState {
   readonly activeEvents: Readonly<Record<string, CaptainEvent>>
   readonly latestSequenceByStream: Readonly<Record<string, number>>
+  /** Session-lifetime tombstones. Lifecycle IDs are globally unique and never reused after retirement. */
+  readonly retiredEventIds: Readonly<Record<string, number>>
   readonly snapshot: CaptainSnapshot
   readonly now: number
 }

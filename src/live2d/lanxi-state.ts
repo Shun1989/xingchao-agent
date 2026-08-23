@@ -43,7 +43,7 @@ export class LanxiStateController {
       sequence: this.sequence,
       startedAt: this.sequence,
       expiresAt: null,
-      captionKey: `captain.state.${state}`,
+      captionKey: `captain.${state}`,
       captionParams: { mouthLevel },
     })
     return this.current()
@@ -61,7 +61,7 @@ export class LanxiStateController {
       sequence: this.sequence,
       startedAt: this.sequence,
       expiresAt: null,
-      captionKey: "captain.state.reporting",
+      captionKey: "captain.reporting",
       captionParams: { mouthLevel: normalized },
     })
     return this.current()

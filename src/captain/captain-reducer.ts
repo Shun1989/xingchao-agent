@@ -11,6 +11,8 @@ import type {
   CaptainState,
 } from "./captain-types.ts"
 
+import { CAPTAIN_CAPTION_KEYS } from "./captain-types.ts"
+
 const CAPTAIN_EVENT_TYPES = new Set<CaptainEventType>([
   "captain.idle",
   "input.listening",
@@ -37,6 +39,8 @@ const CAPTAIN_EVENT_SOURCES = new Set<CaptainEventSource>([
   "speech",
   "legacy",
 ])
+
+const CAPTAIN_CAPTION_KEY_SET = new Set<CaptainCaptionKey>(CAPTAIN_CAPTION_KEYS)
 
 const TERMINAL_EVENT_TYPES = new Set<CaptainEventType>([
   "task.cancelled",
@@ -82,6 +86,14 @@ export const captainExpressionByState: Readonly<Record<CaptainState, CaptainExpr
 
 const emptyCaptionParams: CaptainCaptionParams = Object.freeze({})
 
+function emptyRecord<T>(): Record<string, T> {
+  return Object.create(null) as Record<string, T>
+}
+
+function cloneRecord<T>(source: Readonly<Record<string, T>>): Record<string, T> {
+  return Object.assign(emptyRecord<T>(), source)
+}
+
 function hasUnsafeControlCharacter(value: string): boolean {
   for (let index = 0; index < value.length; index += 1) {
     const code = value.charCodeAt(index)
@@ -95,13 +107,11 @@ function isSafeIdentifier(value: unknown): value is string {
 }
 
 function isCaptionKey(value: unknown): value is CaptainCaptionKey {
-  return typeof value === "string" && value.length <= 160 && /^captain(?:\.[A-Za-z0-9_-]+)+$/u.test(value)
+  return typeof value === "string" && CAPTAIN_CAPTION_KEY_SET.has(value as CaptainCaptionKey)
 }
 
 function isCaptionPrimitive(value: unknown): value is CaptainCaptionPrimitive {
-  if (value === null || typeof value === "boolean") return true
-  if (typeof value === "number") return Number.isFinite(value)
-  return typeof value === "string" && value.length <= 256 && !hasUnsafeControlCharacter(value)
+  return typeof value === "boolean" || (typeof value === "number" && Number.isFinite(value))
 }
 
 function sanitizeCaptionParams(value: unknown): CaptainCaptionParams {
@@ -188,7 +198,7 @@ function snapshotFor(activeEvents: Readonly<Record<string, CaptainEvent>>): Capt
     return Object.freeze({
       state: "idle",
       expression: captainExpressionByState.idle,
-      captionKey: "captain.state.idle",
+      captionKey: "captain.idle",
       captionParams: emptyCaptionParams,
       mouthLevel: 0,
       activeEventId: null,
@@ -211,57 +221,97 @@ function snapshotFor(activeEvents: Readonly<Record<string, CaptainEvent>>): Capt
 function freezeState(
   activeEvents: Record<string, CaptainEvent>,
   latestSequenceByStream: Record<string, number>,
+  retiredEventIds: Record<string, number>,
   now: number,
 ): CaptainReducerState {
   const frozenEvents = Object.freeze(activeEvents)
   return Object.freeze({
     activeEvents: frozenEvents,
     latestSequenceByStream: Object.freeze(latestSequenceByStream),
+    retiredEventIds: Object.freeze(retiredEventIds),
     snapshot: snapshotFor(frozenEvents),
     now,
   })
 }
 
-function unexpiredEvents(
+interface ExpiryResult {
+  activeEvents: Record<string, CaptainEvent>
+  retiredEventIds: Record<string, number>
+  changed: boolean
+}
+
+function retireExpiredEvents(
   activeEvents: Readonly<Record<string, CaptainEvent>>,
+  retiredEventIds: Readonly<Record<string, number>>,
   now: number,
-): Record<string, CaptainEvent> {
-  return Object.fromEntries(
-    Object.entries(activeEvents).filter(([, event]) => event.expiresAt === null || event.expiresAt > now),
-  )
+): ExpiryResult {
+  const nextActive = emptyRecord<CaptainEvent>()
+  const nextRetired = cloneRecord(retiredEventIds)
+  let changed = false
+  for (const [id, event] of Object.entries(activeEvents)) {
+    if (event.expiresAt === null || event.expiresAt > now) {
+      nextActive[id] = event
+      continue
+    }
+    changed = true
+    if (!Object.hasOwn(nextRetired, id)) nextRetired[id] = event.sequence
+  }
+  return { activeEvents: nextActive, retiredEventIds: nextRetired, changed }
 }
 
 export function createCaptainState(now = 0): CaptainReducerState {
   const safeNow = Number.isFinite(now) ? now : 0
-  return freezeState({}, {}, safeNow)
+  return freezeState(emptyRecord<CaptainEvent>(), emptyRecord<number>(), emptyRecord<number>(), safeNow)
 }
 
 export function captainReducer(state: CaptainReducerState, input: CaptainEvent): CaptainReducerState {
   const event = sanitizeEvent(input)
   if (event === null) return state
+  if (Object.hasOwn(state.retiredEventIds, event.id)) return state
 
-  const existing = state.activeEvents[event.id]
+  const existing = Object.hasOwn(state.activeEvents, event.id) ? state.activeEvents[event.id] : undefined
   if (existing !== undefined && !sameStream(existing, event)) return state
 
   const stream = streamId(event)
-  const latestSequence = state.latestSequenceByStream[stream]
+  const latestSequence = Object.hasOwn(state.latestSequenceByStream, stream)
+    ? state.latestSequenceByStream[stream]
+    : undefined
   if (latestSequence !== undefined && event.sequence <= latestSequence) return state
 
   const now = Math.max(state.now, event.startedAt)
-  const activeEvents = unexpiredEvents(state.activeEvents, now)
-  const latestSequenceByStream = { ...state.latestSequenceByStream, [stream]: event.sequence }
-
-  if (TERMINAL_EVENT_TYPES.has(event.type)) {
-    const target = activeEvents[event.id]
-    if (target !== undefined && sameStream(target, event)) delete activeEvents[event.id]
-  } else if (event.expiresAt === null || event.expiresAt > now) {
-    activeEvents[event.id] = event
+  const expiry = retireExpiredEvents(state.activeEvents, state.retiredEventIds, now)
+  const activeEvents = expiry.activeEvents
+  const retiredEventIds = expiry.retiredEventIds
+  if (Object.hasOwn(retiredEventIds, event.id)) {
+    return freezeState(activeEvents, cloneRecord(state.latestSequenceByStream), retiredEventIds, now)
   }
 
-  return freezeState(activeEvents, latestSequenceByStream, now)
+  if (TERMINAL_EVENT_TYPES.has(event.type)) {
+    const target = Object.hasOwn(activeEvents, event.id) ? activeEvents[event.id] : undefined
+    if (target === undefined || !sameStream(target, event)) {
+      return expiry.changed || now !== state.now
+        ? freezeState(activeEvents, cloneRecord(state.latestSequenceByStream), retiredEventIds, now)
+        : state
+    }
+  }
+
+  const latestSequenceByStream = cloneRecord(state.latestSequenceByStream)
+  latestSequenceByStream[stream] = event.sequence
+
+  if (TERMINAL_EVENT_TYPES.has(event.type)) {
+    delete activeEvents[event.id]
+    retiredEventIds[event.id] = event.sequence
+  } else if (event.expiresAt === null || event.expiresAt > now) {
+    activeEvents[event.id] = event
+  } else {
+    retiredEventIds[event.id] = event.sequence
+  }
+
+  return freezeState(activeEvents, latestSequenceByStream, retiredEventIds, now)
 }
 
 export function tickCaptainState(state: CaptainReducerState, now: number): CaptainReducerState {
   if (!Number.isFinite(now) || now <= state.now) return state
-  return freezeState(unexpiredEvents(state.activeEvents, now), { ...state.latestSequenceByStream }, now)
+  const expiry = retireExpiredEvents(state.activeEvents, state.retiredEventIds, now)
+  return freezeState(expiry.activeEvents, cloneRecord(state.latestSequenceByStream), expiry.retiredEventIds, now)
 }
