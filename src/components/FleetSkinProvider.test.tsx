@@ -304,7 +304,7 @@ describe("FleetSkinProvider", () => {
     })
     const { host } = await renderProvider({ loadAsset })
 
-    expect(text(host, "active")).toBe("phantom-wave")
+    expect(text(host, "active")).toBe("watchtide")
     expect(text(host, "skin")).toBe("none")
     expect(text(host, "phase")).toBe("loading")
     expect(document.documentElement.dataset.fleetSkin).toBe("previous-shell")
@@ -327,6 +327,7 @@ describe("FleetSkinProvider", () => {
     observer.observe(document.documentElement, { attributes: true, attributeFilter: ["style", "data-fleet-skin"] })
     await act(async () => loads.get(required.at(-1)!)!.resolve())
     observer.disconnect()
+    expect(text(host, "active")).toBe("phantom-wave")
     expect(text(host, "skin")).toBe("phantom-wave")
     expect(document.documentElement.dataset.fleetSkin).toBe("phantom-wave")
     expect(new Set(committedSnapshots)).toEqual(new Set(["phantom-wave:#7257D8"]))
@@ -362,6 +363,115 @@ describe("FleetSkinProvider", () => {
     }
     expect(document.documentElement.dataset.fleetSkin).toBe("phantom-wave")
     expect(localStorage.getItem(activeCrewStorageKey)).toBe("phantom-wave")
+  })
+
+  it("replaces boot target A with built-in B and releases the gate only when B commits", async () => {
+    localStorage.setItem(activeCrewStorageKey, "phantom-wave")
+    document.documentElement.dataset.fleetSkin = "previous-shell"
+    const loads = new Map<string, Deferred>()
+    const { host } = await renderProvider({
+      loadAsset: (url) => {
+        const load = deferred()
+        loads.set(url, load)
+        return load.promise
+      },
+    })
+
+    expect(text(host, "active")).toBe("watchtide")
+    expect(text(host, "pending")).toBe("phantom-wave")
+    await click(host, "forge")
+    expect(text(host, "active")).toBe("watchtide")
+    expect(text(host, "skin")).toBe("none")
+    expect(text(host, "pending")).toBe("forge-vessel")
+
+    await act(async () => loads.get(fleetSkinAssetUrl("phantom-wave.scene.foreground"))!.resolve())
+    for (const url of requiredAssetUrls("phantom-wave")) await act(async () => loads.get(url)!.resolve())
+    expect(document.documentElement.dataset.fleetSkin).toBe("previous-shell")
+
+    await act(async () => loads.get(fleetSkinAssetUrl("forge-vessel.scene.foreground"))!.resolve())
+    for (const url of requiredAssetUrls("forge-vessel")) await act(async () => loads.get(url)!.resolve())
+
+    expect(text(host, "active")).toBe("forge-vessel")
+    expect(text(host, "skin")).toBe("forge-vessel")
+    expect(document.documentElement.dataset.fleetSkin).toBe("forge-vessel")
+    expect(localStorage.getItem(activeCrewStorageKey)).toBe("forge-vessel")
+  })
+
+  it("keeps the fallback behind failed replacement B and retries B instead of boot target A", async () => {
+    localStorage.setItem(activeCrewStorageKey, "phantom-wave")
+    document.documentElement.dataset.fleetSkin = "previous-shell"
+    const attempts = new Map<string, Deferred[]>()
+    const { host } = await renderProvider({
+      loadAsset: (url) => {
+        const load = deferred()
+        attempts.set(url, [...(attempts.get(url) ?? []), load])
+        return load.promise
+      },
+    })
+
+    await click(host, "forge")
+    const forgeBackdrop = fleetSkinAssetUrl("forge-vessel.scene.backdrop")
+    await act(async () => attempts.get(forgeBackdrop)!.at(-1)!.reject(new Error("replacement failed")))
+
+    expect(text(host, "active")).toBe("watchtide")
+    expect(text(host, "skin")).toBe("none")
+    expect(text(host, "phase")).toBe("error")
+    expect(text(host, "error")).toContain("皮肤资源加载失败")
+    expect(document.documentElement.dataset.fleetSkin).toBe("previous-shell")
+    expect(localStorage.getItem(activeCrewStorageKey)).toBe("phantom-wave")
+
+    await click(host, "retry")
+    await act(async () => attempts.get(fleetSkinAssetUrl("forge-vessel.scene.foreground"))!.at(-1)!.resolve())
+    for (const url of requiredAssetUrls("forge-vessel")) {
+      await act(async () => attempts.get(url)!.at(-1)!.resolve())
+    }
+
+    expect(text(host, "active")).toBe("forge-vessel")
+    expect(document.documentElement.dataset.fleetSkin).toBe("forge-vessel")
+    expect(localStorage.getItem(activeCrewStorageKey)).toBe("forge-vessel")
+  })
+
+  it("cancels built-in boot for an imported crew and ignores every late boot completion", async () => {
+    localStorage.setItem(activeCrewStorageKey, "phantom-wave")
+    document.documentElement.dataset.fleetSkin = "previous-shell"
+    const loads = new Map<string, Deferred>()
+    const loadAsset = vi.fn((url: string) => {
+      const load = deferred()
+      loads.set(url, load)
+      return load.promise
+    })
+    const { host } = await renderProvider({ runtimeFleet: importedRuntimeFleetContext(), loadAsset })
+
+    expect(text(host, "active")).toBe("watchtide")
+    expect(text(host, "pending")).toBe("phantom-wave")
+    await click(host, "imported")
+
+    expect(text(host, "active")).toBe("aurora-pack--watchtide")
+    expect(text(host, "skin")).toBe("none")
+    expect(text(host, "pending")).toBe("none")
+    expect(text(host, "error")).toBe("none")
+    expect(document.documentElement.dataset.fleetSkin).toBe("legacy-imported")
+    expect(document.documentElement.style.getPropertyValue("--xingchao-primary")).toBe("#123456")
+    expect(localStorage.getItem(activeCrewStorageKey)).toBe("aurora-pack--watchtide")
+    expect(loadAsset.mock.calls.every(([url]) => String(url).includes("/phantom-wave/"))).toBe(true)
+
+    await act(async () => loads.get(fleetSkinAssetUrl("phantom-wave.scene.foreground"))!.resolve())
+    for (const url of requiredAssetUrls("phantom-wave")) await act(async () => loads.get(url)!.resolve())
+
+    expect(text(host, "active")).toBe("aurora-pack--watchtide")
+    expect(document.documentElement.dataset.fleetSkin).toBe("legacy-imported")
+    expect(localStorage.getItem(activeCrewStorageKey)).toBe("aurora-pack--watchtide")
+
+    await click(host, "forge")
+    expect(text(host, "active")).toBe("aurora-pack--watchtide")
+    expect(text(host, "pending")).toBe("forge-vessel")
+    await act(async () => loads.get(fleetSkinAssetUrl("forge-vessel.scene.foreground"))!.resolve())
+    for (const url of requiredAssetUrls("forge-vessel")) await act(async () => loads.get(url)!.resolve())
+
+    expect(text(host, "active")).toBe("forge-vessel")
+    expect(text(host, "error")).toBe("none")
+    expect(document.documentElement.dataset.fleetSkin).toBe("forge-vessel")
+    expect(localStorage.getItem(activeCrewStorageKey)).toBe("forge-vessel")
   })
 
   it("recovers corrupted persisted selection to watchtide and removes the bad value", async () => {

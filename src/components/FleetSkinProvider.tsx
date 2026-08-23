@@ -1,4 +1,4 @@
-import type { CrewId } from "@/domain/xingchao/types.ts"
+import type { BuiltinCrewId, CrewId } from "@/domain/xingchao/types.ts"
 import type { FleetSkinAssetId, FleetSkinTokens } from "@/skins/fleet-skin-schema.ts"
 import type { FleetSkinResourceId } from "@/skins/fleet-skin-switch.ts"
 import type { ReadonlyFleetSkinManifest } from "@/skins/fleet-skins.ts"
@@ -19,6 +19,11 @@ export type FleetSkinAssetLoader = (url: string) => Promise<void>
 export interface FleetSkinProviderProps {
   children: React.ReactNode
   loadAsset?: FleetSkinAssetLoader
+}
+
+interface FleetSkinBootGate {
+  crewId: BuiltinCrewId
+  generation: number | null
 }
 
 function defaultLoadAsset(url: string): Promise<void> {
@@ -169,8 +174,10 @@ export function FleetSkinProvider({ children, loadAsset = defaultLoadAsset }: Fl
   )
   const initialStoredValue = initialStoredValueRef.current
   const [switchState, dispatch] = React.useReducer(fleetSkinSwitchReducer, undefined, createFleetSkinSwitchState)
-  const [bootTargetCrewId, setBootTargetCrewId] = React.useState<CrewId | null>(() =>
-    initialStoredValue && isBuiltinFleetSkinId(initialStoredValue) ? initialStoredValue : null,
+  const [bootGate, setBootGate] = React.useState<FleetSkinBootGate | null>(() =>
+    initialStoredValue && isBuiltinFleetSkinId(initialStoredValue)
+      ? { crewId: initialStoredValue, generation: null }
+      : null,
   )
   const [importedCrewId, setImportedCrewId] = React.useState<CrewId | null>(() => {
     if (!initialStoredValue || isBuiltinFleetSkinId(initialStoredValue)) return null
@@ -180,7 +187,8 @@ export function FleetSkinProvider({ children, loadAsset = defaultLoadAsset }: Fl
   const lastRequestedCrewIdRef = React.useRef<CrewId | null>(null)
   const resourcePromisesRef = React.useRef(new Map<FleetSkinResourceId, Promise<void>>())
   const mountedRef = React.useRef(true)
-  const bootRequestIssuedRef = React.useRef(false)
+  const bootGateRef = React.useRef(bootGate)
+  bootGateRef.current = bootGate
 
   React.useEffect(() => {
     mountedRef.current = true
@@ -216,8 +224,21 @@ export function FleetSkinProvider({ children, loadAsset = defaultLoadAsset }: Fl
       if (!runtimeFleet.index.crewById.has(crewId)) return
       const generation = ++generationRef.current
       lastRequestedCrewIdRef.current = crewId
-      if (!isBuiltinFleetSkinId(crewId)) setImportedCrewId(crewId)
-      dispatch(beginFleetSkinSwitch(crewId, generation))
+      const currentBootGate = bootGateRef.current
+      if (isBuiltinFleetSkinId(crewId)) {
+        if (currentBootGate !== null) {
+          const nextBootGate = { crewId, generation }
+          bootGateRef.current = nextBootGate
+          setBootGate(nextBootGate)
+        }
+        dispatch(beginFleetSkinSwitch(crewId, generation))
+      } else {
+        if (currentBootGate !== null) {
+          bootGateRef.current = null
+          setBootGate(null)
+        }
+        setImportedCrewId(crewId)
+      }
     },
     [runtimeFleet.index],
   )
@@ -239,10 +260,9 @@ export function FleetSkinProvider({ children, loadAsset = defaultLoadAsset }: Fl
   }, [requestCrew])
 
   React.useEffect(() => {
-    if (bootTargetCrewId === null || bootRequestIssuedRef.current) return
-    bootRequestIssuedRef.current = true
-    requestCrew(bootTargetCrewId)
-  }, [bootTargetCrewId, requestCrew])
+    if (bootGate === null || bootGate.generation !== null) return
+    requestCrew(bootGate.crewId)
+  }, [bootGate, requestCrew])
 
   React.useEffect(() => {
     if (runtimeFleet.status === "loading") return
@@ -272,15 +292,19 @@ export function FleetSkinProvider({ children, loadAsset = defaultLoadAsset }: Fl
     const version = switchState.effectVersion
 
     if (effect.type === "preload-resources") {
+      if (effect.generation !== generationRef.current) {
+        dispatch({ type: "effect.consumed", version })
+        return
+      }
       for (const resourceId of effect.optional) {
         void loadResource(resourceId).then(
           () => {
-            if (mountedRef.current) {
+            if (mountedRef.current && effect.generation === generationRef.current) {
               dispatch({ type: "asset.ready", generation: effect.generation, assetId: resourceId, required: false })
             }
           },
           () => {
-            if (mountedRef.current) {
+            if (mountedRef.current && effect.generation === generationRef.current) {
               dispatch({ type: "asset.failed", generation: effect.generation, assetId: resourceId, required: false })
             }
           },
@@ -289,12 +313,12 @@ export function FleetSkinProvider({ children, loadAsset = defaultLoadAsset }: Fl
       for (const resourceId of effect.required) {
         void loadResource(resourceId).then(
           () => {
-            if (mountedRef.current) {
+            if (mountedRef.current && effect.generation === generationRef.current) {
               dispatch({ type: "asset.ready", generation: effect.generation, assetId: resourceId, required: true })
             }
           },
           () => {
-            if (mountedRef.current) {
+            if (mountedRef.current && effect.generation === generationRef.current) {
               dispatch({ type: "asset.failed", generation: effect.generation, assetId: resourceId, required: true })
             }
           },
@@ -303,17 +327,26 @@ export function FleetSkinProvider({ children, loadAsset = defaultLoadAsset }: Fl
     } else if (effect.type === "persist-crew" && isBuiltinFleetSkinId(lastRequestedCrewIdRef.current ?? "")) {
       globalThis.localStorage?.setItem(activeCrewStorageKey, effect.crewId)
       setImportedCrewId(null)
-      if (bootTargetCrewId === effect.crewId) setBootTargetCrewId(null)
+      if (bootGate !== null && bootGate.crewId === effect.crewId && bootGate.generation === switchState.generation) {
+        bootGateRef.current = null
+        setBootGate(null)
+      }
     }
     dispatch({ type: "effect.consumed", version })
-  }, [bootTargetCrewId, loadResource, switchState.effect, switchState.effectVersion])
+  }, [bootGate, loadResource, switchState.effect, switchState.effectVersion, switchState.generation])
 
   const builtInJustCommitted = switchState.phase === "committed" && switchState.effect?.type === "persist-crew"
   const bootJustCommitted =
-    bootTargetCrewId !== null && builtInJustCommitted && switchState.committedCrewId === bootTargetCrewId
-  const bootWaiting = bootTargetCrewId !== null && !bootJustCommitted
+    bootGate !== null &&
+    bootGate.generation !== null &&
+    builtInJustCommitted &&
+    switchState.generation === bootGate.generation &&
+    switchState.committedCrewId === bootGate.crewId &&
+    switchState.effect?.type === "persist-crew" &&
+    switchState.effect.crewId === bootGate.crewId
+  const bootWaiting = bootGate !== null && !bootJustCommitted
   const activeCrewId = bootWaiting
-    ? bootTargetCrewId
+    ? switchState.committedCrewId
     : builtInJustCommitted
       ? switchState.committedCrewId
       : (importedCrewId ?? switchState.committedCrewId)
@@ -324,7 +357,10 @@ export function FleetSkinProvider({ children, loadAsset = defaultLoadAsset }: Fl
     ? (runtimeFleet.index.themeById.get(activeImportedCrew.themeId) ?? null)
     : null
   const importedSelectionSettled =
-    skin === null && switchState.error === "unknown-crew" && lastRequestedCrewIdRef.current === importedCrewId
+    skin === null &&
+    importedCrewId !== null &&
+    lastRequestedCrewIdRef.current === importedCrewId &&
+    !isBuiltinFleetSkinId(importedCrewId)
 
   React.useLayoutEffect(() => {
     const root = document.documentElement
@@ -348,15 +384,18 @@ export function FleetSkinProvider({ children, loadAsset = defaultLoadAsset }: Fl
         : bootWaiting && switchState.phase === "idle"
           ? ("loading" as const)
           : switchState.phase,
-      pendingCrewId:
-        bootWaiting && switchState.phase === "idle" ? bootTargetCrewId : (switchState.pending?.crewId ?? null),
+      pendingCrewId: importedSelectionSettled
+        ? null
+        : bootWaiting && switchState.phase === "idle"
+          ? bootGate.crewId
+          : (switchState.pending?.crewId ?? null),
       error: importedSelectionSettled ? null : errorMessage(switchState.error),
       retry,
       preloadCrew,
     }),
     [
       activeCrewId,
-      bootTargetCrewId,
+      bootGate,
       bootWaiting,
       importedSelectionSettled,
       preloadCrew,

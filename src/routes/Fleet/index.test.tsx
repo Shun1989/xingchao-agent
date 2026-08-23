@@ -184,4 +184,15 @@ describe("FleetHarborRoute", () => {
     await act(async () => retryButton!.click())
     expect(actions.retry).toHaveBeenCalledOnce()
   })
+
+  it("keeps the committed fallback selected while the stored boot target is pending", async () => {
+    const { host } = await renderFleet(builtinRuntimeFleetContext, { pendingCrewId: "phantom-wave" })
+    const fallbackCard = host.querySelector('[data-crew-id="watchtide"]')!
+    const pendingCard = host.querySelector('[data-crew-id="phantom-wave"]')!
+
+    expect(fallbackCard.classList.contains("is-active")).toBe(true)
+    expect(pendingCard.classList.contains("is-active")).toBe(false)
+    expect(pendingCard.textContent).toContain("切换中")
+    expect(fallbackCard.textContent).not.toContain("切换中")
+  })
 })

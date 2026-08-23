@@ -9,6 +9,7 @@ import { createRoot } from "react-dom/client"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { storageKey } from "../../electron/branding.ts"
 import { FleetSkinContext } from "./fleet-skin-context.ts"
+import { useFleetSkin } from "./fleet-skin-context.ts"
 import { FleetSkinProvider } from "./FleetSkinProvider.tsx"
 import { RuntimeFleetContext } from "./runtime-fleet-context.ts"
 import { useXingchaoTheme } from "./xingchao-theme-context.ts"
@@ -44,6 +45,17 @@ function importedRuntimeFleetContext(packId: string): RuntimeFleetContextValue {
 function Probe() {
   const theme = useXingchaoTheme()
   return <button onClick={() => theme.setActiveCrewId("aurora-pack--watchtide")}>{theme.activeCrewId}</button>
+}
+
+function BootAdapterProbe() {
+  const fleetSkin = useFleetSkin()
+  const theme = useXingchaoTheme()
+  return (
+    <output data-testid="boot-adapter">
+      {fleetSkin.activeCrewId}:{theme.activeCrewId}:{theme.theme.id}:{fleetSkin.pendingCrewId ?? "none"}:
+      {fleetSkin.skin?.identity.crewId ?? "none"}
+    </output>
+  )
 }
 
 async function renderThemeProbe(contextValue: RuntimeFleetContextValue) {
@@ -82,6 +94,45 @@ afterEach(() => {
 })
 
 describe("XingchaoThemeProvider", () => {
+  it("keeps the adapter on the committed fallback until the stored skin transaction commits", async () => {
+    localStorage.setItem(storageKey("activeCrew"), "phantom-wave")
+    document.documentElement.dataset.fleetSkin = "previous-shell"
+    document.documentElement.style.setProperty("--xingchao-primary", "#abcdef")
+    const resolvers: Array<() => void> = []
+    const host = document.createElement("div")
+    const root = createRoot(host)
+    roots.push(root)
+
+    await act(async () => {
+      root.render(
+        <RuntimeFleetContext.Provider value={builtinRuntimeFleetContext}>
+          <FleetSkinProvider
+            loadAsset={() =>
+              new Promise<void>((resolve) => {
+                resolvers.push(resolve)
+              })
+            }
+          >
+            <XingchaoThemeProvider>
+              <BootAdapterProbe />
+            </XingchaoThemeProvider>
+          </FleetSkinProvider>
+        </RuntimeFleetContext.Provider>,
+      )
+    })
+
+    expect(host.textContent).toBe("watchtide:watchtide:watchtide:phantom-wave:none")
+    expect(document.documentElement.dataset.fleetSkin).toBe("previous-shell")
+    expect(document.documentElement.style.getPropertyValue("--xingchao-primary")).toBe("#abcdef")
+
+    await act(async () => {
+      for (const resolve of resolvers) resolve()
+    })
+
+    expect(host.textContent).toBe("phantom-wave:phantom-wave:phantom-wave:none:phantom-wave")
+    expect(document.documentElement.dataset.fleetSkin).toBe("phantom-wave")
+  })
+
   it("adapts the fleet skin authority without owning selection, storage, or root mutation", async () => {
     const runtimeFleet = importedRuntimeFleetContext("aurora-pack")
     const requestCrew = vi.fn()
