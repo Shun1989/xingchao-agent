@@ -219,20 +219,26 @@ export function FleetSkinProvider({ children, loadAsset = defaultLoadAsset }: Fl
     [loadAsset],
   )
 
+  const requestBuiltInCrew = React.useCallback((crewId: BuiltinCrewId, gated: boolean) => {
+    const generation = ++generationRef.current
+    lastRequestedCrewIdRef.current = crewId
+    if (gated) {
+      const nextBootGate = { crewId, generation }
+      bootGateRef.current = nextBootGate
+      setBootGate(nextBootGate)
+    }
+    dispatch(beginFleetSkinSwitch(crewId, generation))
+  }, [])
+
   const requestCrew = React.useCallback(
     (crewId: CrewId) => {
       if (!runtimeFleet.index.crewById.has(crewId)) return
-      const generation = ++generationRef.current
-      lastRequestedCrewIdRef.current = crewId
       const currentBootGate = bootGateRef.current
       if (isBuiltinFleetSkinId(crewId)) {
-        if (currentBootGate !== null) {
-          const nextBootGate = { crewId, generation }
-          bootGateRef.current = nextBootGate
-          setBootGate(nextBootGate)
-        }
-        dispatch(beginFleetSkinSwitch(crewId, generation))
+        requestBuiltInCrew(crewId, currentBootGate !== null)
       } else {
+        generationRef.current += 1
+        lastRequestedCrewIdRef.current = crewId
         if (currentBootGate !== null) {
           bootGateRef.current = null
           setBootGate(null)
@@ -240,7 +246,7 @@ export function FleetSkinProvider({ children, loadAsset = defaultLoadAsset }: Fl
         setImportedCrewId(crewId)
       }
     },
-    [runtimeFleet.index],
+    [requestBuiltInCrew, runtimeFleet.index],
   )
 
   const preloadCrew = React.useCallback(
@@ -269,22 +275,29 @@ export function FleetSkinProvider({ children, loadAsset = defaultLoadAsset }: Fl
     const storedValue = initialStoredValueRef.current
     if (!storedValue || isBuiltinFleetSkinId(storedValue)) return
     if (runtimeFleet.index.crewById.has(storedValue)) {
+      initialStoredValueRef.current = null
       setImportedCrewId(storedValue)
     } else {
+      if (importedCrewId === storedValue) return
       if (globalThis.localStorage?.getItem(activeCrewStorageKey) === storedValue) {
         globalThis.localStorage.removeItem(activeCrewStorageKey)
       }
       initialStoredValueRef.current = null
     }
-  }, [runtimeFleet.index, runtimeFleet.status])
+  }, [importedCrewId, runtimeFleet.index, runtimeFleet.status])
 
   React.useEffect(() => {
     if (importedCrewId === null || runtimeFleet.index.crewById.has(importedCrewId)) return
+    const fallbackCrewId = switchState.committedCrewId
     setImportedCrewId(null)
-    if (globalThis.localStorage?.getItem(activeCrewStorageKey) === importedCrewId) {
-      globalThis.localStorage.removeItem(activeCrewStorageKey)
-    }
-  }, [importedCrewId, runtimeFleet.index, runtimeFleet.snapshot.revision])
+    requestBuiltInCrew(fallbackCrewId, true)
+  }, [
+    importedCrewId,
+    requestBuiltInCrew,
+    runtimeFleet.index,
+    runtimeFleet.snapshot.revision,
+    switchState.committedCrewId,
+  ])
 
   React.useEffect(() => {
     const effect = switchState.effect
@@ -383,7 +396,9 @@ export function FleetSkinProvider({ children, loadAsset = defaultLoadAsset }: Fl
         ? ("idle" as const)
         : bootWaiting && switchState.phase === "idle"
           ? ("loading" as const)
-          : switchState.phase,
+          : switchState.phase === "committed" && switchState.effect === null
+            ? ("idle" as const)
+            : switchState.phase,
       pendingCrewId: importedSelectionSettled
         ? null
         : bootWaiting && switchState.phase === "idle"
@@ -403,6 +418,7 @@ export function FleetSkinProvider({ children, loadAsset = defaultLoadAsset }: Fl
       retry,
       skin,
       switchState.error,
+      switchState.effect,
       switchState.pending,
       switchState.phase,
     ],

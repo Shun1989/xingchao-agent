@@ -172,7 +172,7 @@ describe("XingchaoThemeProvider", () => {
     expect(document.documentElement.style.getPropertyValue("--xingchao-primary")).toBe("#abcdef")
   })
 
-  it("applies an imported crew palette and clears it when the crew disappears", async () => {
+  it("applies an imported crew palette and commits the trusted fallback when the crew disappears", async () => {
     const { host, rerender } = await renderThemeProbe(importedRuntimeFleetContext("aurora-pack"))
 
     await act(async () => host.querySelector("button")!.click())
@@ -182,7 +182,7 @@ describe("XingchaoThemeProvider", () => {
 
     await rerender(builtinRuntimeFleetContext)
 
-    expect(localStorage.getItem(storageKey("activeCrew"))).toBeNull()
+    expect(localStorage.getItem(storageKey("activeCrew"))).toBe("watchtide")
     expect(document.documentElement.dataset.fleetSkin).toBe("watchtide")
     expect(document.documentElement.dataset.crew).toBe("watchtide")
     expect(host.textContent).toBe("watchtide")

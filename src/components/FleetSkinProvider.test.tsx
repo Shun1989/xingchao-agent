@@ -121,17 +121,20 @@ async function renderProvider({
   const host = document.createElement("div")
   const root = createRoot(host)
   roots.push(root)
-  const provider = (
-    <RuntimeFleetContext.Provider value={runtimeFleet}>
-      <FleetSkinProvider loadAsset={loadAsset}>
-        <Probe requestAfterCommit={requestAfterCommit} />
-      </FleetSkinProvider>
-    </RuntimeFleetContext.Provider>
-  )
-  await act(async () => {
-    root.render(strict ? <React.StrictMode>{provider}</React.StrictMode> : provider)
-  })
-  return { host, root }
+  const render = async (value: RuntimeFleetContextValue) => {
+    const provider = (
+      <RuntimeFleetContext.Provider value={value}>
+        <FleetSkinProvider loadAsset={loadAsset}>
+          <Probe requestAfterCommit={requestAfterCommit} />
+        </FleetSkinProvider>
+      </RuntimeFleetContext.Provider>
+    )
+    await act(async () => {
+      root.render(strict ? <React.StrictMode>{provider}</React.StrictMode> : provider)
+    })
+  }
+  await render(runtimeFleet)
+  return { host, root, rerender: render }
 }
 
 async function click(host: HTMLElement, label: string): Promise<void> {
@@ -472,6 +475,143 @@ describe("FleetSkinProvider", () => {
     expect(text(host, "error")).toBe("none")
     expect(document.documentElement.dataset.fleetSkin).toBe("forge-vessel")
     expect(localStorage.getItem(activeCrewStorageKey)).toBe("forge-vessel")
+  })
+
+  it("recovers through the trusted built-in when an imported authority disappears during boot", async () => {
+    localStorage.setItem(activeCrewStorageKey, "phantom-wave")
+    document.documentElement.dataset.fleetSkin = "previous-shell"
+    const loads = new Map<string, Deferred>()
+    const { host, rerender } = await renderProvider({
+      runtimeFleet: importedRuntimeFleetContext(),
+      loadAsset: (url) => {
+        const load = deferred()
+        loads.set(url, load)
+        return load.promise
+      },
+    })
+    await click(host, "imported")
+    expect(document.documentElement.dataset.fleetSkin).toBe("legacy-imported")
+
+    await rerender(builtinRuntimeFleetContext)
+    expect(text(host, "active")).toBe("watchtide")
+    expect(text(host, "skin")).toBe("none")
+    expect(text(host, "pending")).toBe("watchtide")
+    expect(document.documentElement.dataset.fleetSkin).toBe("legacy-imported")
+    expect(localStorage.getItem(activeCrewStorageKey)).toBe("aurora-pack--watchtide")
+
+    await act(async () => loads.get(fleetSkinAssetUrl("phantom-wave.scene.foreground"))!.resolve())
+    for (const url of requiredAssetUrls("phantom-wave")) await act(async () => loads.get(url)!.resolve())
+    expect(text(host, "pending")).toBe("watchtide")
+    expect(document.documentElement.dataset.fleetSkin).toBe("legacy-imported")
+
+    await act(async () => loads.get(fleetSkinAssetUrl("watchtide.scene.foreground"))!.resolve())
+    for (const url of requiredAssetUrls("watchtide")) await act(async () => loads.get(url)!.resolve())
+
+    expect(text(host, "active")).toBe("watchtide")
+    expect(text(host, "skin")).toBe("watchtide")
+    expect(text(host, "phase")).toBe("idle")
+    expect(text(host, "pending")).toBe("none")
+    expect(text(host, "error")).toBe("none")
+    expect(document.documentElement.dataset.fleetSkin).toBe("watchtide")
+    expect(localStorage.getItem(activeCrewStorageKey)).toBe("watchtide")
+  })
+
+  it("retries the trusted built-in when imported disappearance recovery fails", async () => {
+    localStorage.setItem(activeCrewStorageKey, "phantom-wave")
+    document.documentElement.dataset.fleetSkin = "previous-shell"
+    const attempts = new Map<string, Deferred[]>()
+    const { host, rerender } = await renderProvider({
+      runtimeFleet: importedRuntimeFleetContext(),
+      loadAsset: (url) => {
+        const load = deferred()
+        attempts.set(url, [...(attempts.get(url) ?? []), load])
+        return load.promise
+      },
+    })
+    await click(host, "imported")
+    await rerender(builtinRuntimeFleetContext)
+
+    const fallbackBackdrop = fleetSkinAssetUrl("watchtide.scene.backdrop")
+    await act(async () => attempts.get(fallbackBackdrop)!.at(-1)!.reject(new Error("fallback failed")))
+    expect(text(host, "active")).toBe("watchtide")
+    expect(text(host, "skin")).toBe("none")
+    expect(text(host, "phase")).toBe("error")
+    expect(text(host, "error")).toContain("皮肤资源加载失败")
+    expect(document.documentElement.dataset.fleetSkin).toBe("legacy-imported")
+    expect(localStorage.getItem(activeCrewStorageKey)).toBe("aurora-pack--watchtide")
+
+    await act(async () => attempts.get(fleetSkinAssetUrl("phantom-wave.scene.foreground"))!.at(-1)!.resolve())
+    for (const url of requiredAssetUrls("phantom-wave")) {
+      await act(async () => attempts.get(url)!.at(-1)!.resolve())
+    }
+    expect(text(host, "phase")).toBe("error")
+    expect(document.documentElement.dataset.fleetSkin).toBe("legacy-imported")
+
+    await click(host, "retry")
+    await act(async () => attempts.get(fleetSkinAssetUrl("watchtide.scene.foreground"))!.at(-1)!.resolve())
+    for (const url of requiredAssetUrls("watchtide")) {
+      await act(async () => attempts.get(url)!.at(-1)!.resolve())
+    }
+    expect(text(host, "active")).toBe("watchtide")
+    expect(text(host, "skin")).toBe("watchtide")
+    expect(text(host, "phase")).toBe("idle")
+    expect(text(host, "error")).toBe("none")
+    expect(document.documentElement.dataset.fleetSkin).toBe("watchtide")
+    expect(localStorage.getItem(activeCrewStorageKey)).toBe("watchtide")
+  })
+
+  it("gates fallback recovery when an active imported crew disappears outside boot", async () => {
+    const loads = new Map<string, Deferred>()
+    const { host, rerender } = await renderProvider({
+      runtimeFleet: importedRuntimeFleetContext(),
+      loadAsset: (url) => {
+        const load = deferred()
+        loads.set(url, load)
+        return load.promise
+      },
+    })
+    await click(host, "imported")
+    expect(document.documentElement.dataset.fleetSkin).toBe("legacy-imported")
+
+    await rerender(builtinRuntimeFleetContext)
+    expect(text(host, "active")).toBe("watchtide")
+    expect(text(host, "skin")).toBe("none")
+    expect(text(host, "pending")).toBe("watchtide")
+    expect(document.documentElement.dataset.fleetSkin).toBe("legacy-imported")
+    expect(localStorage.getItem(activeCrewStorageKey)).toBe("aurora-pack--watchtide")
+
+    await act(async () => loads.get(fleetSkinAssetUrl("watchtide.scene.foreground"))!.resolve())
+    for (const url of requiredAssetUrls("watchtide")) await act(async () => loads.get(url)!.resolve())
+    expect(text(host, "skin")).toBe("watchtide")
+    expect(text(host, "phase")).toBe("idle")
+    expect(document.documentElement.dataset.fleetSkin).toBe("watchtide")
+    expect(localStorage.getItem(activeCrewStorageKey)).toBe("watchtide")
+  })
+
+  it("keeps a restored imported selection persisted until its fallback recovery commits", async () => {
+    localStorage.setItem(activeCrewStorageKey, "aurora-pack--watchtide")
+    const loads = new Map<string, Deferred>()
+    const { host, rerender } = await renderProvider({
+      runtimeFleet: importedRuntimeFleetContext(),
+      loadAsset: (url) => {
+        const load = deferred()
+        loads.set(url, load)
+        return load.promise
+      },
+    })
+    expect(text(host, "active")).toBe("aurora-pack--watchtide")
+    expect(document.documentElement.dataset.fleetSkin).toBe("legacy-imported")
+
+    await rerender(builtinRuntimeFleetContext)
+    expect(text(host, "active")).toBe("watchtide")
+    expect(text(host, "skin")).toBe("none")
+    expect(text(host, "pending")).toBe("watchtide")
+    expect(localStorage.getItem(activeCrewStorageKey)).toBe("aurora-pack--watchtide")
+
+    await act(async () => loads.get(fleetSkinAssetUrl("watchtide.scene.foreground"))!.resolve())
+    for (const url of requiredAssetUrls("watchtide")) await act(async () => loads.get(url)!.resolve())
+    expect(document.documentElement.dataset.fleetSkin).toBe("watchtide")
+    expect(localStorage.getItem(activeCrewStorageKey)).toBe("watchtide")
   })
 
   it("recovers corrupted persisted selection to watchtide and removes the bad value", async () => {
