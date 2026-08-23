@@ -1,7 +1,7 @@
 import type { FleetSkinAssetId, FleetSkinAssetRole } from "./fleet-skin-schema.ts"
 
 import { createHash } from "node:crypto"
-import { readFile } from "node:fs/promises"
+import { readFile, readdir } from "node:fs/promises"
 import { fileURLToPath } from "node:url"
 import { describe, expect, it } from "vitest"
 import { BUILTIN_CREW_IDS } from "../domain/xingchao/types.ts"
@@ -24,6 +24,169 @@ const expectedRasterDimensions = {
   "captain.uniform": { width: 1600, height: 2200, alpha: true },
   "captain.static": { width: 1200, height: 1600, alpha: false },
 } as const
+
+interface SourceInventory {
+  readonly directories: readonly string[]
+  readonly files: readonly string[]
+}
+
+const expectedSourceInventory: SourceInventory = {
+  directories: [...BUILTIN_CREW_IDS].sort(),
+  files: [
+    "PROVENANCE.md",
+    ...BUILTIN_CREW_IDS.flatMap((crewId) => FLEET_SKIN_ASSET_ROLES.map((role) => `${crewId}/${roleFiles[role]}`)),
+  ].sort(),
+}
+
+async function enumerateSourceInventory(root: URL): Promise<SourceInventory> {
+  const directories: string[] = []
+  const files: string[] = []
+
+  async function visit(directory: URL, prefix = ""): Promise<void> {
+    const entries = await readdir(directory, { withFileTypes: true })
+    for (const entry of entries) {
+      const relativePath = `${prefix}${entry.name}`
+      if (entry.isDirectory()) {
+        directories.push(relativePath)
+        await visit(new URL(`${entry.name}/`, directory), `${relativePath}/`)
+      } else if (entry.isFile()) {
+        files.push(relativePath)
+      } else {
+        throw new Error(`skin source tree contains a non-file entry: ${relativePath}`)
+      }
+    }
+  }
+
+  await visit(root)
+  return { directories: directories.sort(), files: files.sort() }
+}
+
+function assertExactSourceInventory(inventory: SourceInventory): void {
+  const hiddenEntry = [...inventory.directories, ...inventory.files].find((entry) =>
+    entry.split("/").some((segment) => segment.startsWith(".")),
+  )
+  if (hiddenEntry) throw new Error(`skin source tree contains a hidden entry: ${hiddenEntry}`)
+
+  const actualDirectories = [...inventory.directories].sort()
+  const actualFiles = [...inventory.files].sort()
+  if (new Set(actualDirectories).size !== actualDirectories.length) {
+    throw new Error("skin source tree contains duplicate directory entries")
+  }
+  if (new Set(actualFiles).size !== actualFiles.length) {
+    throw new Error("skin source tree contains duplicate file entries")
+  }
+  if (JSON.stringify(actualDirectories) !== JSON.stringify(expectedSourceInventory.directories)) {
+    throw new Error(`skin source directories differ from the exact allowlist: ${actualDirectories.join(", ")}`)
+  }
+  if (JSON.stringify(actualFiles) !== JSON.stringify(expectedSourceInventory.files)) {
+    throw new Error(`skin source files differ from the exact allowlist: ${actualFiles.join(", ")}`)
+  }
+}
+
+const allowedSvgAttributes = {
+  svg: new Set(["xmlns", "viewBox", "fill", "stroke", "stroke-width", "stroke-linecap", "stroke-linejoin"]),
+  g: new Set(["fill", "stroke", "stroke-width", "stroke-linecap", "stroke-linejoin"]),
+  path: new Set(["d", "fill", "stroke", "stroke-width", "stroke-linecap", "stroke-linejoin"]),
+  circle: new Set(["cx", "cy", "r", "fill", "stroke", "stroke-width", "stroke-linecap", "stroke-linejoin"]),
+} as const
+
+type AllowedSvgTag = keyof typeof allowedSvgAttributes
+
+function validateCrestSvg(svg: string): void {
+  if (!svg.startsWith("<svg")) throw new Error("crest must start with an svg root")
+  if (/[&]|<\?|<!/u.test(svg)) throw new Error("crest must not contain entities or declarations")
+
+  const tokens = svg.match(/<[^>]+>/gu)
+  if (!tokens || svg.replace(/<[^>]+>/gu, "").trim()) {
+    throw new Error("crest must contain elements only, without text nodes")
+  }
+
+  const stack: AllowedSvgTag[] = []
+  let rootCount = 0
+  let hasCurrentColor = false
+
+  for (const token of tokens) {
+    const closing = /^<\/([A-Za-z][A-Za-z0-9]*)\s*>$/u.exec(token)
+    if (closing) {
+      const tag = closing[1] as AllowedSvgTag
+      if (stack.pop() !== tag) throw new Error(`crest has an unbalanced closing tag: ${token}`)
+      continue
+    }
+
+    const opening = /^<([A-Za-z][A-Za-z0-9]*)([\s\S]*)>$/u.exec(token)
+    if (!opening) throw new Error(`crest contains malformed markup: ${token}`)
+    const tag = opening[1] as AllowedSvgTag
+    if (!(tag in allowedSvgAttributes)) throw new Error(`crest contains a disallowed element: ${tag}`)
+    if (tag === "svg") {
+      rootCount += 1
+      if (rootCount !== 1 || stack.length !== 0) throw new Error("crest must contain exactly one root svg")
+    } else if (stack.length === 0) {
+      throw new Error(`crest element is outside the svg root: ${tag}`)
+    }
+
+    const attributes = new Map<string, string>()
+    const selfClosing = /\/\s*>$/u.test(token)
+    let remaining = selfClosing ? opening[2]!.replace(/\/\s*$/u, "") : opening[2]!
+    while (remaining.trim().length > 0) {
+      const attribute = /^\s+([A-Za-z][A-Za-z0-9:-]*)\s*=\s*(["'])(.*?)\2/su.exec(remaining)
+      if (!attribute) throw new Error(`crest contains malformed attributes: ${token}`)
+      const [, name, , value] = attribute
+      if (!allowedSvgAttributes[tag].has(name as never)) {
+        throw new Error(`crest ${tag} contains a disallowed attribute: ${name}`)
+      }
+      if (attributes.has(name!)) throw new Error(`crest ${tag} repeats attribute: ${name}`)
+      if (name !== "xmlns" && /(?:https?:|data:|javascript:|url\s*\()/iu.test(value!)) {
+        throw new Error(`crest ${tag} contains an external or executable value: ${name}`)
+      }
+      attributes.set(name!, value!)
+      remaining = remaining.slice(attribute[0].length)
+    }
+
+    for (const [name, value] of attributes) {
+      if (name === "xmlns" && value !== "http://www.w3.org/2000/svg") {
+        throw new Error("crest xmlns must use the SVG namespace")
+      }
+      if (name === "viewBox" && value !== "0 0 128 128") {
+        throw new Error("crest viewBox must be 0 0 128 128")
+      }
+      if ((name === "fill" || name === "stroke") && value !== "none" && value !== "currentColor") {
+        throw new Error(`crest ${name} must be none or currentColor`)
+      }
+      if (value === "currentColor") hasCurrentColor = true
+      if (["cx", "cy", "r", "stroke-width"].includes(name) && !/^\d+(?:\.\d+)?$/u.test(value)) {
+        throw new Error(`crest ${name} must be a non-negative number`)
+      }
+      if ((name === "stroke-linecap" || name === "stroke-linejoin") && value !== "round") {
+        throw new Error(`crest ${name} must be round`)
+      }
+      if (name === "d" && !/^[MmZzLlHhVvCcSsQqTtAa0-9eE+.,\s-]+$/u.test(value)) {
+        throw new Error("crest path data contains unsupported syntax")
+      }
+    }
+
+    if (tag === "svg") {
+      if (attributes.get("xmlns") !== "http://www.w3.org/2000/svg") {
+        throw new Error("crest svg must declare the SVG namespace")
+      }
+      if (attributes.get("viewBox") !== "0 0 128 128") {
+        throw new Error("crest svg must declare viewBox 0 0 128 128")
+      }
+    }
+    if (tag === "path" && !attributes.has("d")) throw new Error("crest path must include d")
+    if (tag === "circle" && !["cx", "cy", "r"].every((name) => attributes.has(name))) {
+      throw new Error("crest circle must include cx, cy, and r")
+    }
+
+    if ((tag === "path" || tag === "circle") && !selfClosing) {
+      throw new Error(`crest ${tag} must be self-closing`)
+    }
+    if (!selfClosing) stack.push(tag)
+  }
+
+  if (stack.length > 0) throw new Error("crest contains unclosed elements")
+  if (rootCount !== 1) throw new Error("crest must contain exactly one svg root")
+  if (!hasCurrentColor) throw new Error("crest must use currentColor")
+}
 
 function sourceFile(crewId: string, role: FleetSkinAssetRole): URL {
   return new URL(`../../resources/xingchao/skins/${crewId}/${roleFiles[role]}`, import.meta.url)
@@ -103,11 +266,7 @@ describe("fleet skin asset registry", () => {
         expect(bytes.byteLength, assetId).toBeGreaterThan(0)
 
         if (role === "crest") {
-          const svg = bytes.toString("utf8")
-          expect(svg).toMatch(/^<svg\b/)
-          expect(svg).toMatch(/viewBox=["']0 0 128 128["']/)
-          expect(svg).not.toMatch(/<(?:script|image|text|metadata|foreignObject)\b/i)
-          expect(svg).not.toMatch(/(?:href|src)\s*=|url\s*\(/i)
+          validateCrestSvg(bytes.toString("utf8"))
         } else {
           const inspection = inspectWebP(bytes)
           const expected = expectedRasterDimensions[role]
@@ -127,5 +286,45 @@ describe("fleet skin asset registry", () => {
     expect(new Set(inventory).size).toBe(60)
     expect(uniqueBackdrops.size).toBe(10)
     expect(uniqueCaptainBases.size).toBe(10)
+  })
+
+  it("rejects extra, hidden, and inspection source entries", () => {
+    expect(() =>
+      assertExactSourceInventory({
+        directories: [...expectedSourceInventory.directories, ".inspection"],
+        files: [...expectedSourceInventory.files, ".inspection/placeholder.webp"],
+      }),
+    ).toThrow()
+
+    expect(() =>
+      assertExactSourceInventory({
+        directories: expectedSourceInventory.directories,
+        files: [...expectedSourceInventory.files, ".DS_Store"],
+      }),
+    ).toThrow()
+  })
+
+  it("positively restricts crest SVG elements, attributes, and color references", () => {
+    const valid = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" fill="none" stroke="currentColor"><g><path d="M16 64h96" /><circle cx="64" cy="64" r="8" /></g></svg>`
+    expect(() => validateCrestSvg(valid)).not.toThrow()
+
+    const invalid = [
+      valid.replace("<g>", '<g style="filter:url(data:image/svg+xml,bad)">'),
+      valid.replace("<path", '<path onclick="alert(1)"'),
+      valid.replace('<path d="M16 64h96" />', '<use href="https://example.invalid/crest.svg#x" />'),
+      valid.replace('<path d="M16 64h96" />', '<path d="M16 64h96" href="crest.svg#x" />'),
+      valid.replace('stroke="currentColor"', 'stroke="url(data:image/svg+xml,bad)"'),
+      valid.replace("<circle", "<foreignObject><circle"),
+      valid.replace("currentColor", "#ffffff"),
+      `<?xml version="1.0"?>${valid}`,
+    ]
+
+    for (const svg of invalid) expect(() => validateCrestSvg(svg)).toThrow()
+  })
+
+  it("enumerates the actual skin directory and requires the exact source tree", async () => {
+    const root = new URL("../../resources/xingchao/skins/", import.meta.url)
+    const inventory = await enumerateSourceInventory(root)
+    assertExactSourceInventory(inventory)
   })
 })
