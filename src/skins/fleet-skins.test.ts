@@ -1,5 +1,6 @@
 import type { BuiltinCrewId } from "../domain/xingchao/types.ts"
 import type { FleetSkinManifest, FleetSkinSurfaceMaterial } from "./fleet-skin-schema.ts"
+import type { DeepReadonly } from "./fleet-skins.ts"
 
 import { describe, expect, it } from "vitest"
 import { BUILTIN_CREW_IDS } from "../domain/xingchao/types.ts"
@@ -106,6 +107,44 @@ function contrastRatio(first: string, second: string): number {
   return (brighter + 0.05) / (darker + 0.05)
 }
 
+function visualStructureParts(skin: DeepReadonly<FleetSkinManifest>) {
+  const surfaces = Object.fromEntries(
+    Object.entries(skin.surfaces).map(([role, surface]) => [
+      role,
+      {
+        material: surface.material,
+        opacity: surface.opacity,
+        border: surface.border,
+        shadow: surface.shadow,
+        radius: surface.radius,
+      },
+    ]),
+  )
+  const captainCompositions = {
+    stage: skin.captain.stage,
+    companion: skin.captain.companion,
+    compact: skin.captain.compact,
+  }
+
+  return {
+    surfaces: JSON.stringify(surfaces),
+    typography: JSON.stringify(skin.typography),
+    navigation: JSON.stringify(skin.navigation),
+    captainCompositions: JSON.stringify(captainCompositions),
+    motion: JSON.stringify(skin.motion),
+  }
+}
+
+function visualStructureSignature(skin: DeepReadonly<FleetSkinManifest>): string {
+  return JSON.stringify(visualStructureParts(skin))
+}
+
+function expectDeepFrozen(value: unknown, path = "registry"): void {
+  if (value === null || typeof value !== "object") return
+  expect(Object.isFrozen(value), path).toBe(true)
+  for (const [key, nestedValue] of Object.entries(value)) expectDeepFrozen(nestedValue, `${path}.${key}`)
+}
+
 describe("built-in fleet skin manifests", () => {
   it("has one complete and valid manifest for every built-in crew", () => {
     expect(Object.keys(builtinFleetSkins).sort()).toEqual([...BUILTIN_CREW_IDS].sort())
@@ -142,21 +181,61 @@ describe("built-in fleet skin manifests", () => {
     expect(new Set(manifests.map((skin) => skin.typography.heading.family)).size).toBeGreaterThanOrEqual(4)
     expect(new Set(manifests.map((skin) => skin.navigation.selectedShape)).size).toBeGreaterThanOrEqual(4)
 
-    const structuralSignatures = manifests.map((skin) =>
-      JSON.stringify({
-        surfaces: skin.surfaces,
-        typography: skin.typography,
-        navigation: skin.navigation,
-        stage: skin.captain.stage,
-        motionStyle: skin.captain.motionStyle,
-        motion: skin.motion,
-        cue: skin.audio.cue,
-      }),
-    )
+    const parts = manifests.map(visualStructureParts)
+    expect(new Set(parts.map((part) => part.surfaces)).size).toBe(10)
+    expect(new Set(parts.map((part) => part.typography)).size).toBe(10)
+    expect(new Set(parts.map((part) => part.navigation)).size).toBeGreaterThanOrEqual(7)
+    expect(new Set(parts.map((part) => part.captainCompositions)).size).toBe(10)
+    expect(new Set(parts.map((part) => part.motion)).size).toBe(10)
+
+    const structuralSignatures = manifests.map(visualStructureSignature)
     expect(new Set(structuralSignatures).size).toBe(10)
   })
 
-  it("meets high-contrast text and focus ratios using literal token values", () => {
+  it("does not let asset IDs, motion labels, or audio cues disguise a structural alias", () => {
+    const original = structuredClone(builtinFleetSkins.watchtide) as FleetSkinManifest
+    const alias = structuredClone(original)
+    alias.identity.crewId = "ink-sail"
+    alias.identity.crest = "ink-sail.crest"
+    alias.scene.backdrop = "ink-sail.scene.backdrop"
+    alias.scene.foreground = "ink-sail.scene.foreground"
+    alias.captain.layers = ["ink-sail.captain.base", "ink-sail.captain.uniform"]
+    alias.captain.staticFallback = "ink-sail.captain.static"
+    alias.captain.motionStyle = "editorial"
+    alias.audio.cue = "paper"
+
+    expect(visualStructureSignature(alias)).toBe(visualStructureSignature(original))
+  })
+
+  it("deep-freezes the canonical registry and every resolved nested value", () => {
+    const skin = resolveFleetSkin("watchtide")
+    expect(skin).not.toBeNull()
+    expectDeepFrozen(builtinFleetSkins)
+
+    const mutableView = skin as unknown as FleetSkinManifest
+    expect(() => {
+      mutableView.scene.backdrop = "ink-sail.scene.backdrop"
+    }).toThrow(TypeError)
+    expect(() => {
+      mutableView.surfaces.card.opacity = 0
+    }).toThrow(TypeError)
+    expect(() => {
+      mutableView.captain.layers.push("ink-sail.captain.base")
+    }).toThrow(TypeError)
+    expect(() => {
+      mutableView.identity.name = "polluted"
+    }).toThrow(TypeError)
+
+    const resolvedAgain = resolveFleetSkin("watchtide")
+    expect(resolvedAgain).toBe(skin)
+    expect(() => validateFleetSkinManifest(resolvedAgain)).not.toThrow()
+    expect(resolvedAgain?.scene.backdrop).toBe("watchtide.scene.backdrop")
+
+    const typed: DeepReadonly<FleetSkinManifest> | null = resolveFleetSkin("watchtide")
+    expect(typed).toBe(skin)
+  })
+
+  it("meets high-contrast text and non-text ratios using literal token values", () => {
     for (const crewId of BUILTIN_CREW_IDS) {
       const tokens = builtinFleetSkins[crewId].accessibility.highContrast
       for (const background of [tokens.canvas, tokens.panel, tokens.elevated]) {
@@ -165,7 +244,12 @@ describe("built-in fleet skin manifests", () => {
           contrastRatio(tokens.mutedText, background),
           `${crewId} muted text on ${background}`,
         ).toBeGreaterThanOrEqual(4.5)
-        expect(contrastRatio(tokens.focus, background), `${crewId} focus on ${background}`).toBeGreaterThanOrEqual(3)
+        for (const tokenName of ["primary", "secondary", "accent", "success", "warning", "danger", "focus"] as const) {
+          expect(
+            contrastRatio(tokens[tokenName], background),
+            `${crewId} ${tokenName} on ${background}`,
+          ).toBeGreaterThanOrEqual(3)
+        }
       }
     }
   })

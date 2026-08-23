@@ -4,6 +4,22 @@ import type { FleetSkinManifest } from "./fleet-skin-schema.ts"
 import { BUILTIN_CREW_IDS } from "../domain/xingchao/types.ts"
 import { validateFleetSkinManifest } from "./fleet-skin-schema.ts"
 
+export type DeepReadonly<T> = T extends readonly (infer Item)[]
+  ? readonly DeepReadonly<Item>[]
+  : T extends object
+    ? { readonly [Key in keyof T]: DeepReadonly<T[Key]> }
+    : T
+
+export type ReadonlyFleetSkinManifest = DeepReadonly<FleetSkinManifest>
+
+function deepFreeze<T>(value: T): DeepReadonly<T> {
+  if (value !== null && typeof value === "object" && !Object.isFrozen(value)) {
+    for (const nestedValue of Object.values(value as Record<string, unknown>)) deepFreeze(nestedValue)
+    Object.freeze(value)
+  }
+  return value as DeepReadonly<T>
+}
+
 const builtinFleetSkinEntries = {
   watchtide: validateFleetSkinManifest({
     schemaVersion: "1.0.0",
@@ -947,8 +963,8 @@ const builtinFleetSkinEntries = {
   }),
 } satisfies Record<BuiltinCrewId, FleetSkinManifest>
 
-export const builtinFleetSkins: Readonly<Record<BuiltinCrewId, FleetSkinManifest>> =
-  Object.freeze(builtinFleetSkinEntries)
+export const builtinFleetSkins: DeepReadonly<Record<BuiltinCrewId, FleetSkinManifest>> =
+  deepFreeze(builtinFleetSkinEntries)
 
 const builtinFleetSkinIds = new Set<string>(BUILTIN_CREW_IDS)
 
@@ -956,6 +972,6 @@ export function isBuiltinFleetSkinId(crewId: CrewId): crewId is BuiltinCrewId {
   return builtinFleetSkinIds.has(crewId)
 }
 
-export function resolveFleetSkin(crewId: CrewId): FleetSkinManifest | null {
+export function resolveFleetSkin(crewId: CrewId): ReadonlyFleetSkinManifest | null {
   return isBuiltinFleetSkinId(crewId) ? builtinFleetSkins[crewId] : null
 }
