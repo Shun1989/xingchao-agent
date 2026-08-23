@@ -1,6 +1,15 @@
 import assert from "node:assert/strict"
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises"
+import os from "node:os"
+import path from "node:path"
 import { describe, test } from "vitest"
-import { createBootstrapConfig, preferredWorktreePort, renderEnvScript, shellQuote } from "./bootstrap.ts"
+import {
+  createBootstrapConfig,
+  ensureRuntimeOutputs,
+  preferredWorktreePort,
+  renderEnvScript,
+  shellQuote,
+} from "./bootstrap.ts"
 
 describe("bootstrap helpers", () => {
   test("preferredWorktreePort is stable and bounded", () => {
@@ -35,8 +44,31 @@ describe("bootstrap helpers", () => {
   test("bootstrap config uses repo-local dev userData", async () => {
     const config = await createBootstrapConfig()
 
-    assert.match(config.userDataDir, /\/wanta$/)
+    assert.equal(path.basename(config.userDataDir), "wanta")
     assert.equal(config.env["WANTA_USER_DATA_DIR"], config.userDataDir)
-    assert.doesNotMatch(config.userDataDir, /\.wanta-dev\/user-data$/)
+    assert.notEqual(path.basename(path.dirname(config.userDataDir)), ".wanta-dev")
+  })
+
+  test("repairs missing runtime outputs once and keeps complete outputs", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "wanta-bootstrap-"))
+    let repairs = 0
+    const repair = async () => {
+      repairs += 1
+      await Promise.all([
+        mkdir(path.join(root, ".oo-bin"), { recursive: true }),
+        mkdir(path.join(root, ".electron-dist"), { recursive: true }),
+        mkdir(path.join(root, "resources", "skills"), { recursive: true }),
+        mkdir(path.join(root, "resources", "agent-tool-runtime"), { recursive: true }),
+      ])
+      await writeFile(path.join(root, "resources", "agent-tool-runtime", "tool.js"), "export {}\n", "utf-8")
+    }
+
+    try {
+      assert.equal(await ensureRuntimeOutputs(root, repair), "repaired")
+      assert.equal(await ensureRuntimeOutputs(root, repair), "ready")
+      assert.equal(repairs, 1)
+    } finally {
+      await rm(root, { force: true, recursive: true })
+    }
   })
 })

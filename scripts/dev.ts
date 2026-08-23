@@ -1,6 +1,6 @@
-import { spawn } from "node:child_process"
 import path from "node:path"
 import { fileURLToPath, pathToFileURL } from "node:url"
+import { spawnCommand } from "./spawn-command.ts"
 
 const dirname = path.dirname(fileURLToPath(import.meta.url))
 const repoRoot = path.join(dirname, "..")
@@ -16,7 +16,7 @@ if (isMainModule()) {
 
 export async function runDev(args: string[]): Promise<void> {
   await new Promise<void>((resolve, reject) => {
-    const child = spawn(commandName("vite"), args, {
+    const child = spawnCommand("vite", args, {
       cwd: repoRoot,
       env: {
         ...process.env,
@@ -33,8 +33,4 @@ export async function runDev(args: string[]): Promise<void> {
       reject(new Error(`vite ${args.join(" ")} failed with ${signal ?? `exit code ${code}`}`))
     })
   })
-}
-
-function commandName(command: string): string {
-  return process.platform === "win32" ? `${command}.cmd` : command
 }

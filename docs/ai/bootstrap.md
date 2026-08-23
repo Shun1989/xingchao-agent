@@ -19,7 +19,9 @@ machine-level prerequisites.
 3. For login, sign-in, sign-out, auth persistence, or first-run work, run
    `corepack pnpm run auth:clean` to start with a clean signed-out dev profile. Delete `./wanta`
    when you want `dev:worktree` to initialize from the canonical repo again.
-4. If the checkout is partially initialized, rerun `corepack pnpm run bootstrap`; it is idempotent.
+4. If the checkout is partially initialized, rerun `corepack pnpm run bootstrap`; it is idempotent. The command checks
+   the required runtime outputs and explicitly replays the root `postinstall` only when those outputs are incomplete, so
+   a prior dependency install that skipped lifecycle scripts can recover without deleting the checkout.
 5. Run the quality gate when needed:
    - `corepack pnpm run ts-check`
    - `corepack pnpm run lint`

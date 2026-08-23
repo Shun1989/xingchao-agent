@@ -1,10 +1,10 @@
 import type { BootstrapConfig } from "./bootstrap.ts"
 
-import { spawn } from "node:child_process"
 import { cp, mkdir, mkdtemp, readdir, readFile, realpath, rename, rm, stat } from "node:fs/promises"
 import path from "node:path"
 import { fileURLToPath, pathToFileURL } from "node:url"
 import { createBootstrapConfig, writeBootstrapFiles } from "./bootstrap.ts"
+import { spawnCommand } from "./spawn-command.ts"
 
 const dirname = path.dirname(fileURLToPath(import.meta.url))
 const repoRoot = path.join(dirname, "..")
@@ -22,7 +22,7 @@ if (isMainModule()) {
 async function main(): Promise<void> {
   let config = await readBootstrapConfig()
   await initializeWorktreeUserData(config)
-  let result = await run(commandName("corepack"), ["pnpm", "run", "dev"], config.env)
+  let result = await run("corepack", ["pnpm", "run", "dev"], config.env)
   if (result.ok) {
     return
   }
@@ -34,7 +34,7 @@ async function main(): Promise<void> {
   config = await createBootstrapConfig()
   await writeBootstrapFiles(config)
   await initializeWorktreeUserData(config)
-  result = await run(commandName("corepack"), ["pnpm", "run", "dev"], config.env)
+  result = await run("corepack", ["pnpm", "run", "dev"], config.env)
   if (!result.ok) {
     throw new Error(result.message)
   }
@@ -129,7 +129,7 @@ interface GitWorktreeInfo {
 }
 
 async function listGitWorktrees(cwd: string): Promise<GitWorktreeInfo[]> {
-  const result = await run(commandName("git"), ["worktree", "list", "--porcelain"], {}, cwd)
+  const result = await run("git", ["worktree", "list", "--porcelain"], {}, cwd)
   if (!result.ok) {
     return []
   }
@@ -213,7 +213,7 @@ interface RunResult {
 async function run(command: string, args: string[], env: Record<string, string>, cwd = repoRoot): Promise<RunResult> {
   return await new Promise<RunResult>((resolve, reject) => {
     let output = ""
-    const child = spawn(command, args, {
+    const child = spawnCommand(command, args, {
       cwd,
       env: { ...process.env, ...env },
       stdio: ["inherit", "pipe", "pipe"],
@@ -241,8 +241,4 @@ async function run(command: string, args: string[], env: Record<string, string>,
 
 function isPortInUseFailure(output: string): boolean {
   return /\bEADDRINUSE\b/.test(output) || /Port \d+ is already in use/.test(output)
-}
-
-function commandName(command: string): string {
-  return process.platform === "win32" ? `${command}.cmd` : command
 }

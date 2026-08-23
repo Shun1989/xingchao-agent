@@ -1,10 +1,10 @@
-import { spawn } from "node:child_process"
 import { createHash } from "node:crypto"
 import { constants as fsConstants } from "node:fs"
 import { access, mkdir, writeFile } from "node:fs/promises"
 import net from "node:net"
 import path from "node:path"
 import { fileURLToPath, pathToFileURL } from "node:url"
+import { spawnCommand } from "./spawn-command.ts"
 
 const dirname = path.dirname(fileURLToPath(import.meta.url))
 const repoRoot = path.join(dirname, "..")
@@ -55,9 +55,13 @@ async function main(args: string[]): Promise<void> {
   await writeBootstrapFiles(config)
 
   if (!skipInstall) {
-    await run(commandName("corepack"), ["pnpm", "install", "--frozen-lockfile"], {})
+    await run("corepack", ["pnpm", "install", "--frozen-lockfile"], {})
   }
-  await run(commandName("corepack"), ["pnpm", "run", "predev"], config.env)
+  await ensureRuntimeOutputs(repoRoot, async () => {
+    console.warn("[wanta] runtime outputs are incomplete; running the root postinstall repair")
+    await run("corepack", ["pnpm", "run", "postinstall"], config.env)
+  })
+  await run("corepack", ["pnpm", "run", "predev"], config.env)
   await assertBootstrapOutputs()
 
   console.log("[wanta] bootstrap complete")
@@ -108,9 +112,16 @@ export async function writeBootstrapFiles(config: BootstrapConfig): Promise<void
   await writeFile(envShPath, renderEnvScript(config.env), { encoding: "utf-8", mode: 0o600 })
 }
 
+export async function ensureRuntimeOutputs(root: string, repair: () => Promise<void>): Promise<"ready" | "repaired"> {
+  if (await runtimeOutputsExist(root)) return "ready"
+  await repair()
+  await assertRuntimeOutputs(root)
+  return "repaired"
+}
+
 async function run(command: string, args: string[], env: Record<string, string>): Promise<void> {
   await new Promise<void>((resolve, reject) => {
-    const child = spawn(command, args, {
+    const child = spawnCommand(command, args, {
       cwd: repoRoot,
       env: { ...process.env, ...env },
       stdio: "inherit",
@@ -126,19 +137,35 @@ async function run(command: string, args: string[], env: Record<string, string>)
   })
 }
 
-function commandName(command: string): string {
-  return process.platform === "win32" ? `${command}.cmd` : command
+async function assertBootstrapOutputs(): Promise<void> {
+  await Promise.all([assertRuntimeOutputs(repoRoot), assertPath(bootstrapJsonPath), assertPath(envShPath)])
 }
 
-async function assertBootstrapOutputs(): Promise<void> {
-  await Promise.all([
-    assertPath(path.join(repoRoot, ".oo-bin")),
-    assertPath(path.join(repoRoot, ".electron-dist")),
-    assertPath(path.join(repoRoot, "resources", "skills")),
-    assertPath(path.join(repoRoot, "resources", "agent-tool-runtime", "tool.js")),
-    assertPath(bootstrapJsonPath),
-    assertPath(envShPath),
-  ])
+async function runtimeOutputsExist(root: string): Promise<boolean> {
+  return (await Promise.all(runtimeOutputPaths(root).map(pathExists))).every(Boolean)
+}
+
+async function assertRuntimeOutputs(root: string): Promise<void> {
+  await Promise.all(runtimeOutputPaths(root).map(assertPath))
+}
+
+function runtimeOutputPaths(root: string): string[] {
+  return [
+    path.join(root, ".oo-bin"),
+    path.join(root, ".electron-dist"),
+    path.join(root, "resources", "skills"),
+    path.join(root, "resources", "agent-tool-runtime", "tool.js"),
+  ]
+}
+
+async function pathExists(target: string): Promise<boolean> {
+  try {
+    await access(target, fsConstants.F_OK)
+    return true
+  } catch (error) {
+    if (error instanceof Error && "code" in error && error.code === "ENOENT") return false
+    throw error
+  }
 }
 
 async function assertPath(target: string): Promise<void> {

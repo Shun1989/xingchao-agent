@@ -37,7 +37,8 @@ This document separates implemented behavior from planned release work. A passin
 - Sixty-agent live-model evaluation. The profiles each carry three executable evaluation cases, but no paid-provider evaluation run was performed.
 - Full rebrand of all upstream localized copy and every internal compatibility identifier. IPC, storage, diagnostics, and several update-safe identifiers intentionally remain `wanta` for migration safety.
 - Windows signing, macOS Developer ID signing/notarization, updater infrastructure, release server, and public distribution approval.
-- Full desktop smoke test in this machine. The renderer and Electron bundles build, but Electron 42.4.0 download was blocked by TLS interception/timeout.
+- Windows external-Skill mirroring is not yet reliable on this machine. The app records `EPERM` when replacing some
+  mirrored directories and when a source Skill requires an unprivileged symbolic link; the built-in fleet remains usable.
 
 ## Verified on 2026-08-13
 
@@ -80,3 +81,15 @@ This document separates implemented behavior from planned release work. A passin
   explicitly distinguishes persisted selection from successful runtime activation. The current renderer consumes a safe
   projection for crews, rosters, routing, mission planning, and palette themes; the inactive package capabilities listed
   above remain outside the Agent runtime.
+
+## Weekly continuation on 2026-08-23
+
+- Repaired the Windows bootstrap and development launch chain. Node 24 cannot spawn `.cmd` shims directly on this host;
+  repository scripts now route child commands through `ComSpec` on Windows while retaining direct spawning elsewhere.
+- Bootstrap now detects incomplete runtime outputs and explicitly replays the root `postinstall`. This recovers a checkout
+  where pnpm recorded the root lifecycle as pending instead of incorrectly proceeding to `predev` with missing binaries.
+- Completed a real Windows Electron smoke test in Chinese locale. Fleet Harbor rendered the built-in 10 crews and 60
+  Agents, switching to Forgewake Crew changed its theme and six-Agent roster, Mission Chart accepted a goal and generated
+  a crew recommendation plus task DAG, and Supply Depot rendered the trusted built-in 10-crew/60-Agent/10-theme pack.
+- No mission execution, paid model request, pack import, installer build, GitHub Release, or public distribution was
+  performed during this smoke test.

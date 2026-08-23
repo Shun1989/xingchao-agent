@@ -19,7 +19,7 @@ describe("dev worktree userData initialization", () => {
   test("uses explicit canonical source override", async () => {
     process.env["WANTA_DEV_AUTH_SOURCE_DIR"] = "/tmp/canonical-wanta"
 
-    assert.equal(await resolveCanonicalUserDataDir("/tmp/worktree"), "/tmp/canonical-wanta")
+    assert.equal(await resolveCanonicalUserDataDir("/tmp/worktree"), path.resolve("/tmp/canonical-wanta"))
   })
 
   test("copies canonical userData only when target is missing or empty", async () => {
