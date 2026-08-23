@@ -1,0 +1,95 @@
+import type { BuiltinCrewId } from "../domain/xingchao/types.ts"
+import type { ReadonlyFleetSkinManifest } from "../skins/fleet-skins.ts"
+
+export type CaptainState =
+  | "idle"
+  | "listening"
+  | "thinking"
+  | "executing"
+  | "reporting"
+  | "warning"
+  | "success"
+  | "failure"
+
+export type CaptainExpression = "neutral" | "attentive" | "focused" | "warm" | "concerned" | "bright"
+
+export type CaptainEventType =
+  | "captain.idle"
+  | "input.listening"
+  | "assistant.thinking"
+  | "task.started"
+  | "tool.started"
+  | "speech.started"
+  | "permission.required"
+  | "task.warning"
+  | "task.succeeded"
+  | "task.failed"
+  | "task.cancelled"
+  | "speech.finished"
+  | "speech.failed"
+  | "event.dismissed"
+
+export type CaptainEventSource = "route" | "chat" | "task" | "tool" | "permission" | "speech" | "legacy"
+export type CaptainCaptionKey = `captain.${string}`
+export type CaptainCaptionPrimitive = string | number | boolean | null
+export type CaptainCaptionParams = Readonly<Record<string, CaptainCaptionPrimitive>>
+
+/**
+ * A semantic input envelope. Reducers reconstruct this whitelist before storage;
+ * chat text, tool output, credentials, and arbitrary renderer payloads are not event fields.
+ */
+export interface CaptainEvent {
+  readonly id: string
+  readonly type: CaptainEventType
+  readonly source: CaptainEventSource
+  readonly taskId: string | null
+  readonly sequence: number
+  readonly startedAt: number
+  readonly expiresAt: number | null
+  readonly captionKey: CaptainCaptionKey
+  readonly captionParams: CaptainCaptionParams
+}
+
+export interface CaptainSnapshot {
+  readonly state: CaptainState
+  readonly expression: CaptainExpression
+  readonly captionKey: CaptainCaptionKey
+  readonly captionParams: CaptainCaptionParams
+  readonly mouthLevel: number
+  readonly activeEventId: string | null
+  readonly taskId: string | null
+}
+
+export interface CaptainReducerState {
+  readonly activeEvents: Readonly<Record<string, CaptainEvent>>
+  readonly latestSequenceByStream: Readonly<Record<string, number>>
+  readonly snapshot: CaptainSnapshot
+  readonly now: number
+}
+
+export type CaptainDisplayMode = "stage" | "companion" | "compact"
+export type CaptainRendererKind = "static" | "layered" | "live2d"
+
+export type CaptainRendererEvent =
+  | {
+      readonly type: "renderer.ready"
+      readonly renderer: CaptainRendererKind
+      readonly skinId: BuiltinCrewId
+      readonly state: CaptainState
+    }
+  | {
+      readonly type: "renderer.error"
+      readonly renderer: CaptainRendererKind
+      readonly skinId: BuiltinCrewId
+      readonly state: CaptainState
+      readonly errorClass: string
+    }
+
+/** Stable boundary shared by static, first-version layered, and future Live2D renderers. */
+export interface CaptainRendererProps {
+  readonly snapshot: CaptainSnapshot
+  readonly skin: ReadonlyFleetSkinManifest
+  readonly mode: CaptainDisplayMode
+  readonly reducedMotion: boolean
+  readonly onRendererEvent: (event: CaptainRendererEvent) => void
+}

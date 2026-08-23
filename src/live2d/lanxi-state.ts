@@ -1,24 +1,20 @@
-export type LanxiState =
-  | "idle"
-  | "listening"
-  | "thinking"
-  | "executing"
-  | "reporting"
-  | "warning"
-  | "success"
-  | "failure"
+import type { CaptainEventType, CaptainReducerState, CaptainState } from "../captain/captain-types.ts"
+
+import { captainReducer, createCaptainState } from "../captain/captain-reducer.ts"
+
+export type LanxiState = CaptainState
 export type LanxiExpression = "neutral" | "attentive" | "focused" | "warm" | "concerned" | "bright"
 
-const expressionByState: Record<LanxiState, LanxiExpression> = {
-  idle: "neutral",
-  listening: "attentive",
-  thinking: "focused",
-  executing: "focused",
-  reporting: "warm",
-  warning: "concerned",
-  success: "bright",
-  failure: "concerned",
-}
+const eventTypeByState: Readonly<Record<LanxiState, CaptainEventType>> = Object.freeze({
+  idle: "captain.idle",
+  listening: "input.listening",
+  thinking: "assistant.thinking",
+  executing: "task.started",
+  reporting: "speech.started",
+  warning: "permission.required",
+  success: "task.succeeded",
+  failure: "task.failed",
+})
 
 export interface LanxiVisualFrame {
   state: LanxiState
@@ -26,25 +22,48 @@ export interface LanxiVisualFrame {
   mouthOpen: number
 }
 
+/** @deprecated Use the pure captainReducer and CaptainSnapshot boundary. */
 export class LanxiStateController {
-  private frame: LanxiVisualFrame = { state: "idle", expression: "neutral", mouthOpen: 0 }
+  private reducerState: CaptainReducerState = createCaptainState()
+  private sequence = 0
 
   public current(): LanxiVisualFrame {
-    return { ...this.frame }
+    const snapshot = this.reducerState.snapshot
+    return { state: snapshot.state, expression: snapshot.expression, mouthOpen: snapshot.mouthLevel }
   }
 
   public transition(state: LanxiState): LanxiVisualFrame {
-    this.frame = {
-      state,
-      expression: expressionByState[state],
-      mouthOpen: state === "reporting" ? this.frame.mouthOpen : 0,
-    }
+    this.sequence += 1
+    const mouthLevel = state === "reporting" ? this.reducerState.snapshot.mouthLevel : 0
+    this.reducerState = captainReducer(this.reducerState, {
+      id: "legacy-state",
+      type: eventTypeByState[state],
+      source: "legacy",
+      taskId: "legacy-state",
+      sequence: this.sequence,
+      startedAt: this.sequence,
+      expiresAt: null,
+      captionKey: `captain.state.${state}`,
+      captionParams: { mouthLevel },
+    })
     return this.current()
   }
 
   public applyAudioLevel(level: number): LanxiVisualFrame {
     const normalized = Number.isFinite(level) ? Math.min(1, Math.max(0, level)) : 0
-    this.frame = { ...this.frame, mouthOpen: this.frame.state === "reporting" ? normalized : 0 }
+    if (this.reducerState.snapshot.state !== "reporting") return this.current()
+    this.sequence += 1
+    this.reducerState = captainReducer(this.reducerState, {
+      id: "legacy-state",
+      type: "speech.started",
+      source: "legacy",
+      taskId: "legacy-state",
+      sequence: this.sequence,
+      startedAt: this.sequence,
+      expiresAt: null,
+      captionKey: "captain.state.reporting",
+      captionParams: { mouthLevel: normalized },
+    })
     return this.current()
   }
 }
