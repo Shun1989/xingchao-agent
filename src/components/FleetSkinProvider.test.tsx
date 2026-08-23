@@ -57,8 +57,20 @@ function importedRuntimeFleetContext(packId = "aurora-pack"): RuntimeFleetContex
   return { snapshot, index: indexRuntimeFleet(snapshot), status: "ready", error: null }
 }
 
-function Probe() {
+function Probe({ requestAfterCommit }: { requestAfterCommit?: { from: string; to: string } }) {
   const fleetSkin = useFleetSkin()
+  const followupRequestedRef = React.useRef(false)
+  React.useLayoutEffect(() => {
+    if (
+      requestAfterCommit &&
+      !followupRequestedRef.current &&
+      fleetSkin.phase === "committed" &&
+      fleetSkin.activeCrewId === requestAfterCommit.from
+    ) {
+      followupRequestedRef.current = true
+      fleetSkin.requestCrew(requestAfterCommit.to)
+    }
+  }, [fleetSkin, requestAfterCommit])
   return (
     <div>
       <output data-testid="active">{fleetSkin.activeCrewId}</output>
@@ -99,10 +111,12 @@ async function renderProvider({
   runtimeFleet = builtinRuntimeFleetContext,
   loadAsset,
   strict = false,
+  requestAfterCommit,
 }: {
   runtimeFleet?: RuntimeFleetContextValue
   loadAsset: (url: string) => Promise<void>
   strict?: boolean
+  requestAfterCommit?: { from: string; to: string }
 }) {
   const host = document.createElement("div")
   const root = createRoot(host)
@@ -110,14 +124,14 @@ async function renderProvider({
   const provider = (
     <RuntimeFleetContext.Provider value={runtimeFleet}>
       <FleetSkinProvider loadAsset={loadAsset}>
-        <Probe />
+        <Probe requestAfterCommit={requestAfterCommit} />
       </FleetSkinProvider>
     </RuntimeFleetContext.Provider>
   )
   await act(async () => {
     root.render(strict ? <React.StrictMode>{provider}</React.StrictMode> : provider)
   })
-  return { host }
+  return { host, root }
 }
 
 async function click(host: HTMLElement, label: string): Promise<void> {
@@ -144,7 +158,6 @@ afterEach(() => {
 
 describe("FleetSkinProvider", () => {
   it("keeps the old root and storage until every required asset resolves, then commits the complete skin together", async () => {
-    localStorage.setItem(activeCrewStorageKey, "watchtide")
     const loads = new Map<string, Deferred>()
     const { host } = await renderProvider({
       loadAsset: (url) => {
@@ -159,14 +172,14 @@ describe("FleetSkinProvider", () => {
     expect(text(host, "phase")).toBe("loading")
     expect(text(host, "pending")).toBe("ink-sail")
     expect(document.documentElement.dataset.fleetSkin).toBe("watchtide")
-    expect(localStorage.getItem(activeCrewStorageKey)).toBe("watchtide")
+    expect(localStorage.getItem(activeCrewStorageKey)).toBeNull()
 
     const required = requiredAssetUrls("ink-sail")
     for (const url of required.slice(0, -1)) {
       await act(async () => loads.get(url)!.resolve())
       expect(document.documentElement.dataset.fleetSkin).toBe("watchtide")
       expect(document.documentElement.style.getPropertyValue("--xingchao-primary")).toBe(originalPrimary)
-      expect(localStorage.getItem(activeCrewStorageKey)).toBe("watchtide")
+      expect(localStorage.getItem(activeCrewStorageKey)).toBeNull()
     }
 
     const committedSnapshots: string[] = []
@@ -194,7 +207,6 @@ describe("FleetSkinProvider", () => {
   })
 
   it("rolls back a required failure and retries through the same transactional path", async () => {
-    localStorage.setItem(activeCrewStorageKey, "watchtide")
     const attempts = new Map<string, Deferred[]>()
     const { host } = await renderProvider({
       loadAsset: (url) => {
@@ -209,7 +221,7 @@ describe("FleetSkinProvider", () => {
     await act(async () => attempts.get(backdropUrl)![0]!.reject(new Error("decode failed")))
 
     expect(document.documentElement.dataset.fleetSkin).toBe("watchtide")
-    expect(localStorage.getItem(activeCrewStorageKey)).toBe("watchtide")
+    expect(localStorage.getItem(activeCrewStorageKey)).toBeNull()
     expect(text(host, "phase")).toBe("error")
     expect(text(host, "error")).toContain("皮肤资源加载失败")
     expect(text(host, "error")).toContain("重试")
@@ -226,7 +238,6 @@ describe("FleetSkinProvider", () => {
   })
 
   it("lets only the latest request commit when older loads finish late", async () => {
-    localStorage.setItem(activeCrewStorageKey, "watchtide")
     const loads = new Map<string, Deferred>()
     const { host } = await renderProvider({
       loadAsset: (url) => {
@@ -241,7 +252,7 @@ describe("FleetSkinProvider", () => {
     for (const url of requiredAssetUrls("ink-sail")) await act(async () => loads.get(url)!.resolve())
 
     expect(document.documentElement.dataset.fleetSkin).toBe("watchtide")
-    expect(localStorage.getItem(activeCrewStorageKey)).toBe("watchtide")
+    expect(localStorage.getItem(activeCrewStorageKey)).toBeNull()
     expect(text(host, "pending")).toBe("forge-vessel")
 
     for (const url of requiredAssetUrls("forge-vessel")) await act(async () => loads.get(url)!.resolve())
@@ -269,7 +280,6 @@ describe("FleetSkinProvider", () => {
   })
 
   it("preloads a built-in crew without selecting or persisting it", async () => {
-    localStorage.setItem(activeCrewStorageKey, "watchtide")
     const loadAsset = vi.fn(() => new Promise<void>(() => undefined))
     const { host } = await renderProvider({ loadAsset })
 
@@ -279,19 +289,79 @@ describe("FleetSkinProvider", () => {
     expect(text(host, "active")).toBe("watchtide")
     expect(text(host, "pending")).toBe("none")
     expect(document.documentElement.dataset.fleetSkin).toBe("watchtide")
-    expect(localStorage.getItem(activeCrewStorageKey)).toBe("watchtide")
+    expect(localStorage.getItem(activeCrewStorageKey)).toBeNull()
   })
 
-  it("restores a valid built-in crew after restart without replaying a selection", async () => {
+  it("restores a stored built-in crew only after its required resources become ready", async () => {
     localStorage.setItem(activeCrewStorageKey, "phantom-wave")
-    const loadAsset = vi.fn(async () => undefined)
+    document.documentElement.dataset.fleetSkin = "previous-shell"
+    document.documentElement.style.setProperty("--xingchao-primary", "#abcdef")
+    const loads = new Map<string, Deferred>()
+    const loadAsset = vi.fn((url: string) => {
+      const load = deferred()
+      loads.set(url, load)
+      return load.promise
+    })
     const { host } = await renderProvider({ loadAsset })
 
     expect(text(host, "active")).toBe("phantom-wave")
+    expect(text(host, "skin")).toBe("none")
+    expect(text(host, "phase")).toBe("loading")
+    expect(document.documentElement.dataset.fleetSkin).toBe("previous-shell")
+    expect(document.documentElement.style.getPropertyValue("--xingchao-primary")).toBe("#abcdef")
+    expect(localStorage.getItem(activeCrewStorageKey)).toBe("phantom-wave")
+    expect(loadAsset).toHaveBeenCalled()
+
+    await act(async () => loads.get(fleetSkinAssetUrl("phantom-wave.scene.foreground"))!.resolve())
+    const required = requiredAssetUrls("phantom-wave")
+    for (const url of required.slice(0, -1)) await act(async () => loads.get(url)!.resolve())
+    expect(document.documentElement.dataset.fleetSkin).toBe("previous-shell")
+    expect(document.documentElement.style.getPropertyValue("--xingchao-primary")).toBe("#abcdef")
+
+    const committedSnapshots: string[] = []
+    const observer = new MutationObserver(() => {
+      committedSnapshots.push(
+        `${document.documentElement.dataset.fleetSkin}:${document.documentElement.style.getPropertyValue("--xingchao-primary")}`,
+      )
+    })
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["style", "data-fleet-skin"] })
+    await act(async () => loads.get(required.at(-1)!)!.resolve())
+    observer.disconnect()
     expect(text(host, "skin")).toBe("phantom-wave")
     expect(document.documentElement.dataset.fleetSkin).toBe("phantom-wave")
+    expect(new Set(committedSnapshots)).toEqual(new Set(["phantom-wave:#7257D8"]))
     expect(localStorage.getItem(activeCrewStorageKey)).toBe("phantom-wave")
-    expect(loadAsset).not.toHaveBeenCalled()
+  })
+
+  it("keeps the startup surface intact when stored skin readiness fails and retries successfully", async () => {
+    localStorage.setItem(activeCrewStorageKey, "phantom-wave")
+    document.documentElement.dataset.fleetSkin = "previous-shell"
+    document.documentElement.style.setProperty("--xingchao-primary", "#abcdef")
+    const attempts = new Map<string, Deferred[]>()
+    const { host } = await renderProvider({
+      loadAsset: (url) => {
+        const load = deferred()
+        attempts.set(url, [...(attempts.get(url) ?? []), load])
+        return load.promise
+      },
+    })
+    const backdropUrl = fleetSkinAssetUrl("phantom-wave.scene.backdrop")
+
+    await act(async () => attempts.get(backdropUrl)![0]!.reject(new Error("boot decode")))
+    expect(text(host, "phase")).toBe("error")
+    expect(text(host, "skin")).toBe("none")
+    expect(text(host, "error")).toContain("皮肤资源加载失败")
+    expect(document.documentElement.dataset.fleetSkin).toBe("previous-shell")
+    expect(document.documentElement.style.getPropertyValue("--xingchao-primary")).toBe("#abcdef")
+    expect(localStorage.getItem(activeCrewStorageKey)).toBe("phantom-wave")
+
+    await click(host, "retry")
+    await act(async () => attempts.get(fleetSkinAssetUrl("phantom-wave.scene.foreground"))!.at(-1)!.resolve())
+    for (const url of requiredAssetUrls("phantom-wave")) {
+      await act(async () => attempts.get(url)!.at(-1)!.resolve())
+    }
+    expect(document.documentElement.dataset.fleetSkin).toBe("phantom-wave")
+    expect(localStorage.getItem(activeCrewStorageKey)).toBe("phantom-wave")
   })
 
   it("recovers corrupted persisted selection to watchtide and removes the bad value", async () => {
@@ -316,6 +386,41 @@ describe("FleetSkinProvider", () => {
     expect(document.documentElement.style.getPropertyValue("--fleet-scene-backdrop")).toBe("")
     expect(localStorage.getItem(activeCrewStorageKey)).toBe("aurora-pack--watchtide")
     expect(loadAsset).not.toHaveBeenCalled()
+  })
+
+  it("persists commit A even when a layout-triggered request B fails before A's passive effect", async () => {
+    const loads = new Map<string, Deferred>()
+    const { host } = await renderProvider({
+      requestAfterCommit: { from: "ink-sail", to: "forge-vessel" },
+      loadAsset: (url) => {
+        const load = deferred()
+        loads.set(url, load)
+        return load.promise
+      },
+    })
+
+    await click(host, "ink")
+    await act(async () => loads.get(fleetSkinAssetUrl("ink-sail.scene.foreground"))!.resolve())
+    for (const url of requiredAssetUrls("ink-sail")) await act(async () => loads.get(url)!.resolve())
+    await act(async () =>
+      loads.get(fleetSkinAssetUrl("forge-vessel.scene.backdrop"))!.reject(new Error("request B failed")),
+    )
+
+    expect(document.documentElement.dataset.fleetSkin).toBe("ink-sail")
+    expect(text(host, "phase")).toBe("error")
+    expect(localStorage.getItem(activeCrewStorageKey)).toBe("ink-sail")
+  })
+
+  it("reuses a fulfilled hover preload without degrading the optional foreground", async () => {
+    const { host } = await renderProvider({ loadAsset: vi.fn(async () => undefined) })
+
+    await click(host, "preload")
+    await click(host, "ink")
+
+    expect(document.documentElement.dataset.fleetSkin).toBe("ink-sail")
+    expect(document.documentElement.style.getPropertyValue("--fleet-scene-foreground")).toContain(
+      fleetSkinAssetUrl("ink-sail.scene.foreground"),
+    )
   })
 
   it("keeps an imported palette visible while a built-in skin loads, then persists the built-in commit", async () => {
@@ -344,6 +449,7 @@ describe("FleetSkinProvider", () => {
   })
 
   it("continues an atomic load after StrictMode replays mount effects", async () => {
+    localStorage.setItem(activeCrewStorageKey, "ink-sail")
     const loads = new Map<string, Deferred>()
     const { host } = await renderProvider({
       strict: true,
@@ -354,9 +460,33 @@ describe("FleetSkinProvider", () => {
       },
     })
 
-    await click(host, "ink")
+    expect(text(host, "skin")).toBe("none")
+    expect(text(host, "phase")).toBe("loading")
+    await act(async () => loads.get(fleetSkinAssetUrl("ink-sail.scene.foreground"))!.resolve())
     for (const url of requiredAssetUrls("ink-sail")) await act(async () => loads.get(url)!.resolve())
 
     expect(document.documentElement.dataset.fleetSkin).toBe("ink-sail")
+  })
+
+  it("does not commit a stored skin after the boot provider unmounts", async () => {
+    localStorage.setItem(activeCrewStorageKey, "ink-sail")
+    document.documentElement.dataset.fleetSkin = "previous-shell"
+    const loads = new Map<string, Deferred>()
+    const { root } = await renderProvider({
+      loadAsset: (url) => {
+        const load = deferred()
+        loads.set(url, load)
+        return load.promise
+      },
+    })
+
+    roots.splice(roots.indexOf(root), 1)
+    act(() => root.unmount())
+    await act(async () => {
+      loads.get(fleetSkinAssetUrl("ink-sail.scene.foreground"))!.resolve()
+      for (const url of requiredAssetUrls("ink-sail")) loads.get(url)!.resolve()
+    })
+
+    expect(document.documentElement.dataset.fleetSkin).toBe("previous-shell")
   })
 })

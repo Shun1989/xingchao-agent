@@ -168,10 +168,9 @@ export function FleetSkinProvider({ children, loadAsset = defaultLoadAsset }: Fl
     globalThis.localStorage?.getItem(activeCrewStorageKey) ?? null,
   )
   const initialStoredValue = initialStoredValueRef.current
-  const [switchState, dispatch] = React.useReducer(
-    fleetSkinSwitchReducer,
-    initialStoredValue,
-    createFleetSkinSwitchState,
+  const [switchState, dispatch] = React.useReducer(fleetSkinSwitchReducer, undefined, createFleetSkinSwitchState)
+  const [bootTargetCrewId, setBootTargetCrewId] = React.useState<CrewId | null>(() =>
+    initialStoredValue && isBuiltinFleetSkinId(initialStoredValue) ? initialStoredValue : null,
   )
   const [importedCrewId, setImportedCrewId] = React.useState<CrewId | null>(() => {
     if (!initialStoredValue || isBuiltinFleetSkinId(initialStoredValue)) return null
@@ -181,6 +180,7 @@ export function FleetSkinProvider({ children, loadAsset = defaultLoadAsset }: Fl
   const lastRequestedCrewIdRef = React.useRef<CrewId | null>(null)
   const resourcePromisesRef = React.useRef(new Map<FleetSkinResourceId, Promise<void>>())
   const mountedRef = React.useRef(true)
+  const bootRequestIssuedRef = React.useRef(false)
 
   React.useEffect(() => {
     mountedRef.current = true
@@ -239,6 +239,12 @@ export function FleetSkinProvider({ children, loadAsset = defaultLoadAsset }: Fl
   }, [requestCrew])
 
   React.useEffect(() => {
+    if (bootTargetCrewId === null || bootRequestIssuedRef.current) return
+    bootRequestIssuedRef.current = true
+    requestCrew(bootTargetCrewId)
+  }, [bootTargetCrewId, requestCrew])
+
+  React.useEffect(() => {
     if (runtimeFleet.status === "loading") return
     const storedValue = initialStoredValueRef.current
     if (!storedValue || isBuiltinFleetSkinId(storedValue)) return
@@ -266,20 +272,6 @@ export function FleetSkinProvider({ children, loadAsset = defaultLoadAsset }: Fl
     const version = switchState.effectVersion
 
     if (effect.type === "preload-resources") {
-      for (const resourceId of effect.required) {
-        void loadResource(resourceId).then(
-          () => {
-            if (mountedRef.current) {
-              dispatch({ type: "asset.ready", generation: effect.generation, assetId: resourceId, required: true })
-            }
-          },
-          () => {
-            if (mountedRef.current) {
-              dispatch({ type: "asset.failed", generation: effect.generation, assetId: resourceId, required: true })
-            }
-          },
-        )
-      }
       for (const resourceId of effect.optional) {
         void loadResource(resourceId).then(
           () => {
@@ -294,23 +286,40 @@ export function FleetSkinProvider({ children, loadAsset = defaultLoadAsset }: Fl
           },
         )
       }
-    } else if (
-      effect.type === "persist-crew" &&
-      isBuiltinFleetSkinId(lastRequestedCrewIdRef.current ?? "") &&
-      effect.crewId === lastRequestedCrewIdRef.current
-    ) {
+      for (const resourceId of effect.required) {
+        void loadResource(resourceId).then(
+          () => {
+            if (mountedRef.current) {
+              dispatch({ type: "asset.ready", generation: effect.generation, assetId: resourceId, required: true })
+            }
+          },
+          () => {
+            if (mountedRef.current) {
+              dispatch({ type: "asset.failed", generation: effect.generation, assetId: resourceId, required: true })
+            }
+          },
+        )
+      }
+    } else if (effect.type === "persist-crew" && isBuiltinFleetSkinId(lastRequestedCrewIdRef.current ?? "")) {
       globalThis.localStorage?.setItem(activeCrewStorageKey, effect.crewId)
       setImportedCrewId(null)
+      if (bootTargetCrewId === effect.crewId) setBootTargetCrewId(null)
     }
     dispatch({ type: "effect.consumed", version })
-  }, [importedCrewId, loadResource, switchState.effect, switchState.effectVersion])
+  }, [bootTargetCrewId, loadResource, switchState.effect, switchState.effectVersion])
 
   const builtInJustCommitted = switchState.phase === "committed" && switchState.effect?.type === "persist-crew"
-  const activeCrewId = builtInJustCommitted
-    ? switchState.committedCrewId
-    : (importedCrewId ?? switchState.committedCrewId)
-  const skin = importedCrewId !== null && !builtInJustCommitted ? null : switchState.committedManifest
-  const activeImportedCrew = skin === null ? runtimeFleet.index.crewById.get(activeCrewId) : null
+  const bootJustCommitted =
+    bootTargetCrewId !== null && builtInJustCommitted && switchState.committedCrewId === bootTargetCrewId
+  const bootWaiting = bootTargetCrewId !== null && !bootJustCommitted
+  const activeCrewId = bootWaiting
+    ? bootTargetCrewId
+    : builtInJustCommitted
+      ? switchState.committedCrewId
+      : (importedCrewId ?? switchState.committedCrewId)
+  const skin = bootWaiting || (importedCrewId !== null && !builtInJustCommitted) ? null : switchState.committedManifest
+  const activeImportedCrew =
+    skin === null && importedCrewId !== null ? runtimeFleet.index.crewById.get(activeCrewId) : null
   const activeImportedTheme = activeImportedCrew
     ? (runtimeFleet.index.themeById.get(activeImportedCrew.themeId) ?? null)
     : null
@@ -334,14 +343,21 @@ export function FleetSkinProvider({ children, loadAsset = defaultLoadAsset }: Fl
       activeCrewId,
       skin,
       requestCrew,
-      phase: importedSelectionSettled ? ("idle" as const) : switchState.phase,
-      pendingCrewId: switchState.pending?.crewId ?? null,
+      phase: importedSelectionSettled
+        ? ("idle" as const)
+        : bootWaiting && switchState.phase === "idle"
+          ? ("loading" as const)
+          : switchState.phase,
+      pendingCrewId:
+        bootWaiting && switchState.phase === "idle" ? bootTargetCrewId : (switchState.pending?.crewId ?? null),
       error: importedSelectionSettled ? null : errorMessage(switchState.error),
       retry,
       preloadCrew,
     }),
     [
       activeCrewId,
+      bootTargetCrewId,
+      bootWaiting,
       importedSelectionSettled,
       preloadCrew,
       requestCrew,
