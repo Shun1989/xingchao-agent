@@ -5,6 +5,7 @@ import * as React from "react"
 
 export interface XingchaoThemeContextValue {
   activeCrewId: CrewId
+  /** Compatibility alias. FleetSkinProvider remains the only selection authority. */
   setActiveCrewId: (crewId: CrewId) => void
   theme: RuntimeFleetTheme
 }

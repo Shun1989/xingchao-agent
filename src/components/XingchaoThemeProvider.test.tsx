@@ -1,12 +1,15 @@
 // @vitest-environment happy-dom
 
+import type { FleetSkinContextValue } from "./fleet-skin-context.ts"
 import type { RuntimeFleetContextValue } from "./runtime-fleet-context.ts"
 
 import * as React from "react"
 import { act } from "react"
 import { createRoot } from "react-dom/client"
-import { afterEach, beforeEach, describe, expect, it } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { storageKey } from "../../electron/branding.ts"
+import { FleetSkinContext } from "./fleet-skin-context.ts"
+import { FleetSkinProvider } from "./FleetSkinProvider.tsx"
 import { RuntimeFleetContext } from "./runtime-fleet-context.ts"
 import { useXingchaoTheme } from "./xingchao-theme-context.ts"
 import { XingchaoThemeProvider } from "./XingchaoThemeProvider.tsx"
@@ -51,9 +54,11 @@ async function renderThemeProbe(contextValue: RuntimeFleetContextValue) {
     await act(async () => {
       root.render(
         <RuntimeFleetContext.Provider value={value}>
-          <XingchaoThemeProvider>
-            <Probe />
-          </XingchaoThemeProvider>
+          <FleetSkinProvider loadAsset={async () => undefined}>
+            <XingchaoThemeProvider>
+              <Probe />
+            </XingchaoThemeProvider>
+          </FleetSkinProvider>
         </RuntimeFleetContext.Provider>,
       )
     })
@@ -72,14 +77,50 @@ afterEach(() => {
   })
   localStorage.clear()
   document.documentElement.removeAttribute("data-crew")
-  document.documentElement.style.removeProperty("--xingchao-primary")
-  document.documentElement.style.removeProperty("--xingchao-secondary")
-  document.documentElement.style.removeProperty("--xingchao-accent")
-  document.documentElement.style.removeProperty("--xingchao-surface")
-  document.documentElement.style.removeProperty("--xingchao-foreground")
+  document.documentElement.removeAttribute("data-fleet-skin")
+  document.documentElement.removeAttribute("style")
 })
 
 describe("XingchaoThemeProvider", () => {
+  it("adapts the fleet skin authority without owning selection, storage, or root mutation", async () => {
+    const runtimeFleet = importedRuntimeFleetContext("aurora-pack")
+    const requestCrew = vi.fn()
+    const fleetSkinValue: FleetSkinContextValue = {
+      activeCrewId: "aurora-pack--watchtide",
+      skin: null,
+      requestCrew,
+      phase: "idle",
+      pendingCrewId: null,
+      error: null,
+      retry: vi.fn(),
+      preloadCrew: vi.fn(),
+    }
+    document.documentElement.dataset.crew = "provider-owned"
+    document.documentElement.style.setProperty("--xingchao-primary", "#abcdef")
+    const host = document.createElement("div")
+    const root = createRoot(host)
+    roots.push(root)
+
+    await act(async () => {
+      root.render(
+        <RuntimeFleetContext.Provider value={runtimeFleet}>
+          <FleetSkinContext.Provider value={fleetSkinValue}>
+            <XingchaoThemeProvider>
+              <Probe />
+            </XingchaoThemeProvider>
+          </FleetSkinContext.Provider>
+        </RuntimeFleetContext.Provider>,
+      )
+    })
+
+    expect(host.textContent).toBe("aurora-pack--watchtide")
+    await act(async () => host.querySelector("button")!.click())
+    expect(requestCrew).toHaveBeenCalledWith("aurora-pack--watchtide")
+    expect(localStorage.getItem(storageKey("activeCrew"))).toBeNull()
+    expect(document.documentElement.dataset.crew).toBe("provider-owned")
+    expect(document.documentElement.style.getPropertyValue("--xingchao-primary")).toBe("#abcdef")
+  })
+
   it("applies an imported crew palette and clears it when the crew disappears", async () => {
     const { host, rerender } = await renderThemeProbe(importedRuntimeFleetContext("aurora-pack"))
 
@@ -91,6 +132,7 @@ describe("XingchaoThemeProvider", () => {
     await rerender(builtinRuntimeFleetContext)
 
     expect(localStorage.getItem(storageKey("activeCrew"))).toBeNull()
+    expect(document.documentElement.dataset.fleetSkin).toBe("watchtide")
     expect(document.documentElement.dataset.crew).toBe("watchtide")
     expect(host.textContent).toBe("watchtide")
   })

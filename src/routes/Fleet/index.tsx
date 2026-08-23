@@ -1,15 +1,17 @@
 import { Anchor, Check, Compass, ShipWheel } from "lucide-react"
 import * as React from "react"
-import { LanxiStage } from "@/components/LanxiStage.tsx"
+import { useFleetSkin } from "@/components/fleet-skin-context.ts"
 import { useRuntimeFleet } from "@/components/runtime-fleet-context.ts"
 import { useXingchaoTheme } from "@/components/xingchao-theme-context.ts"
 import { useT } from "@/i18n"
 import { cn } from "@/lib/utils"
+import { isBuiltinFleetSkinId } from "@/skins/fleet-skins.ts"
 
 export function FleetHarborRoute({ onOpenVoyage }: { onOpenVoyage: () => void }) {
   const t = useT()
   const runtimeFleet = useRuntimeFleet()
-  const { activeCrewId, setActiveCrewId, theme } = useXingchaoTheme()
+  const { activeCrewId, requestCrew, pendingCrewId, error, retry, preloadCrew } = useFleetSkin()
+  const { theme } = useXingchaoTheme()
   const crews = runtimeFleet.snapshot.crews
   const activeCrew = runtimeFleet.index.crewById.get(activeCrewId) ?? runtimeFleet.index.crewById.get("watchtide")!
   const members = runtimeFleet.index.agentsForCrew(activeCrew.id)
@@ -46,7 +48,11 @@ export function FleetHarborRoute({ onOpenVoyage }: { onOpenVoyage: () => void })
               </span>
             </div>
           </div>
-          <LanxiStage state="idle" overlayName={theme.live2dOverlay} />
+          <div
+            aria-hidden="true"
+            className="relative min-h-80 overflow-hidden border-l border-[color-mix(in_srgb,var(--xingchao-primary)_24%,transparent)] max-[900px]:min-h-56 max-[900px]:border-t max-[900px]:border-l-0"
+            data-captain-host-slot
+          />
         </section>
 
         <section>
@@ -65,6 +71,17 @@ export function FleetHarborRoute({ onOpenVoyage }: { onOpenVoyage: () => void })
               {t("fleet.runtimeFallback")}
             </p>
           )}
+          {error && (
+            <div
+              className="mb-4 flex items-center justify-between gap-4 rounded-lg border border-red-400/40 bg-red-950/20 px-4 py-3 text-sm"
+              role="alert"
+            >
+              <span>{error}</span>
+              <button className="shrink-0 underline underline-offset-4" type="button" onClick={retry}>
+                重试
+              </button>
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
             {crews.map((crew) => {
               const crewTheme = runtimeFleet.index.themeById.get(crew.themeId)!
@@ -73,7 +90,13 @@ export function FleetHarborRoute({ onOpenVoyage }: { onOpenVoyage: () => void })
                   data-crew-id={crew.id}
                   key={crew.id}
                   type="button"
-                  onClick={() => setActiveCrewId(crew.id)}
+                  onClick={() => requestCrew(crew.id)}
+                  onPointerEnter={() => {
+                    if (isBuiltinFleetSkinId(crew.id)) preloadCrew(crew.id)
+                  }}
+                  onFocus={() => {
+                    if (isBuiltinFleetSkinId(crew.id)) preloadCrew(crew.id)
+                  }}
                   className={cn("xingchao-crew-card text-left", activeCrewId === crew.id && "is-active")}
                   style={
                     {
@@ -85,6 +108,11 @@ export function FleetHarborRoute({ onOpenVoyage }: { onOpenVoyage: () => void })
                   <span className="mb-4 block h-1.5 w-12 rounded-full bg-[var(--crew-color)]" />
                   <strong className="block text-base">{crew.name}</strong>
                   <span className="mt-1 block text-xs leading-5 text-muted-foreground">{crew.domain}</span>
+                  {pendingCrewId === crew.id && (
+                    <span className="mt-2 block text-xs text-[var(--xingchao-primary)]" role="status">
+                      切换中
+                    </span>
+                  )}
                 </button>
               )
             })}
