@@ -69,14 +69,14 @@ export function VoyageRoute({ onLaunch }: { onLaunch: (mission: Mission) => Prom
   }
 
   return (
-    <div className="xingchao-route h-full overflow-y-auto">
+    <div className="fleet-route h-full overflow-y-auto">
       <div className="mx-auto grid max-w-[100rem] gap-6 px-8 py-8">
         <header>
-          <p className="text-xs tracking-[.2em] text-[var(--xingchao-primary)]">MISSION CHART</p>
+          <p className="text-xs tracking-[.2em] text-primary">MISSION CHART</p>
           <h1 className="mt-1 text-3xl font-semibold">航海图</h1>
           <p className="mt-2 text-muted-foreground">澜汐先推荐团队；你确认或修改后，主团主题才会生效并进入执行。</p>
         </header>
-        <section className="xingchao-panel grid gap-4 p-5">
+        <section className="fleet-panel grid gap-4 p-5">
           <label className="text-sm font-medium" htmlFor="mission-goal">
             这次航程要交付什么？
           </label>
@@ -86,19 +86,19 @@ export function VoyageRoute({ onLaunch }: { onLaunch: (mission: Mission) => Prom
             onChange={(event) => setGoal(event.target.value)}
             rows={4}
             placeholder="例如：调研三款竞品，形成带来源的分析报告，并制作一份可演示的 PPT。"
-            className="w-full resize-y rounded-xl border bg-background/70 p-4 text-sm leading-6 outline-none focus:ring-2 focus:ring-[var(--xingchao-accent)]"
+            className="fleet-input w-full resize-y border p-4 text-sm leading-6 outline-none focus:ring-2 focus:ring-ring"
           />
           <div>
-            <button type="button" className="xingchao-primary-button" disabled={!goal.trim()} onClick={createPlan}>
+            <button type="button" className="fleet-button-primary" disabled={!goal.trim()} onClick={createPlan}>
               <GitBranch className="size-4" /> 推荐团队并生成航海图
             </button>
           </div>
         </section>
         {mission ? (
           <>
-            <section className="xingchao-panel p-5">
+            <section className="fleet-panel p-5">
               <div className="mb-4 flex items-center gap-2">
-                <Users className="size-5 text-[var(--xingchao-primary)]" />
+                <Users className="size-5 text-primary" />
                 <h2 className="text-lg font-semibold">确认编队</h2>
                 <span className="ml-auto text-xs text-muted-foreground">1 个主团 · 最多 2 个支援团</span>
               </div>
@@ -109,7 +109,7 @@ export function VoyageRoute({ onLaunch }: { onLaunch: (mission: Mission) => Prom
                     className={cn(
                       "rounded-xl border p-3",
                       primaryCrewId === crew.id &&
-                        "border-[var(--xingchao-primary)] bg-[color-mix(in_srgb,var(--xingchao-primary)_8%,transparent)]",
+                        "border-primary bg-[color-mix(in_oklab,var(--primary)_12%,transparent)]",
                     )}
                   >
                     <strong className="text-sm">{crew.name}</strong>
@@ -127,7 +127,7 @@ export function VoyageRoute({ onLaunch }: { onLaunch: (mission: Mission) => Prom
                         disabled={primaryCrewId === crew.id}
                         className={cn(
                           "rounded-md border px-2 py-1 text-[11px]",
-                          supportCrewIds.includes(crew.id) && "bg-[var(--xingchao-secondary)] text-white",
+                          supportCrewIds.includes(crew.id) && "bg-secondary text-secondary-foreground",
                         )}
                         onClick={() => toggleSupport(crew.id)}
                       >
@@ -138,9 +138,9 @@ export function VoyageRoute({ onLaunch }: { onLaunch: (mission: Mission) => Prom
                 ))}
               </div>
             </section>
-            <section className="xingchao-panel p-5">
+            <section className="fleet-panel p-5">
               <div className="mb-5 flex items-center gap-2">
-                <GitBranch className="size-5 text-[var(--xingchao-primary)]" />
+                <GitBranch className="size-5 text-primary" />
                 <h2 className="text-lg font-semibold">任务 DAG</h2>
               </div>
               <div className="grid gap-3">
@@ -183,16 +183,16 @@ export function VoyageRoute({ onLaunch }: { onLaunch: (mission: Mission) => Prom
                 })}
               </div>
             </section>
-            <section className="flex items-center justify-between gap-4 rounded-2xl bg-[var(--xingchao-primary)] p-5 text-white">
+            <section className="flex items-center justify-between gap-4 rounded-2xl bg-primary p-5 text-primary-foreground">
               <div>
                 <strong>确认后将切换至 {runtimeFleet.index.crewById.get(primaryCrewId)?.name} 主题</strong>
-                <p className="mt-1 text-sm text-white/70">随后由现有 Agent 内核执行，危险操作仍会逐项审批。</p>
+                <p className="mt-1 text-sm opacity-75">随后由现有 Agent 内核执行，危险操作仍会逐项审批。</p>
               </div>
               <button
                 type="button"
                 disabled={launching || mission.fleetRevision !== runtimeFleet.snapshot.revision}
                 onClick={() => void launch()}
-                className="flex shrink-0 items-center gap-2 rounded-lg bg-white px-4 py-2.5 text-sm font-semibold text-[var(--xingchao-primary)]"
+                className="flex shrink-0 items-center gap-2 rounded-lg bg-background px-4 py-2.5 text-sm font-semibold text-primary"
               >
                 <Play className="size-4" />
                 {launching ? "正在启航…" : "确认并开始执行"}

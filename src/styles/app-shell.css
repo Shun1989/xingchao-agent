@@ -1,10 +1,13 @@
 @layer components {
   .oo-app-chrome {
     position: relative;
+    color: var(--foreground);
     background: var(--oo-chrome);
     grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
     grid-template-rows: minmax(0, 1fr);
-    transition: grid-template-columns 180ms cubic-bezier(0.2, 0, 0, 1);
+    transition:
+      grid-template-columns 180ms cubic-bezier(0.2, 0, 0, 1),
+      color var(--fleet-motion-switch-ms, 320ms) ease;
   }
 
   .oo-app-chrome.oo-sidebar-resizing {
@@ -38,7 +41,7 @@
 
   .oo-sidebar {
     border-color: var(--oo-sidebar-material-border);
-    background: var(--oo-sidebar-material);
+    background: var(--fleet-surface-sidebar-fill, var(--oo-sidebar-material));
     overflow: hidden;
     transition:
       opacity 120ms ease-out,
@@ -301,8 +304,10 @@
   }
 
   .oo-toolbar {
-    background: var(--oo-toolbar);
-    transition: padding-left 180ms cubic-bezier(0.2, 0, 0, 1);
+    background: var(--fleet-surface-titlebar-fill, var(--oo-toolbar));
+    transition:
+      padding-left 180ms cubic-bezier(0.2, 0, 0, 1),
+      background var(--fleet-motion-switch-ms, 320ms) ease;
   }
 
   .oo-main-titlebar {

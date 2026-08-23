@@ -80,9 +80,10 @@
   }
 
   .oo-modal-surface {
-    border-color: var(--oo-overlay-border);
-    background: var(--popover);
-    box-shadow: var(--oo-overlay-inner-ring), var(--oo-overlay-shadow);
+    border-color: var(--fleet-surface-dialog-border, var(--oo-overlay-border));
+    border-radius: var(--fleet-surface-dialog-radius, var(--oo-radius-panel));
+    background: var(--fleet-surface-dialog-fill, var(--popover));
+    box-shadow: var(--oo-overlay-inner-ring), var(--fleet-surface-dialog-shadow-value, var(--oo-overlay-shadow));
   }
 
   .oo-session-search-input {
@@ -140,7 +141,7 @@
 
   .oo-content-surface {
     overflow: hidden;
-    background: var(--oo-content-surface);
+    background: var(--fleet-surface-content-fill, var(--oo-content-surface));
   }
 
   .oo-connection-filter-row {

@@ -11,8 +11,10 @@ import { fleetSkinAssetUrl } from "@/skins/fleet-skin-assets.ts"
 import { beginFleetSkinSwitch, createFleetSkinSwitchState, fleetSkinSwitchReducer } from "@/skins/fleet-skin-switch.ts"
 import { isBuiltinFleetSkinId, resolveFleetSkin } from "@/skins/fleet-skins.ts"
 
+/* oxlint-disable react/only-export-components -- Task 6 keeps the authoritative pure CSS mapper beside its sole DOM consumer. */
+
 const activeCrewStorageKey = storageKey("activeCrew")
-const ownedVariablePrefixes = ["--fleet-", "--xingchao-"] as const
+const ownedVariablePrefixes = ["--fleet-"] as const
 
 export type FleetSkinAssetLoader = (url: string) => Promise<void>
 
@@ -56,17 +58,116 @@ function paletteVariables(palette: Readonly<FleetSkinTokens>): Record<string, st
   }
 }
 
-function manifestVariables(
+const surfaceShadowValues = {
+  none: "none",
+  soft: "0 12px 32px color-mix(in oklab, var(--foreground) 8%, transparent)",
+  medium: "0 18px 46px color-mix(in oklab, var(--foreground) 12%, transparent)",
+  strong: "0 24px 64px color-mix(in oklab, var(--foreground) 18%, transparent)",
+  inset: "inset 0 0 0 1px color-mix(in oklab, var(--foreground) 10%, transparent)",
+} as const
+
+function surfaceColor(color: string, opacity: number): string {
+  return opacity === 1 ? color : `color-mix(in oklab, ${color} ${Math.round(opacity * 100)}%, transparent)`
+}
+
+function surfaceFill(material: string, color: string, opacity: number): string {
+  const base = surfaceColor(color, opacity)
+  const motif = {
+    solid: "linear-gradient(180deg, transparent, transparent)",
+    glass: "linear-gradient(145deg, color-mix(in oklab, white 10%, transparent), transparent 58%)",
+    paper:
+      "repeating-linear-gradient(0deg, color-mix(in oklab, var(--foreground) 3%, transparent) 0 1px, transparent 1px 5px)",
+    wood: "repeating-linear-gradient(98deg, color-mix(in oklab, var(--foreground) 5%, transparent) 0 1px, transparent 1px 16px)",
+    metal:
+      "linear-gradient(120deg, color-mix(in oklab, white 8%, transparent), transparent 36%, color-mix(in oklab, black 7%, transparent))",
+    mist: "radial-gradient(circle at 80% 10%, color-mix(in oklab, white 12%, transparent), transparent 58%)",
+    grid: "linear-gradient(color-mix(in oklab, var(--foreground) 5%, transparent) 1px, transparent 1px), linear-gradient(90deg, color-mix(in oklab, var(--foreground) 5%, transparent) 1px, transparent 1px)",
+    ink: "radial-gradient(ellipse at 12% 0%, color-mix(in oklab, var(--foreground) 9%, transparent), transparent 52%)",
+    fabric:
+      "repeating-linear-gradient(135deg, color-mix(in oklab, var(--foreground) 4%, transparent) 0 1px, transparent 1px 4px)",
+    ceramic: "linear-gradient(160deg, color-mix(in oklab, white 9%, transparent), transparent 42%)",
+  }[material]
+  return `${motif ?? "linear-gradient(180deg, transparent, transparent)"}, ${base}`
+}
+
+function hexRelativeLuminance(color: string): number | null {
+  if (!/^#[0-9a-f]{6}$/i.test(color)) return null
+  const channels = color
+    .slice(1)
+    .match(/.{2}/g)!
+    .map((channel) => Number.parseInt(channel, 16) / 255)
+    .map((channel) => (channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4))
+  return 0.2126 * channels[0]! + 0.7152 * channels[1]! + 0.0722 * channels[2]!
+}
+
+function accessibleForeground(background: string, ...preferred: string[]): string {
+  const backgroundLuminance = hexRelativeLuminance(background)
+  if (backgroundLuminance === null) return preferred[0]!
+
+  return [...preferred, "#000000", "#FFFFFF"].reduce((best, candidate) => {
+    const candidateLuminance = hexRelativeLuminance(candidate)
+    const bestLuminance = hexRelativeLuminance(best)
+    if (candidateLuminance === null || bestLuminance === null) return best
+    const candidateContrast =
+      (Math.max(backgroundLuminance, candidateLuminance) + 0.05) /
+      (Math.min(backgroundLuminance, candidateLuminance) + 0.05)
+    const bestContrast =
+      (Math.max(backgroundLuminance, bestLuminance) + 0.05) / (Math.min(backgroundLuminance, bestLuminance) + 0.05)
+    return candidateContrast > bestContrast ? candidate : best
+  }, preferred[0]!)
+}
+
+export function manifestToFleetSkinVariables(
   manifest: ReadonlyFleetSkinManifest,
   degradedOptional: readonly FleetSkinAssetId[],
 ): Record<string, string> {
+  const cardSurface = manifest.surfaces.card
+  const dialogSurface = manifest.surfaces.dialog
+  const inputSurface = manifest.surfaces.input
   const variables: Record<string, string> = {
     ...paletteVariables(manifest.palette),
-    "--xingchao-primary": manifest.palette.primary,
-    "--xingchao-secondary": manifest.palette.secondary,
-    "--xingchao-accent": manifest.palette.accent,
-    "--xingchao-surface": manifest.palette.panel,
-    "--xingchao-foreground": manifest.palette.text,
+    "--background": manifest.palette.canvas,
+    "--foreground": manifest.palette.text,
+    "--card": surfaceColor(manifest.palette.elevated, cardSurface.opacity),
+    "--card-foreground": manifest.palette.text,
+    "--popover": surfaceColor(manifest.palette.elevated, dialogSurface.opacity),
+    "--popover-foreground": manifest.palette.text,
+    "--primary": manifest.palette.primary,
+    "--primary-foreground": accessibleForeground(
+      manifest.palette.primary,
+      manifest.palette.canvas,
+      manifest.palette.text,
+    ),
+    "--secondary": manifest.palette.secondary,
+    "--secondary-foreground": manifest.palette.text,
+    "--muted": manifest.palette.panel,
+    "--muted-foreground": manifest.palette.mutedText,
+    "--accent": manifest.palette.accent,
+    "--accent-foreground": manifest.palette.text,
+    "--destructive": manifest.palette.danger,
+    "--success": manifest.palette.success,
+    "--warning": manifest.palette.warning,
+    "--info": manifest.palette.accent,
+    "--border": cardSurface.border,
+    "--input": inputSurface.border,
+    "--ring": manifest.palette.focus,
+    "--oo-content-surface": surfaceColor(manifest.palette.panel, manifest.surfaces.content.opacity),
+    "--oo-sidebar": surfaceColor(manifest.palette.panel, manifest.surfaces.sidebar.opacity),
+    "--oo-toolbar": surfaceColor(manifest.palette.panel, manifest.surfaces.titlebar.opacity),
+    "--oo-surface": surfaceColor(manifest.palette.elevated, cardSurface.opacity),
+    "--oo-overlay-border": manifest.surfaces.overlay.border,
+    "--oo-overlay-shadow": surfaceShadowValues[manifest.surfaces.overlay.shadow],
+    "--sidebar": surfaceColor(manifest.palette.panel, manifest.surfaces.sidebar.opacity),
+    "--sidebar-foreground": manifest.palette.text,
+    "--sidebar-muted-foreground": manifest.palette.mutedText,
+    "--sidebar-accent": surfaceColor(manifest.palette.accent, 0.18),
+    "--sidebar-accent-foreground": manifest.palette.text,
+    "--sidebar-border": manifest.surfaces.sidebar.border,
+    "--sidebar-ring": manifest.palette.focus,
+    "--radius": `${inputSurface.radius}px`,
+    "--oo-radius-shell": `${manifest.surfaces.content.radius}px`,
+    "--oo-radius-panel": `${cardSurface.radius}px`,
+    "--oo-radius-control": `${inputSurface.radius}px`,
     "--fleet-scene-backdrop": cssUrl(fleetSkinAssetUrl(manifest.scene.backdrop)),
     "--fleet-scene-scrim": manifest.scene.scrim,
     "--fleet-scene-focal-point": manifest.scene.focalPoint,
@@ -77,6 +178,12 @@ function manifestVariables(
     "--fleet-captain-motion-style": manifest.captain.motionStyle,
     "--fleet-navigation-selected-shape": manifest.navigation.selectedShape,
     "--fleet-navigation-divider": manifest.navigation.divider,
+    "--fleet-navigation-selected-radius": {
+      pill: "999px",
+      ticket: "6px 14px 6px 14px",
+      frame: "2px",
+      underline: "6px 6px 2px 2px",
+    }[manifest.navigation.selectedShape],
     "--fleet-motion-switch-ms": `${manifest.motion.switchMs}ms`,
     "--fleet-motion-parallax-px": `${manifest.motion.parallaxPx}px`,
     "--fleet-motion-particle-density": String(manifest.motion.particleDensity),
@@ -97,6 +204,12 @@ function manifestVariables(
     variables[`--fleet-surface-${surfaceName}-border`] = surface.border
     variables[`--fleet-surface-${surfaceName}-shadow`] = surface.shadow
     variables[`--fleet-surface-${surfaceName}-radius`] = `${surface.radius}px`
+    const color =
+      surfaceName === "card" || surfaceName === "dialog" || surfaceName === "overlay"
+        ? manifest.palette.elevated
+        : manifest.palette.panel
+    variables[`--fleet-surface-${surfaceName}-fill`] = surfaceFill(surface.material, color, surface.opacity)
+    variables[`--fleet-surface-${surfaceName}-shadow-value`] = surfaceShadowValues[surface.shadow]
   }
 
   for (const [role, typography] of Object.entries(manifest.typography)) {
@@ -124,19 +237,67 @@ function manifestVariables(
   return variables
 }
 
-function legacyThemeVariables(theme: {
+export function safeFleetThemeVariables(theme: {
   primary: string
   secondary: string
   accent: string
   surface: string
   foreground: string
 }): Record<string, string> {
+  const border = `color-mix(in oklab, ${theme.foreground} 24%, transparent)`
+  const panel = `color-mix(in oklab, ${theme.surface} 92%, transparent)`
   return {
-    "--xingchao-primary": theme.primary,
-    "--xingchao-secondary": theme.secondary,
-    "--xingchao-accent": theme.accent,
-    "--xingchao-surface": theme.surface,
-    "--xingchao-foreground": theme.foreground,
+    "--background": theme.surface,
+    "--foreground": theme.foreground,
+    "--card": panel,
+    "--card-foreground": theme.foreground,
+    "--popover": theme.surface,
+    "--popover-foreground": theme.foreground,
+    "--primary": theme.primary,
+    "--primary-foreground": accessibleForeground(theme.primary, theme.surface, theme.foreground),
+    "--secondary": theme.secondary,
+    "--secondary-foreground": theme.foreground,
+    "--muted": panel,
+    "--muted-foreground": `color-mix(in oklab, ${theme.foreground} 70%, ${theme.surface})`,
+    "--accent": theme.accent,
+    "--accent-foreground": theme.foreground,
+    "--destructive": "#B42318",
+    "--success": "#16794A",
+    "--warning": "#8A5700",
+    "--info": theme.accent,
+    "--border": border,
+    "--input": border,
+    "--ring": theme.accent,
+    "--oo-content-surface": panel,
+    "--oo-sidebar": panel,
+    "--oo-toolbar": panel,
+    "--oo-surface": panel,
+    "--oo-overlay-border": border,
+    "--oo-overlay-shadow": `0 18px 46px color-mix(in oklab, ${theme.foreground} 14%, transparent)`,
+    "--sidebar": panel,
+    "--sidebar-foreground": theme.foreground,
+    "--sidebar-muted-foreground": `color-mix(in oklab, ${theme.foreground} 70%, ${theme.surface})`,
+    "--sidebar-accent": `color-mix(in oklab, ${theme.accent} 18%, ${theme.surface})`,
+    "--sidebar-accent-foreground": theme.foreground,
+    "--sidebar-border": border,
+    "--sidebar-ring": theme.accent,
+    "--radius": "10px",
+    "--oo-radius-shell": "16px",
+    "--oo-radius-panel": "14px",
+    "--oo-radius-control": "10px",
+    "--fleet-type-heading-family": 'ui-serif, Georgia, Cambria, "Times New Roman", Times, serif',
+    "--fleet-type-heading-weight": "650",
+    "--fleet-type-heading-tracking": "-0.25px",
+    "--fleet-type-body-family": 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+    "--fleet-type-body-weight": "400",
+    "--fleet-type-body-tracking": "0px",
+    "--fleet-type-numeric-family":
+      'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
+    "--fleet-type-numeric-weight": "600",
+    "--fleet-type-numeric-tracking": "0px",
+    "--fleet-type-label-family": 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+    "--fleet-type-label-weight": "600",
+    "--fleet-type-label-tracking": "0.2px",
     "--fleet-color-primary": theme.primary,
     "--fleet-color-secondary": theme.secondary,
     "--fleet-color-accent": theme.accent,
@@ -158,6 +319,8 @@ function commitVariables(root: HTMLElement, crewId: CrewId, skinId: string, vari
   root.style.cssText = nextStyle
   root.dataset.crew = crewId
   root.dataset.fleetSkin = skinId
+  const appChrome = root.ownerDocument.querySelector<HTMLElement>(".oo-app-chrome")
+  if (appChrome) appChrome.dataset.fleetSkin = skinId
 }
 
 function errorMessage(code: "invalid-resource-set" | "required-asset-failed" | "unknown-crew" | null): string | null {
@@ -385,11 +548,16 @@ export function FleetSkinProvider({ children, loadAsset = defaultLoadAsset }: Fl
   React.useLayoutEffect(() => {
     const root = document.documentElement
     if (skin !== null) {
-      commitVariables(root, activeCrewId, skin.identity.crewId, manifestVariables(skin, switchState.degradedOptional))
+      commitVariables(
+        root,
+        activeCrewId,
+        skin.identity.crewId,
+        manifestToFleetSkinVariables(skin, switchState.degradedOptional),
+      )
       return
     }
     if (activeImportedTheme !== null) {
-      commitVariables(root, activeCrewId, "legacy-imported", legacyThemeVariables(activeImportedTheme))
+      commitVariables(root, activeCrewId, "legacy-imported", safeFleetThemeVariables(activeImportedTheme))
       globalThis.localStorage?.setItem(activeCrewStorageKey, activeCrewId)
     }
   }, [activeCrewId, activeImportedTheme, skin, switchState.degradedOptional])

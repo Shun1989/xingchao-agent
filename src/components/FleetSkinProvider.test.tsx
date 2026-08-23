@@ -177,7 +177,7 @@ describe("FleetSkinProvider", () => {
         return load.promise
       },
     })
-    const originalPrimary = document.documentElement.style.getPropertyValue("--xingchao-primary")
+    const originalPrimary = document.documentElement.style.getPropertyValue("--primary")
 
     await click(host, "ink")
     expect(text(host, "phase")).toBe("loading")
@@ -189,14 +189,14 @@ describe("FleetSkinProvider", () => {
     for (const url of required.slice(0, -1)) {
       await act(async () => loads.get(url)!.resolve())
       expect(document.documentElement.dataset.fleetSkin).toBe("watchtide")
-      expect(document.documentElement.style.getPropertyValue("--xingchao-primary")).toBe(originalPrimary)
+      expect(document.documentElement.style.getPropertyValue("--primary")).toBe(originalPrimary)
       expect(localStorage.getItem(activeCrewStorageKey)).toBeNull()
     }
 
     const committedSnapshots: string[] = []
     const observer = new MutationObserver(() => {
       committedSnapshots.push(
-        `${document.documentElement.dataset.fleetSkin}:${document.documentElement.style.getPropertyValue("--xingchao-primary")}:${document.documentElement.style.getPropertyValue("--fleet-scene-backdrop")}`,
+        `${document.documentElement.dataset.fleetSkin}:${document.documentElement.style.getPropertyValue("--primary")}:${document.documentElement.style.getPropertyValue("--fleet-scene-backdrop")}`,
       )
     })
     observer.observe(document.documentElement, { attributes: true, attributeFilter: ["style", "data-fleet-skin"] })
@@ -206,7 +206,7 @@ describe("FleetSkinProvider", () => {
     expect(text(host, "active")).toBe("ink-sail")
     expect(text(host, "skin")).toBe("ink-sail")
     expect(document.documentElement.dataset.fleetSkin).toBe("ink-sail")
-    expect(document.documentElement.style.getPropertyValue("--xingchao-primary")).toBe("#8B3444")
+    expect(document.documentElement.style.getPropertyValue("--primary")).toBe("#8B3444")
     expect(document.documentElement.style.getPropertyValue("--fleet-surface-card-material")).toBe("paper")
     expect(document.documentElement.style.getPropertyValue("--fleet-scene-backdrop")).toContain(
       fleetSkinAssetUrl("ink-sail.scene.backdrop"),
@@ -306,7 +306,7 @@ describe("FleetSkinProvider", () => {
   it("restores a stored built-in crew only after its required resources become ready", async () => {
     localStorage.setItem(activeCrewStorageKey, "phantom-wave")
     document.documentElement.dataset.fleetSkin = "previous-shell"
-    document.documentElement.style.setProperty("--xingchao-primary", "#abcdef")
+    document.documentElement.style.setProperty("--primary", "#abcdef")
     const loads = new Map<string, Deferred>()
     const loadAsset = vi.fn((url: string) => {
       const load = deferred()
@@ -319,7 +319,7 @@ describe("FleetSkinProvider", () => {
     expect(text(host, "skin")).toBe("none")
     expect(text(host, "phase")).toBe("loading")
     expect(document.documentElement.dataset.fleetSkin).toBe("previous-shell")
-    expect(document.documentElement.style.getPropertyValue("--xingchao-primary")).toBe("#abcdef")
+    expect(document.documentElement.style.getPropertyValue("--primary")).toBe("#abcdef")
     expect(localStorage.getItem(activeCrewStorageKey)).toBe("phantom-wave")
     expect(loadAsset).toHaveBeenCalled()
 
@@ -327,12 +327,12 @@ describe("FleetSkinProvider", () => {
     const required = requiredAssetUrls("phantom-wave")
     for (const url of required.slice(0, -1)) await act(async () => loads.get(url)!.resolve())
     expect(document.documentElement.dataset.fleetSkin).toBe("previous-shell")
-    expect(document.documentElement.style.getPropertyValue("--xingchao-primary")).toBe("#abcdef")
+    expect(document.documentElement.style.getPropertyValue("--primary")).toBe("#abcdef")
 
     const committedSnapshots: string[] = []
     const observer = new MutationObserver(() => {
       committedSnapshots.push(
-        `${document.documentElement.dataset.fleetSkin}:${document.documentElement.style.getPropertyValue("--xingchao-primary")}`,
+        `${document.documentElement.dataset.fleetSkin}:${document.documentElement.style.getPropertyValue("--primary")}`,
       )
     })
     observer.observe(document.documentElement, { attributes: true, attributeFilter: ["style", "data-fleet-skin"] })
@@ -348,7 +348,7 @@ describe("FleetSkinProvider", () => {
   it("keeps the startup surface intact when stored skin readiness fails and retries successfully", async () => {
     localStorage.setItem(activeCrewStorageKey, "phantom-wave")
     document.documentElement.dataset.fleetSkin = "previous-shell"
-    document.documentElement.style.setProperty("--xingchao-primary", "#abcdef")
+    document.documentElement.style.setProperty("--primary", "#abcdef")
     const attempts = new Map<string, Deferred[]>()
     const { host } = await renderProvider({
       loadAsset: (url) => {
@@ -364,7 +364,7 @@ describe("FleetSkinProvider", () => {
     expect(text(host, "skin")).toBe("none")
     expect(text(host, "error")).toContain("皮肤资源加载失败")
     expect(document.documentElement.dataset.fleetSkin).toBe("previous-shell")
-    expect(document.documentElement.style.getPropertyValue("--xingchao-primary")).toBe("#abcdef")
+    expect(document.documentElement.style.getPropertyValue("--primary")).toBe("#abcdef")
     expect(localStorage.getItem(activeCrewStorageKey)).toBe("phantom-wave")
 
     await click(host, "retry")
@@ -462,7 +462,7 @@ describe("FleetSkinProvider", () => {
     expect(text(host, "pending")).toBe("none")
     expect(text(host, "error")).toBe("none")
     expect(document.documentElement.dataset.fleetSkin).toBe("legacy-imported")
-    expect(document.documentElement.style.getPropertyValue("--xingchao-primary")).toBe("#123456")
+    expect(document.documentElement.style.getPropertyValue("--primary")).toBe("#123456")
     expect(localStorage.getItem(activeCrewStorageKey)).toBe("aurora-pack--watchtide")
     expect(loadAsset.mock.calls.every(([url]) => String(url).includes("/phantom-wave/"))).toBe(true)
 
@@ -714,7 +714,7 @@ describe("FleetSkinProvider", () => {
     expect(text(host, "active")).toBe("aurora-pack--watchtide")
     expect(text(host, "skin")).toBe("none")
     expect(document.documentElement.dataset.fleetSkin).toBe("legacy-imported")
-    expect(document.documentElement.style.getPropertyValue("--xingchao-primary")).toBe("#123456")
+    expect(document.documentElement.style.getPropertyValue("--primary")).toBe("#123456")
     expect(document.documentElement.style.getPropertyValue("--fleet-scene-backdrop")).toBe("")
     expect(localStorage.getItem(activeCrewStorageKey)).toBe("aurora-pack--watchtide")
     expect(loadAsset).not.toHaveBeenCalled()

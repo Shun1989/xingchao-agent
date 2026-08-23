@@ -276,7 +276,7 @@ export const AppShellNavigationSidebar = React.memo(function AppShellNavigationS
     <aside
       aria-hidden={sidebarHidden}
       inert={sidebarHidden}
-      className="oo-sidebar oo-border-divider relative z-[80] flex min-h-0 flex-col overflow-visible border-r"
+      className="oo-sidebar fleet-sidebar oo-border-divider relative z-[80] flex min-h-0 flex-col overflow-visible border-r"
     >
       <header
         data-slot="sidebar-chrome-header"
@@ -291,7 +291,7 @@ export const AppShellNavigationSidebar = React.memo(function AppShellNavigationS
       </header>
 
       <div className="oo-sidebar-content flex min-h-0 flex-1 flex-col">
-        <nav aria-label="primary" className="grid gap-1 px-3 pt-0 pb-3 [-webkit-app-region:no-drag]">
+        <nav aria-label="primary" className="fleet-navigation grid gap-1 px-3 pt-0 pb-3 [-webkit-app-region:no-drag]">
           <button
             type="button"
             onClick={onNewSession}
@@ -306,6 +306,7 @@ export const AppShellNavigationSidebar = React.memo(function AppShellNavigationS
           <button
             type="button"
             onClick={() => onNavigate("fleet")}
+            aria-current={activeRoute === "fleet" ? "page" : undefined}
             className={cn(
               "oo-sidebar-nav-item oo-text-body flex h-[var(--sidebar-item-height)] items-center gap-2 rounded-md px-2",
               activeRoute === "fleet" && "bg-sidebar-accent text-sidebar-accent-foreground",
@@ -317,6 +318,7 @@ export const AppShellNavigationSidebar = React.memo(function AppShellNavigationS
           <button
             type="button"
             onClick={() => onNavigate("voyage")}
+            aria-current={activeRoute === "voyage" ? "page" : undefined}
             className={cn(
               "oo-sidebar-nav-item oo-text-body flex h-[var(--sidebar-item-height)] items-center gap-2 rounded-md px-2",
               activeRoute === "voyage" && "bg-sidebar-accent text-sidebar-accent-foreground",
@@ -328,6 +330,7 @@ export const AppShellNavigationSidebar = React.memo(function AppShellNavigationS
           <button
             type="button"
             onClick={onOpenConnections}
+            aria-current={activeRoute === "connections" ? "page" : undefined}
             className={cn(
               "oo-sidebar-nav-item oo-text-body flex h-[var(--sidebar-item-height)] items-center gap-2 rounded-md px-2",
               activeRoute === "connections" && "bg-sidebar-accent text-sidebar-accent-foreground",
@@ -339,6 +342,7 @@ export const AppShellNavigationSidebar = React.memo(function AppShellNavigationS
           <button
             type="button"
             onClick={() => onNavigate("skills")}
+            aria-current={activeRoute === "skills" ? "page" : undefined}
             className={cn(
               "oo-sidebar-nav-item oo-text-body flex h-[var(--sidebar-item-height)] items-center gap-2 rounded-md px-2",
               activeRoute === "skills" && "bg-sidebar-accent text-sidebar-accent-foreground",
@@ -350,6 +354,7 @@ export const AppShellNavigationSidebar = React.memo(function AppShellNavigationS
           <button
             type="button"
             onClick={() => onNavigate("supply")}
+            aria-current={activeRoute === "supply" ? "page" : undefined}
             className={cn(
               "oo-sidebar-nav-item oo-text-body flex h-[var(--sidebar-item-height)] items-center gap-2 rounded-md px-2",
               activeRoute === "supply" && "bg-sidebar-accent text-sidebar-accent-foreground",
@@ -362,6 +367,7 @@ export const AppShellNavigationSidebar = React.memo(function AppShellNavigationS
             <button
               type="button"
               onClick={() => onNavigate("knowledge")}
+              aria-current={activeRoute === "knowledge" ? "page" : undefined}
               className={cn(
                 "oo-sidebar-nav-item oo-text-body flex h-[var(--sidebar-item-height)] items-center gap-2 rounded-md px-2",
                 activeRoute === "knowledge" && "bg-sidebar-accent text-sidebar-accent-foreground",
@@ -375,6 +381,7 @@ export const AppShellNavigationSidebar = React.memo(function AppShellNavigationS
             <button
               type="button"
               onClick={() => onNavigate("teams")}
+              aria-current={activeRoute === "teams" ? "page" : undefined}
               className={cn(
                 "oo-sidebar-nav-item oo-text-body flex h-[var(--sidebar-item-height)] items-center gap-2 rounded-md px-2",
                 activeRoute === "teams" && "bg-sidebar-accent text-sidebar-accent-foreground",

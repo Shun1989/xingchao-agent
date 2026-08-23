@@ -23,10 +23,10 @@ export function SupplyDepotRoute() {
   const packs = useContentPacks()
 
   return (
-    <div className="h-full overflow-y-auto">
+    <div className="fleet-route h-full overflow-y-auto">
       <div className="mx-auto grid w-full max-w-6xl gap-6 p-6 lg:p-8">
-        <section className="relative overflow-hidden rounded-2xl border border-border/70 bg-card p-6 shadow-sm">
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,color-mix(in_oklab,var(--xingchao-primary)_18%,transparent),transparent_55%)]" />
+        <section className="fleet-hero relative overflow-hidden border p-6">
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,color-mix(in_oklab,var(--primary)_18%,transparent),transparent_55%)]" />
           <div className="relative flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
             <div className="max-w-2xl space-y-2">
               <div className="flex items-center gap-2 text-primary">

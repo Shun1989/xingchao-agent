@@ -97,7 +97,7 @@ describe("XingchaoThemeProvider", () => {
   it("keeps the adapter on the committed fallback until the stored skin transaction commits", async () => {
     localStorage.setItem(storageKey("activeCrew"), "phantom-wave")
     document.documentElement.dataset.fleetSkin = "previous-shell"
-    document.documentElement.style.setProperty("--xingchao-primary", "#abcdef")
+    document.documentElement.style.setProperty("--primary", "#abcdef")
     const resolvers: Array<() => void> = []
     const host = document.createElement("div")
     const root = createRoot(host)
@@ -123,7 +123,7 @@ describe("XingchaoThemeProvider", () => {
 
     expect(host.textContent).toBe("watchtide:watchtide:watchtide:phantom-wave:none")
     expect(document.documentElement.dataset.fleetSkin).toBe("previous-shell")
-    expect(document.documentElement.style.getPropertyValue("--xingchao-primary")).toBe("#abcdef")
+    expect(document.documentElement.style.getPropertyValue("--primary")).toBe("#abcdef")
 
     await act(async () => {
       for (const resolve of resolvers) resolve()
@@ -147,7 +147,7 @@ describe("XingchaoThemeProvider", () => {
       preloadCrew: vi.fn(),
     }
     document.documentElement.dataset.crew = "provider-owned"
-    document.documentElement.style.setProperty("--xingchao-primary", "#abcdef")
+    document.documentElement.style.setProperty("--primary", "#abcdef")
     const host = document.createElement("div")
     const root = createRoot(host)
     roots.push(root)
@@ -169,7 +169,7 @@ describe("XingchaoThemeProvider", () => {
     expect(requestCrew).toHaveBeenCalledWith("aurora-pack--watchtide")
     expect(localStorage.getItem(storageKey("activeCrew"))).toBeNull()
     expect(document.documentElement.dataset.crew).toBe("provider-owned")
-    expect(document.documentElement.style.getPropertyValue("--xingchao-primary")).toBe("#abcdef")
+    expect(document.documentElement.style.getPropertyValue("--primary")).toBe("#abcdef")
   })
 
   it("applies an imported crew palette and commits the trusted fallback when the crew disappears", async () => {
@@ -177,7 +177,7 @@ describe("XingchaoThemeProvider", () => {
 
     await act(async () => host.querySelector("button")!.click())
 
-    expect(document.documentElement.style.getPropertyValue("--xingchao-primary")).toBe("#123456")
+    expect(document.documentElement.style.getPropertyValue("--primary")).toBe("#123456")
     expect(localStorage.getItem(storageKey("activeCrew"))).toBe("aurora-pack--watchtide")
 
     await rerender(builtinRuntimeFleetContext)

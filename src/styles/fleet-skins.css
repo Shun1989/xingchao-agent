@@ -1,0 +1,268 @@
+@layer base {
+  .oo-app-chrome {
+    isolation: isolate;
+    background: transparent;
+    font-family: var(--fleet-type-body-family, var(--font-sans));
+    font-weight: var(--fleet-type-body-weight, 400);
+    letter-spacing: var(--fleet-type-body-tracking, 0);
+  }
+
+  .oo-app-chrome :is(h1, h2, h3, .oo-toolbar-title) {
+    font-family: var(--fleet-type-heading-family, var(--font-sans));
+    font-weight: var(--fleet-type-heading-weight, 600);
+    letter-spacing: var(--fleet-type-heading-tracking, 0);
+  }
+
+  .oo-app-chrome :is(label, button, [role="tab"], [role="menuitem"]) {
+    font-family: var(--fleet-type-label-family, var(--font-sans));
+    letter-spacing: var(--fleet-type-label-tracking, 0);
+  }
+
+  .oo-app-chrome :is([data-numeric], .tabular-nums) {
+    font-family: var(--fleet-type-numeric-family, var(--font-mono));
+    font-weight: var(--fleet-type-numeric-weight, 600);
+    letter-spacing: var(--fleet-type-numeric-tracking, 0);
+  }
+
+  :root[data-fleet-contrast="high"] {
+    --background: var(--fleet-a11y-high-contrast-canvas) !important;
+    --foreground: var(--fleet-a11y-high-contrast-text) !important;
+    --card: var(--fleet-a11y-high-contrast-elevated) !important;
+    --card-foreground: var(--fleet-a11y-high-contrast-text) !important;
+    --popover: var(--fleet-a11y-high-contrast-elevated) !important;
+    --popover-foreground: var(--fleet-a11y-high-contrast-text) !important;
+    --primary: var(--fleet-a11y-high-contrast-primary) !important;
+    --secondary: var(--fleet-a11y-high-contrast-secondary) !important;
+    --accent: var(--fleet-a11y-high-contrast-accent) !important;
+    --destructive: var(--fleet-a11y-high-contrast-danger) !important;
+    --success: var(--fleet-a11y-high-contrast-success) !important;
+    --warning: var(--fleet-a11y-high-contrast-warning) !important;
+    --border: var(--fleet-a11y-high-contrast-focus) !important;
+    --input: var(--fleet-a11y-high-contrast-focus) !important;
+    --ring: var(--fleet-a11y-high-contrast-focus) !important;
+    --muted: var(--fleet-a11y-high-contrast-panel) !important;
+    --muted-foreground: var(--fleet-a11y-high-contrast-muted-text) !important;
+    --oo-content-surface: var(--fleet-a11y-high-contrast-panel) !important;
+    --oo-sidebar: var(--fleet-a11y-high-contrast-panel) !important;
+    --oo-toolbar: var(--fleet-a11y-high-contrast-panel) !important;
+    --oo-surface: var(--fleet-a11y-high-contrast-elevated) !important;
+    --oo-overlay-border: var(--fleet-a11y-high-contrast-focus) !important;
+    --oo-overlay-shadow: none !important;
+    --sidebar: var(--fleet-a11y-high-contrast-panel) !important;
+    --sidebar-foreground: var(--fleet-a11y-high-contrast-text) !important;
+    --sidebar-muted-foreground: var(--fleet-a11y-high-contrast-muted-text) !important;
+    --sidebar-accent: var(--fleet-a11y-high-contrast-elevated) !important;
+    --sidebar-accent-foreground: var(--fleet-a11y-high-contrast-text) !important;
+    --sidebar-border: var(--fleet-a11y-high-contrast-focus) !important;
+    --sidebar-ring: var(--fleet-a11y-high-contrast-focus) !important;
+  }
+
+  :root[data-fleet-contrast="high"] :focus-visible {
+    outline: 3px solid var(--fleet-a11y-high-contrast-focus) !important;
+    outline-offset: 2px;
+  }
+}
+
+@layer components {
+  .oo-fleet-scene {
+    position: absolute;
+    z-index: 0;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+  }
+
+  .oo-fleet-scene-backdrop,
+  .oo-fleet-scene-scrim,
+  .oo-fleet-scene-foreground {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+
+  .oo-fleet-scene-backdrop {
+    background-color: var(--background);
+    background-image: var(--fleet-scene-backdrop);
+    background-position: var(--fleet-scene-focal-point, 50% 50%);
+    background-size: cover;
+    transform: scale(1.015);
+    transition:
+      background-image var(--fleet-motion-switch-ms, 320ms) ease,
+      transform var(--fleet-motion-feedback-ms, 180ms) ease;
+  }
+
+  .oo-fleet-scene-scrim {
+    background: var(--fleet-scene-scrim, transparent);
+  }
+
+  .oo-fleet-scene-foreground {
+    background-image: var(--fleet-scene-foreground);
+    background-position: var(--fleet-scene-focal-point, 50% 50%);
+    background-size: cover;
+    opacity: clamp(0, calc(var(--fleet-motion-particle-density, 0) * 0.025), 0.72);
+    transform: translate3d(calc(var(--fleet-motion-parallax-px, 0px) * -0.28), 0, 0) scale(1.02);
+    transition:
+      background-image var(--fleet-motion-switch-ms, 320ms) ease,
+      opacity var(--fleet-motion-feedback-ms, 180ms) ease,
+      transform var(--fleet-motion-feedback-ms, 180ms) ease;
+  }
+
+  .oo-app-workspace,
+  .oo-sidebar,
+  .oo-toolbar,
+  .oo-content-surface {
+    position: relative;
+  }
+
+  .oo-app-workspace {
+    z-index: 1;
+  }
+
+  .oo-sidebar {
+    background: var(--fleet-surface-sidebar-fill, var(--oo-sidebar));
+    box-shadow: var(--fleet-surface-sidebar-shadow-value, none);
+  }
+
+  .fleet-navigation .oo-sidebar-nav-item[aria-current="page"] {
+    border-radius: var(--fleet-navigation-selected-radius, var(--oo-radius-control));
+    background: color-mix(in oklab, var(--accent) 20%, var(--sidebar));
+    color: var(--sidebar-accent-foreground);
+    box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--accent) 46%, transparent);
+  }
+
+  .oo-toolbar {
+    border-color: var(--fleet-surface-titlebar-border, var(--border));
+    background: var(--fleet-surface-titlebar-fill, var(--oo-toolbar));
+    box-shadow: var(--fleet-surface-titlebar-shadow-value, none);
+  }
+
+  .oo-content-surface {
+    background: var(--fleet-surface-content-fill, var(--oo-content-surface));
+  }
+
+  .fleet-route {
+    min-height: 100%;
+    color: var(--foreground);
+    background:
+      radial-gradient(circle at 82% 4%, color-mix(in oklab, var(--accent) 16%, transparent), transparent 34rem),
+      linear-gradient(145deg, color-mix(in oklab, var(--background) 46%, transparent), transparent 58%);
+  }
+
+  .fleet-hero {
+    border-color: var(--fleet-surface-content-border, var(--border));
+    border-radius: var(--fleet-surface-content-radius, var(--oo-radius-shell));
+    background: var(--fleet-surface-content-fill, var(--oo-content-surface));
+    box-shadow: var(--fleet-surface-content-shadow-value, none);
+  }
+
+  .fleet-panel,
+  .fleet-card,
+  [data-slot="card"] {
+    border-color: var(--fleet-surface-card-border, var(--border));
+    border-radius: var(--fleet-surface-card-radius, var(--oo-radius-panel));
+    background: var(--fleet-surface-card-fill, var(--card));
+    box-shadow: var(--fleet-surface-card-shadow-value, none);
+  }
+
+  .fleet-input,
+  [data-slot="input"],
+  [data-slot="input-group"] {
+    border-color: var(--fleet-surface-input-border, var(--input));
+    border-radius: var(--fleet-surface-input-radius, var(--oo-radius-control));
+    background: var(--fleet-surface-input-fill, var(--background));
+    box-shadow: var(--fleet-surface-input-shadow-value, none);
+  }
+
+  .fleet-dialog,
+  .oo-modal-surface {
+    border-color: var(--fleet-surface-dialog-border, var(--oo-overlay-border));
+    border-radius: var(--fleet-surface-dialog-radius, var(--oo-radius-panel));
+    background: var(--fleet-surface-dialog-fill, var(--popover));
+    box-shadow: var(--fleet-surface-dialog-shadow-value, var(--oo-overlay-shadow));
+  }
+
+  .fleet-overlay,
+  :is([data-slot="popover-content"], [data-slot="dropdown-menu-content"], [data-slot="select-content"]) {
+    border-color: var(--fleet-surface-overlay-border, var(--oo-overlay-border));
+    border-radius: var(--fleet-surface-overlay-radius, var(--oo-radius-control));
+    background: var(--fleet-surface-overlay-fill, var(--popover));
+    box-shadow: var(--fleet-surface-overlay-shadow-value, var(--oo-overlay-shadow));
+  }
+
+  .fleet-button-primary {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    border-radius: var(--fleet-surface-input-radius, var(--oo-radius-control));
+    background: var(--primary);
+    color: var(--primary-foreground);
+    padding: 0.65rem 1rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    transition:
+      transform var(--fleet-motion-feedback-ms, 160ms) ease,
+      box-shadow var(--fleet-motion-feedback-ms, 160ms) ease;
+  }
+
+  .fleet-button-primary:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 8px 22px color-mix(in oklab, var(--primary) 28%, transparent);
+  }
+
+  .fleet-button-primary:disabled {
+    opacity: 0.45;
+  }
+
+  .fleet-crew-card {
+    min-height: 7.5rem;
+    border: 1px solid color-mix(in oklab, var(--crew-color) 24%, var(--border));
+    border-radius: var(--fleet-surface-card-radius, var(--oo-radius-panel));
+    background: color-mix(in oklab, var(--crew-color) 7%, var(--card));
+    padding: 1rem;
+    transition:
+      border-color var(--fleet-motion-feedback-ms, 160ms) ease,
+      transform var(--fleet-motion-feedback-ms, 160ms) ease,
+      background var(--fleet-motion-feedback-ms, 160ms) ease;
+  }
+
+  .fleet-crew-card:hover {
+    border-color: color-mix(in oklab, var(--crew-color) 52%, var(--border));
+    transform: translateY(-2px);
+  }
+
+  .fleet-crew-card.is-active {
+    border-color: var(--crew-color);
+    background: color-mix(in oklab, var(--crew-color) 14%, var(--card));
+    box-shadow: inset 0 0 0 1px var(--crew-accent);
+  }
+
+  .fleet-semantic-focus:focus-visible,
+  .oo-app-chrome :is(button, a, input, textarea, select, [tabindex]):focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root[data-fleet-skin] {
+    --fleet-motion-switch-ms: var(--fleet-a11y-reduced-switch-ms, 0ms) !important;
+    --fleet-motion-parallax-px: var(--fleet-a11y-reduced-parallax-px, 0px) !important;
+    --fleet-motion-particle-density: var(--fleet-a11y-reduced-particle-density, 0) !important;
+  }
+
+  .oo-fleet-scene-backdrop,
+  .oo-fleet-scene-foreground,
+  .oo-fleet-particles,
+  .oo-captain-breathing,
+  .fleet-button-primary,
+  .fleet-crew-card {
+    animation: none !important;
+    transition: none !important;
+    transform: none !important;
+  }
+
+  .oo-fleet-scene-foreground,
+  .oo-fleet-particles {
+    display: none;
+  }
+}

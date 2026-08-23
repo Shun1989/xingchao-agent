@@ -2093,6 +2093,7 @@ export function AppShell({ auth }: { auth: UseAuth }) {
   return (
     <div
       ref={appChromeRef}
+      data-fleet-skin={globalThis.document?.documentElement.dataset.fleetSkin}
       className={cn(
         "oo-app-chrome grid h-full text-foreground",
         sidebarCollapsed && "oo-sidebar-collapsed",
@@ -2102,6 +2103,12 @@ export function AppShell({ auth }: { auth: UseAuth }) {
       )}
       style={{ "--sidebar-width": `${sidebarWidth}px` } as React.CSSProperties}
     >
+      <div className="oo-fleet-scene" aria-hidden="true">
+        <div className="oo-fleet-scene-backdrop" />
+        <div className="oo-fleet-scene-scrim" />
+        <div className="oo-fleet-scene-foreground" />
+      </div>
+
       <AppShellNavigationSidebar
         account={auth.state?.account}
         authenticated={authenticated}
@@ -2160,7 +2167,7 @@ export function AppShell({ auth }: { auth: UseAuth }) {
       />
 
       {/* 右：主区（顶部工具条 + 内容） */}
-      <div className="flex min-h-0 min-w-0 overflow-hidden">
+      <div className="oo-app-workspace flex min-h-0 min-w-0 overflow-hidden">
         <div
           className={cn(
             "grid min-w-0 flex-1 grid-rows-[var(--app-titlebar-height)_minmax(0,1fr)] overflow-hidden",
