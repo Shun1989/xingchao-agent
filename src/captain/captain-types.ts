@@ -50,6 +50,7 @@ export type CaptainCaptionParams = Readonly<Record<string, CaptainCaptionPrimiti
  */
 export interface CaptainEvent {
   readonly id: string
+  readonly epoch: number
   readonly type: CaptainEventType
   readonly source: CaptainEventSource
   readonly taskId: string | null
@@ -70,11 +71,21 @@ export interface CaptainSnapshot {
   readonly taskId: string | null
 }
 
+declare const captainRetiredEventIndexBrand: unique symbol
+
+/** Opaque, persistent string index. Public diagnostics expose only size and AVL height. */
+export interface CaptainRetiredEventIndex {
+  readonly size: number
+  readonly height: number
+  readonly [captainRetiredEventIndexBrand]: true
+}
+
 export interface CaptainReducerState {
+  readonly epoch: number
   readonly activeEvents: Readonly<Record<string, CaptainEvent>>
   readonly latestSequenceByStream: Readonly<Record<string, number>>
-  /** Session-lifetime tombstones. Lifecycle IDs are globally unique and never reused after retirement. */
-  readonly retiredEventIds: Readonly<Record<string, number>>
+  /** Epoch-local tombstones. Reset only after event producers for this epoch are quiescent. */
+  readonly retiredEventIds: CaptainRetiredEventIndex
   readonly snapshot: CaptainSnapshot
   readonly now: number
 }

@@ -1,11 +1,20 @@
 import type { CaptainEvent, CaptainEventType } from "./captain-types.ts"
 
 import { describe, expect, it } from "vitest"
-import { captainExpressionByState, captainReducer, createCaptainState, tickCaptainState } from "./captain-reducer.ts"
+import {
+  captainExpressionByState,
+  captainReducer,
+  createCaptainState,
+  resetCaptainState,
+  retiredCaptainEventSequence,
+  retiredCaptainIndexesShareStructure,
+  tickCaptainState,
+} from "./captain-reducer.ts"
 import { CAPTAIN_CAPTION_KEYS } from "./captain-types.ts"
 
 interface EventOptions {
   id: string
+  epoch?: number
   source?: CaptainEvent["source"]
   taskId?: string | null
   sequence?: number
@@ -34,6 +43,7 @@ const captionKeyByEventType: Readonly<Record<CaptainEventType, CaptainEvent["cap
 function event(type: CaptainEventType, options: EventOptions): CaptainEvent {
   return {
     id: options.id,
+    epoch: options.epoch ?? 0,
     type,
     source: options.source ?? "task",
     taskId: options.taskId ?? options.id,
@@ -259,6 +269,7 @@ describe("captain priority reducer", () => {
     expect(Object.keys(stored).sort()).toEqual([
       "captionKey",
       "captionParams",
+      "epoch",
       "expiresAt",
       "id",
       "sequence",
@@ -312,9 +323,9 @@ describe("captain priority reducer", () => {
     state = captainReducer(state, dismiss(task, 5))
 
     expect(state.activeEvents[task.id]).toBeUndefined()
-    expect(state.retiredEventIds[task.id]).toBe(5)
+    expect(retiredCaptainEventSequence(state.retiredEventIds, task.id)).toBe(5)
     expect(Object.isFrozen(state.retiredEventIds)).toBe(true)
-    expect(Object.getPrototypeOf(state.retiredEventIds)).toBeNull()
+    expect(Object.keys(state.retiredEventIds).sort()).toEqual(["height", "size"])
 
     const retired = state
     state = captainReducer(
@@ -335,6 +346,56 @@ describe("captain priority reducer", () => {
     expect(state.activeEvents["new-lifecycle"]?.taskId).toBe("task-2")
   })
 
+  it("retires and watermarks a terminal event that arrives before its start", () => {
+    const earlyTerminal = event("event.dismissed", {
+      id: "terminal-before-start",
+      source: "task",
+      taskId: "task-early",
+      sequence: 2,
+      startedAt: 2,
+    })
+    let state = captainReducer(createCaptainState(), earlyTerminal)
+
+    expect(retiredCaptainEventSequence(state.retiredEventIds, earlyTerminal.id)).toBe(2)
+    expect(state.latestSequenceByStream[`task\0task-early`]).toBe(2)
+    const retired = state
+    state = captainReducer(
+      state,
+      event("task.started", {
+        id: earlyTerminal.id,
+        source: earlyTerminal.source,
+        taskId: earlyTerminal.taskId,
+        sequence: 1,
+        startedAt: 1,
+      }),
+    )
+    expect(state).toBe(retired)
+    state = captainReducer(
+      state,
+      event("task.started", {
+        id: earlyTerminal.id,
+        source: earlyTerminal.source,
+        taskId: earlyTerminal.taskId,
+        sequence: 3,
+        startedAt: 3,
+      }),
+    )
+    expect(state).toBe(retired)
+    state = captainReducer(
+      state,
+      event("task.started", {
+        id: earlyTerminal.id,
+        source: "task",
+        taskId: "another-task",
+        sequence: 1,
+      }),
+    )
+    expect(state).toBe(retired)
+
+    state = captainReducer(state, event("task.started", { id: "new-unique-id", taskId: "another-task" }))
+    expect(state.activeEvents["new-unique-id"]?.taskId).toBe("another-task")
+  })
+
   it("retires expired IDs at their accepted sequence and refuses higher-sequence resurrection", () => {
     const expiring = event("speech.started", {
       id: "speech-expiring",
@@ -348,7 +409,7 @@ describe("captain priority reducer", () => {
     state = tickCaptainState(state, 21)
 
     expect(state.snapshot.state).toBe("idle")
-    expect(state.retiredEventIds[expiring.id]).toBe(7)
+    expect(retiredCaptainEventSequence(state.retiredEventIds, expiring.id)).toBe(7)
     const retired = state
     state = captainReducer(
       state,
@@ -398,5 +459,115 @@ describe("captain priority reducer", () => {
     )
     expect(state).toBe(beforeCrossStream)
     expect(state.snapshot.state).toBe("executing")
+  })
+
+  it("accepts only events from the active orchestrator epoch", () => {
+    const initial = createCaptainState()
+    expect(initial.epoch).toBe(0)
+
+    const staleOrFuture = event("task.started", {
+      id: "wrong-epoch",
+      epoch: 1,
+      taskId: "task-epoch",
+      sequence: 999,
+    })
+    expect(captainReducer(initial, staleOrFuture)).toBe(initial)
+  })
+
+  it("resets lifecycle history only into a strictly newer epoch", () => {
+    const task = event("task.started", { id: "epoch-task", taskId: "task-epoch", sequence: 1 })
+    let state = captainReducer(createCaptainState(), task)
+    state = captainReducer(state, dismiss(task, 2))
+    expect(state.retiredEventIds.size).toBe(1)
+    expect(Object.keys(state.latestSequenceByStream)).toHaveLength(1)
+
+    const reset = resetCaptainState(state, 1)
+    expect(reset.epoch).toBe(1)
+    expect(Object.keys(reset.activeEvents)).toHaveLength(0)
+    expect(Object.keys(reset.latestSequenceByStream)).toHaveLength(0)
+    expect(reset.retiredEventIds.size).toBe(0)
+    expect(reset.snapshot.state).toBe("idle")
+    expect(resetCaptainState(reset, 1)).toBe(reset)
+    expect(resetCaptainState(reset, 0)).toBe(reset)
+    expect(resetCaptainState(reset, 1.5)).toBe(reset)
+
+    expect(
+      captainReducer(
+        reset,
+        event("task.started", {
+          id: "old-epoch-high-sequence",
+          epoch: 0,
+          sequence: 100_000,
+        }),
+      ),
+    ).toBe(reset)
+    const current = captainReducer(
+      reset,
+      event("task.started", {
+        id: "new-epoch-task",
+        epoch: 1,
+        sequence: 1,
+      }),
+    )
+    expect(current.activeEvents["new-epoch-task"]?.epoch).toBe(1)
+  })
+
+  it("keeps thousands of retired IDs in a balanced persistent index", () => {
+    const initial = createCaptainState()
+    let state = initial
+    let midpoint = initial.retiredEventIds
+    for (let index = 0; index < 4_096; index += 1) {
+      state = captainReducer(
+        state,
+        event("event.dismissed", {
+          id: `bulk-retired-${index.toString().padStart(4, "0")}`,
+          source: "task",
+          taskId: "bulk-retirement-stream",
+          sequence: index + 1,
+          startedAt: index + 1,
+        }),
+      )
+      if (index === 2_047) midpoint = state.retiredEventIds
+    }
+
+    expect(state.retiredEventIds).not.toBe(midpoint)
+    expect(retiredCaptainIndexesShareStructure(midpoint, state.retiredEventIds)).toBe(true)
+    expect(Object.isFrozen(state.retiredEventIds)).toBe(true)
+    expect(state.retiredEventIds.size).toBe(4_096)
+    expect(state.retiredEventIds.height).toBeLessThanOrEqual(2 * Math.ceil(Math.log2(4_096 + 1)))
+    expect(midpoint.size).toBe(2_048)
+    expect(retiredCaptainEventSequence(midpoint, "bulk-retired-4095")).toBeUndefined()
+    expect(retiredCaptainEventSequence(state.retiredEventIds, "bulk-retired-0000")).toBe(1)
+    expect(retiredCaptainEventSequence(state.retiredEventIds, "bulk-retired-2047")).toBe(2_048)
+    expect(retiredCaptainEventSequence(state.retiredEventIds, "bulk-retired-4095")).toBe(4_096)
+    expect(initial.retiredEventIds.size).toBe(0)
+  })
+
+  it("keeps canonically equivalent but byte-distinct lifecycle IDs separate", () => {
+    const composedId = "retired-é"
+    const decomposedId = "retired-e\u0301"
+    expect(composedId).not.toBe(decomposedId)
+
+    let state = captainReducer(
+      createCaptainState(),
+      event("event.dismissed", {
+        id: composedId,
+        taskId: "unicode-retirement-stream",
+        sequence: 1,
+      }),
+    )
+    state = captainReducer(
+      state,
+      event("event.dismissed", {
+        id: decomposedId,
+        taskId: "unicode-retirement-stream",
+        sequence: 2,
+        startedAt: 2,
+      }),
+    )
+
+    expect(state.retiredEventIds.size).toBe(2)
+    expect(retiredCaptainEventSequence(state.retiredEventIds, composedId)).toBe(1)
+    expect(retiredCaptainEventSequence(state.retiredEventIds, decomposedId)).toBe(2)
   })
 })

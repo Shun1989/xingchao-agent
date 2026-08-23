@@ -37,6 +37,7 @@ export class LanxiStateController {
     const mouthLevel = state === "reporting" ? this.reducerState.snapshot.mouthLevel : 0
     this.reducerState = captainReducer(this.reducerState, {
       id: "legacy-state",
+      epoch: 0,
       type: eventTypeByState[state],
       source: "legacy",
       taskId: "legacy-state",
@@ -55,6 +56,7 @@ export class LanxiStateController {
     this.sequence += 1
     this.reducerState = captainReducer(this.reducerState, {
       id: "legacy-state",
+      epoch: 0,
       type: "speech.started",
       source: "legacy",
       taskId: "legacy-state",
