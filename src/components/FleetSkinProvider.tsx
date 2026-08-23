@@ -287,7 +287,13 @@ export function FleetSkinProvider({ children, loadAsset = defaultLoadAsset }: Fl
   }, [importedCrewId, runtimeFleet.index, runtimeFleet.status])
 
   React.useEffect(() => {
-    if (importedCrewId === null || runtimeFleet.index.crewById.has(importedCrewId)) return
+    if (
+      importedCrewId === null ||
+      runtimeFleet.status === "loading" ||
+      runtimeFleet.index.crewById.has(importedCrewId)
+    ) {
+      return
+    }
     const fallbackCrewId = switchState.committedCrewId
     setImportedCrewId(null)
     requestBuiltInCrew(fallbackCrewId, true)
@@ -296,6 +302,7 @@ export function FleetSkinProvider({ children, loadAsset = defaultLoadAsset }: Fl
     requestBuiltInCrew,
     runtimeFleet.index,
     runtimeFleet.snapshot.revision,
+    runtimeFleet.status,
     switchState.committedCrewId,
   ])
 

@@ -32,6 +32,14 @@ const builtinRuntimeFleetContext: RuntimeFleetContextValue = {
   error: null,
 }
 
+function builtinRuntimeFleetContextWithStatus(status: RuntimeFleetContextValue["status"]): RuntimeFleetContextValue {
+  return {
+    ...builtinRuntimeFleetContext,
+    status,
+    error: status === "fallback" ? "runtime fleet unavailable" : null,
+  }
+}
+
 interface Deferred {
   promise: Promise<void>
   resolve: () => void
@@ -613,6 +621,80 @@ describe("FleetSkinProvider", () => {
     expect(document.documentElement.dataset.fleetSkin).toBe("watchtide")
     expect(localStorage.getItem(activeCrewStorageKey)).toBe("watchtide")
   })
+
+  it("keeps imported authority through a transient built-in-only loading snapshot", async () => {
+    const loadAsset = vi.fn(async () => undefined)
+    const imported = importedRuntimeFleetContext()
+    const { host, rerender } = await renderProvider({ runtimeFleet: imported, loadAsset, strict: true })
+    await click(host, "imported")
+
+    expect(text(host, "active")).toBe("aurora-pack--watchtide")
+    expect(document.documentElement.dataset.fleetSkin).toBe("legacy-imported")
+    expect(localStorage.getItem(activeCrewStorageKey)).toBe("aurora-pack--watchtide")
+
+    await rerender(builtinRuntimeFleetContextWithStatus("loading"))
+    expect(text(host, "active")).toBe("aurora-pack--watchtide")
+    expect(text(host, "pending")).toBe("none")
+    expect(document.documentElement.dataset.fleetSkin).toBe("legacy-imported")
+    expect(localStorage.getItem(activeCrewStorageKey)).toBe("aurora-pack--watchtide")
+    expect(loadAsset).not.toHaveBeenCalled()
+
+    await rerender(imported)
+    expect(text(host, "active")).toBe("aurora-pack--watchtide")
+    expect(text(host, "pending")).toBe("none")
+    expect(document.documentElement.dataset.fleetSkin).toBe("legacy-imported")
+    expect(localStorage.getItem(activeCrewStorageKey)).toBe("aurora-pack--watchtide")
+    expect(loadAsset).not.toHaveBeenCalled()
+  })
+
+  it.each(["ready", "fallback"] as const)(
+    "recovers an imported authority once after a stable %s built-in-only snapshot",
+    async (stableStatus) => {
+      const loads = new Map<string, Deferred>()
+      const loadAsset = vi.fn((url: string) => {
+        const load = deferred()
+        loads.set(url, load)
+        return load.promise
+      })
+      const { host, rerender } = await renderProvider({
+        runtimeFleet: importedRuntimeFleetContext(),
+        loadAsset,
+        strict: true,
+      })
+      await click(host, "imported")
+
+      await rerender(builtinRuntimeFleetContextWithStatus("loading"))
+      expect(text(host, "active")).toBe("aurora-pack--watchtide")
+      expect(text(host, "pending")).toBe("none")
+      expect(document.documentElement.dataset.fleetSkin).toBe("legacy-imported")
+      expect(localStorage.getItem(activeCrewStorageKey)).toBe("aurora-pack--watchtide")
+      expect(loadAsset).not.toHaveBeenCalled()
+
+      await rerender(builtinRuntimeFleetContextWithStatus(stableStatus))
+      expect(text(host, "active")).toBe("watchtide")
+      expect(text(host, "skin")).toBe("none")
+      expect(text(host, "pending")).toBe("watchtide")
+      expect(document.documentElement.dataset.fleetSkin).toBe("legacy-imported")
+      expect(localStorage.getItem(activeCrewStorageKey)).toBe("aurora-pack--watchtide")
+      expect(
+        loadAsset.mock.calls.filter(([url]) => url === fleetSkinAssetUrl("watchtide.scene.backdrop")),
+      ).toHaveLength(1)
+      expect(loadAsset.mock.calls.every(([url]) => url.includes("/watchtide/"))).toBe(true)
+
+      await act(async () => loads.get(fleetSkinAssetUrl("watchtide.scene.foreground"))!.resolve())
+      for (const url of requiredAssetUrls("watchtide")) await act(async () => loads.get(url)!.resolve())
+
+      expect(text(host, "active")).toBe("watchtide")
+      expect(text(host, "skin")).toBe("watchtide")
+      expect(text(host, "phase")).toBe("idle")
+      expect(text(host, "pending")).toBe("none")
+      expect(document.documentElement.dataset.fleetSkin).toBe("watchtide")
+      expect(localStorage.getItem(activeCrewStorageKey)).toBe("watchtide")
+      expect(
+        loadAsset.mock.calls.filter(([url]) => url === fleetSkinAssetUrl("watchtide.scene.backdrop")),
+      ).toHaveLength(1)
+    },
+  )
 
   it("recovers corrupted persisted selection to watchtide and removes the bad value", async () => {
     localStorage.setItem(activeCrewStorageKey, "../remote-skin")
