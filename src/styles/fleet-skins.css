@@ -32,8 +32,11 @@
     --popover: var(--fleet-a11y-high-contrast-elevated) !important;
     --popover-foreground: var(--fleet-a11y-high-contrast-text) !important;
     --primary: var(--fleet-a11y-high-contrast-primary) !important;
+    --primary-foreground: var(--fleet-a11y-high-contrast-primary-foreground) !important;
     --secondary: var(--fleet-a11y-high-contrast-secondary) !important;
+    --secondary-foreground: var(--fleet-a11y-high-contrast-secondary-foreground) !important;
     --accent: var(--fleet-a11y-high-contrast-accent) !important;
+    --accent-foreground: var(--fleet-a11y-high-contrast-accent-foreground) !important;
     --destructive: var(--fleet-a11y-high-contrast-danger) !important;
     --success: var(--fleet-a11y-high-contrast-success) !important;
     --warning: var(--fleet-a11y-high-contrast-warning) !important;
@@ -55,6 +58,27 @@
     --sidebar-accent-foreground: var(--fleet-a11y-high-contrast-text) !important;
     --sidebar-border: var(--fleet-a11y-high-contrast-focus) !important;
     --sidebar-ring: var(--fleet-a11y-high-contrast-focus) !important;
+    --fleet-surface-sidebar-fill: var(--fleet-a11y-high-contrast-panel) !important;
+    --fleet-surface-sidebar-border: var(--fleet-a11y-high-contrast-focus) !important;
+    --fleet-surface-sidebar-shadow-value: none !important;
+    --fleet-surface-titlebar-fill: var(--fleet-a11y-high-contrast-panel) !important;
+    --fleet-surface-titlebar-border: var(--fleet-a11y-high-contrast-focus) !important;
+    --fleet-surface-titlebar-shadow-value: none !important;
+    --fleet-surface-content-fill: var(--fleet-a11y-high-contrast-panel) !important;
+    --fleet-surface-content-border: var(--fleet-a11y-high-contrast-focus) !important;
+    --fleet-surface-content-shadow-value: none !important;
+    --fleet-surface-card-fill: var(--fleet-a11y-high-contrast-elevated) !important;
+    --fleet-surface-card-border: var(--fleet-a11y-high-contrast-focus) !important;
+    --fleet-surface-card-shadow-value: none !important;
+    --fleet-surface-dialog-fill: var(--fleet-a11y-high-contrast-elevated) !important;
+    --fleet-surface-dialog-border: var(--fleet-a11y-high-contrast-focus) !important;
+    --fleet-surface-dialog-shadow-value: none !important;
+    --fleet-surface-input-fill: var(--fleet-a11y-high-contrast-panel) !important;
+    --fleet-surface-input-border: var(--fleet-a11y-high-contrast-focus) !important;
+    --fleet-surface-input-shadow-value: none !important;
+    --fleet-surface-overlay-fill: var(--fleet-a11y-high-contrast-elevated) !important;
+    --fleet-surface-overlay-border: var(--fleet-a11y-high-contrast-focus) !important;
+    --fleet-surface-overlay-shadow-value: none !important;
   }
 
   :root[data-fleet-contrast="high"] :focus-visible {

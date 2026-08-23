@@ -58,6 +58,21 @@ function paletteVariables(palette: Readonly<FleetSkinTokens>): Record<string, st
   }
 }
 
+function highContrastPaletteVariables(palette: Readonly<FleetSkinTokens>): Record<string, string> {
+  const variables: Record<string, string> = {}
+  for (const [name, value] of Object.entries(paletteVariables(palette))) {
+    variables[name.replace("--fleet-color-", "--fleet-a11y-high-contrast-")] = value
+  }
+  for (const role of ["primary", "secondary", "accent"] as const) {
+    variables[`--fleet-a11y-high-contrast-${role}-foreground`] = accessibleForeground(
+      palette[role],
+      palette.canvas,
+      palette.text,
+    )
+  }
+  return variables
+}
+
 const surfaceShadowValues = {
   none: "none",
   soft: "0 12px 32px color-mix(in oklab, var(--foreground) 8%, transparent)",
@@ -126,6 +141,7 @@ export function manifestToFleetSkinVariables(
   const inputSurface = manifest.surfaces.input
   const variables: Record<string, string> = {
     ...paletteVariables(manifest.palette),
+    ...highContrastPaletteVariables(manifest.accessibility.highContrast),
     "--background": manifest.palette.canvas,
     "--foreground": manifest.palette.text,
     "--card": surfaceColor(manifest.palette.elevated, cardSurface.opacity),
@@ -139,11 +155,19 @@ export function manifestToFleetSkinVariables(
       manifest.palette.text,
     ),
     "--secondary": manifest.palette.secondary,
-    "--secondary-foreground": manifest.palette.text,
+    "--secondary-foreground": accessibleForeground(
+      manifest.palette.secondary,
+      manifest.palette.canvas,
+      manifest.palette.text,
+    ),
     "--muted": manifest.palette.panel,
     "--muted-foreground": manifest.palette.mutedText,
     "--accent": manifest.palette.accent,
-    "--accent-foreground": manifest.palette.text,
+    "--accent-foreground": accessibleForeground(
+      manifest.palette.accent,
+      manifest.palette.canvas,
+      manifest.palette.text,
+    ),
     "--destructive": manifest.palette.danger,
     "--success": manifest.palette.success,
     "--warning": manifest.palette.warning,
@@ -231,9 +255,6 @@ export function manifestToFleetSkinVariables(
   variables["--fleet-captain-companion-width"] = `${manifest.captain.companion.companionWidthPx}px`
   variables["--fleet-captain-compact-size"] = `${manifest.captain.compact.compactSizePx}px`
 
-  for (const [name, value] of Object.entries(paletteVariables(manifest.accessibility.highContrast))) {
-    variables[name.replace("--fleet-color-", "--fleet-a11y-high-contrast-")] = value
-  }
   return variables
 }
 
@@ -246,7 +267,25 @@ export function safeFleetThemeVariables(theme: {
 }): Record<string, string> {
   const border = `color-mix(in oklab, ${theme.foreground} 24%, transparent)`
   const panel = `color-mix(in oklab, ${theme.surface} 92%, transparent)`
-  return {
+  const surfaceLuminance = hexRelativeLuminance(theme.surface)
+  const highContrastCanvas = surfaceLuminance !== null && surfaceLuminance < 0.5 ? "#000000" : "#FFFFFF"
+  const highContrastText = highContrastCanvas === "#000000" ? "#FFFFFF" : "#000000"
+  const highContrast: FleetSkinTokens = {
+    canvas: highContrastCanvas,
+    panel: highContrastCanvas,
+    elevated: highContrastCanvas,
+    primary: highContrastText,
+    secondary: highContrastText,
+    accent: highContrastText,
+    text: highContrastText,
+    mutedText: highContrastText,
+    success: highContrastText,
+    warning: highContrastText,
+    danger: highContrastText,
+    focus: highContrastText,
+  }
+  const variables: Record<string, string> = {
+    ...highContrastPaletteVariables(highContrast),
     "--background": theme.surface,
     "--foreground": theme.foreground,
     "--card": panel,
@@ -256,11 +295,11 @@ export function safeFleetThemeVariables(theme: {
     "--primary": theme.primary,
     "--primary-foreground": accessibleForeground(theme.primary, theme.surface, theme.foreground),
     "--secondary": theme.secondary,
-    "--secondary-foreground": theme.foreground,
+    "--secondary-foreground": accessibleForeground(theme.secondary, theme.surface, theme.foreground),
     "--muted": panel,
     "--muted-foreground": `color-mix(in oklab, ${theme.foreground} 70%, ${theme.surface})`,
     "--accent": theme.accent,
-    "--accent-foreground": theme.foreground,
+    "--accent-foreground": accessibleForeground(theme.accent, theme.surface, theme.foreground),
     "--destructive": "#B42318",
     "--success": "#16794A",
     "--warning": "#8A5700",
@@ -304,6 +343,19 @@ export function safeFleetThemeVariables(theme: {
     "--fleet-color-panel": theme.surface,
     "--fleet-color-text": theme.foreground,
   }
+
+  for (const surface of ["sidebar", "titlebar", "content", "card", "dialog", "input", "overlay"] as const) {
+    const elevated = surface === "card" || surface === "dialog" || surface === "overlay"
+    const radius = surface === "content" ? "16px" : surface === "input" ? "10px" : "14px"
+    variables[`--fleet-surface-${surface}-material`] = "solid"
+    variables[`--fleet-surface-${surface}-opacity`] = "1"
+    variables[`--fleet-surface-${surface}-fill`] = elevated ? panel : theme.surface
+    variables[`--fleet-surface-${surface}-border`] = border
+    variables[`--fleet-surface-${surface}-shadow`] = "none"
+    variables[`--fleet-surface-${surface}-shadow-value`] = "none"
+    variables[`--fleet-surface-${surface}-radius`] = radius
+  }
+  return variables
 }
 
 function commitVariables(root: HTMLElement, crewId: CrewId, skinId: string, variables: Record<string, string>): void {
