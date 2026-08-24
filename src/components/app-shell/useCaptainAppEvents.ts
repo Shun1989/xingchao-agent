@@ -34,6 +34,7 @@ export interface CaptainAppEventMapperState {
   readonly producerId: string
   readonly nextLifecycleId: number
   readonly activeToolCount: number
+  readonly terminalKind: "completed" | "stopped" | null
   readonly activeSessionId: string | null
   readonly displayedStatus: CaptainAppEventInput["displayedStatus"] | null
   readonly channels: Readonly<Partial<Record<CaptainAppChannel, ActiveCaptainChannel>>>
@@ -53,6 +54,7 @@ export function createCaptainAppEventMapperState(producerId = "standalone"): Cap
     producerId,
     nextLifecycleId: 1,
     activeToolCount: 0,
+    terminalKind: null,
     activeSessionId: null,
     displayedStatus: null,
     channels: Object.freeze({}),
@@ -233,6 +235,8 @@ export function mapCaptainAppEvents(
       producerId: previous.producerId,
       nextLifecycleId,
       activeToolCount: sessionChanged ? 0 : previous.activeToolCount,
+      terminalKind:
+        sessionChanged || channels.task?.signature.startsWith("running:") === true ? null : previous.terminalKind,
       activeSessionId: input.activeSessionId,
       displayedStatus: input.displayedStatus,
       channels: Object.freeze(channels),
@@ -247,6 +251,9 @@ export function mapCaptainChatLifecycle(
   previous: CaptainAppEventMapperState,
   kind: CaptainChatLifecycleKind,
 ): CaptainAppEventMapResult {
+  if (previous.terminalKind === "stopped" || (previous.terminalKind === "completed" && kind !== "generationStopped")) {
+    return Object.freeze({ state: previous, events: Object.freeze([]), sessionChanged: false })
+  }
   const channels: Partial<Record<CaptainAppChannel, ActiveCaptainChannel>> = { ...previous.channels }
   const events: CaptainEventDraft[] = []
   let nextLifecycleId = previous.nextLifecycleId
@@ -297,6 +304,8 @@ export function mapCaptainChatLifecycle(
       producerId: previous.producerId,
       nextLifecycleId,
       activeToolCount,
+      terminalKind:
+        kind === "messageCompleted" ? "completed" : kind === "generationStopped" ? "stopped" : previous.terminalKind,
       activeSessionId: previous.activeSessionId,
       displayedStatus: previous.displayedStatus,
       channels: Object.freeze(channels),

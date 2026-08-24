@@ -69,6 +69,7 @@ describe("useCaptainAppEvents semantic mapping", () => {
       input({ activeSessionId: "session-private-value", displayedStatus: "streaming" }),
     )
     state = result.state
+    const streamingState = state
     expect(result.events.find((event) => event.source === "chat")?.type).toBe("task.started")
     expect(result.events.find((event) => event.source === "task")?.id).toBe(submittedTask?.id)
 
@@ -79,6 +80,9 @@ describe("useCaptainAppEvents semantic mapping", () => {
       type: "task.succeeded",
       captionKey: "captain.success",
     })
+    expect(mapCaptainChatLifecycle(state, "messageCompleted").events).toEqual([])
+    const stopped = mapCaptainChatLifecycle(streamingState, "generationStopped")
+    expect(mapCaptainChatLifecycle(stopped.state, "messageCompleted").events).toEqual([])
 
     result = mapCaptainAppEvents(
       state,
@@ -292,7 +296,7 @@ describe("useCaptainAppEvents producer lease integration", () => {
 
   it("uses real tool lifecycle events and ignores payloads for inactive sessions", () => {
     const events = fakeChatEvents()
-    const view = renderIntegration(events, input({ activeSessionId: "active", displayedStatus: "streaming" }))
+    const view = renderIntegration(events, input({ activeSessionId: "active", displayedStatus: "ready" }))
     const probe = view.container.querySelector("output")
 
     events.emit("toolCallStarted", "inactive-private-session")
@@ -301,6 +305,7 @@ describe("useCaptainAppEvents producer lease integration", () => {
     expect(probe?.dataset.state).toBe("executing")
     expect(probe?.dataset.eventId).toContain("tool")
     events.emit("toolCallResult", "active")
+    expect(probe?.dataset.state).toBe("idle")
     expect(probe?.dataset.eventId).not.toContain("tool")
   })
 
