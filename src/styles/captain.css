@@ -16,7 +16,7 @@
   grid-template-rows: minmax(0, 1fr) auto auto;
   gap: 0.5rem;
   min-height: 0;
-  color: var(--fleet-color-text, var(--foreground));
+  color: var(--captain-host-text, var(--foreground));
   pointer-events: none;
   transform: translateY(var(--captain-safe-shift-y, 0));
 }
@@ -62,7 +62,7 @@
   padding: 0.55rem 0.75rem;
   border: 1px solid var(--fleet-surface-overlay-border, var(--border));
   border-radius: var(--oo-radius-control, 0.625rem);
-  background: color-mix(in oklab, var(--fleet-color-elevated, var(--card)) 92%, transparent);
+  background: color-mix(in oklab, var(--captain-host-surface, var(--card)) 92%, transparent);
   box-shadow: var(--oo-overlay-shadow);
   font-size: 0.75rem;
   line-height: 1.35;
@@ -79,6 +79,7 @@
 
 .captain-host__controls {
   display: flex;
+  flex-wrap: wrap;
   justify-content: center;
   gap: 0.35rem;
   pointer-events: auto;
@@ -92,22 +93,52 @@
   border: 1px solid var(--fleet-surface-input-border, var(--border));
   border-radius: 999px;
   background: var(--fleet-surface-input-fill, var(--background));
-  color: var(--fleet-color-text, var(--foreground));
+  color: var(--captain-host-text, var(--foreground));
   pointer-events: auto;
 }
 
 .captain-host__controls button:hover {
-  background: color-mix(in oklab, var(--fleet-color-accent, var(--accent)) 18%, var(--background));
+  background: color-mix(in oklab, var(--accent) 18%, var(--background));
 }
 
 .captain-host__controls button:focus-visible {
-  outline: 2px solid var(--fleet-color-focus, var(--ring));
+  outline: 2px solid var(--captain-host-focus, var(--ring));
   outline-offset: 2px;
 }
 
 .captain-host__controls svg {
   width: 0.9rem;
   height: 0.9rem;
+}
+
+.captain-host__voice-slider {
+  display: grid;
+  align-content: center;
+  width: 4.5rem;
+  color: var(--captain-host-text, var(--foreground));
+  font-size: 0.625rem;
+  line-height: 1;
+  pointer-events: auto;
+}
+
+.captain-host__voice-slider span {
+  overflow: hidden;
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.captain-host__voice-slider input {
+  width: 100%;
+  accent-color: var(--accent);
+  pointer-events: auto;
+}
+
+[data-captain-content][data-captain-reserved="true"] {
+  box-sizing: border-box;
+  padding-inline-end: var(--captain-reserved-width);
 }
 
 .captain-host--compact .captain-host__controls {
@@ -179,11 +210,7 @@
 .captain-expression-light {
   position: absolute;
   inset: 8% 10%;
-  background: radial-gradient(
-    circle at 54% 30%,
-    color-mix(in srgb, var(--fleet-color-accent) 18%, transparent),
-    transparent 54%
-  );
+  background: radial-gradient(circle at 54% 30%, color-mix(in srgb, var(--accent) 18%, transparent), transparent 54%);
   mix-blend-mode: screen;
 }
 
@@ -202,7 +229,7 @@
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  background: color-mix(in srgb, var(--fleet-color-danger) 55%, transparent);
+  background: color-mix(in srgb, var(--destructive) 55%, transparent);
   content: "";
   transform-origin: center top;
 }

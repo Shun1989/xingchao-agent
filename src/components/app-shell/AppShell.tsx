@@ -78,7 +78,7 @@ import { useArtifactsPanelState } from "./use-artifacts-panel-state.ts"
 import { useBrowserDownloadNotifications } from "./use-browser-download-notifications.ts"
 import { useBrowserPanelState } from "./use-browser-panel-state.ts"
 import { useChatConnectionRetry } from "./use-chat-connection-retry.ts"
-import { useCaptainAppEvents } from "./useCaptainAppEvents.ts"
+import { CaptainAppEventBridge } from "./useCaptainAppEvents.ts"
 import { useChatQueueState } from "./use-chat-queue-state.ts"
 import { useComposerNavigation } from "./use-composer-navigation.ts"
 import { useComposerSubmission } from "./use-composer-submission.ts"
@@ -865,15 +865,6 @@ export function AppShell({ auth }: { auth: UseAuth }) {
   const initialSendPending = Boolean(activePendingChatTransition && !pendingCaughtUp)
   const bridgeInitialSendPending = initialSendPending && messages.length === 0
   const displayedStatus: ChatStatus = initialSendPending ? "submitted" : status
-  useCaptainAppEvents({
-    route,
-    activeSessionId: activeChatSessionId,
-    displayedStatus,
-    agentStatus,
-    pendingPermissions,
-    activity,
-    error,
-  })
   const activePendingQuestionCount = pendingQuestions.length
   const activeChatTurnState = React.useMemo(
     () =>
@@ -956,6 +947,10 @@ export function AppShell({ auth }: { auth: UseAuth }) {
     sessionsSettledForCurrentScope &&
     !activePendingChatTransition &&
     (!activeChatSessionId || (messagesLoaded && messages.length === 0))
+  const captainChatIsEmpty = !activeChatSessionId || (messagesLoaded && messages.length === 0)
+  const captainActiveTask = Boolean(
+    activeChatSessionId && visibleTaskSessions.some((session) => session.id === activeChatSessionId),
+  )
 
   // 统一修复默认选中和失效选中，避免多个 effect 在同一轮分别写入首项与 null。
   React.useLayoutEffect(() => {
@@ -2059,12 +2054,27 @@ export function AppShell({ auth }: { auth: UseAuth }) {
       projectActions.renameTarget,
   )
   const captainHost = (
-    <CaptainHost
-      key="global-captain-host"
-      route={route}
-      activeSessionId={activeChatSessionId}
-      modalOpen={captainModalOpen}
-    />
+    <React.Fragment key="global-captain-surface">
+      <CaptainAppEventBridge
+        input={{
+          route,
+          activeSessionId: activeChatSessionId,
+          displayedStatus,
+          agentStatus,
+          pendingPermissions,
+          activity,
+          error,
+        }}
+      />
+      <CaptainHost
+        route={route}
+        activeSessionId={activeChatSessionId}
+        chatIsEmpty={captainChatIsEmpty}
+        activeProject={activeProject !== undefined}
+        activeTask={captainActiveTask}
+        modalOpen={captainModalOpen}
+      />
+    </React.Fragment>
   )
 
   if (route === "settings") {
@@ -2126,6 +2136,7 @@ export function AppShell({ auth }: { auth: UseAuth }) {
       {captainHost}
       <div
       ref={appChromeRef}
+      data-captain-content
       data-fleet-skin={globalThis.document?.documentElement.dataset.fleetSkin}
       className={cn(
         "oo-app-chrome grid h-full text-foreground",

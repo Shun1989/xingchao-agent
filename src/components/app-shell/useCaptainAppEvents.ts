@@ -1,3 +1,4 @@
+import type { CaptainAppEventInput } from "./app-shell-types.ts"
 import type {
   CaptainCaptionKey,
   CaptainCaptionParams,
@@ -5,13 +6,14 @@ import type {
   CaptainEventType,
 } from "@/captain/captain-types.ts"
 import type { CaptainSpeechIntent } from "@/captain/captain-voice.ts"
-import type { CaptainEventDraft } from "@/components/captain/captain-context.ts"
-import type { CaptainAppEventInput } from "./app-shell-types.ts"
+import type { CaptainEventDraft, CaptainProducerLease } from "@/components/captain/captain-context.ts"
 
 import * as React from "react"
+import { useChatService } from "@/components/AppContext.ts"
 import { useCaptain } from "@/components/captain/captain-context.ts"
 
-type CaptainAppChannel = "agent" | "chat" | "error" | "permission" | "route" | "task" | "tool"
+type CaptainAppChannel = "activity" | "agent" | "chat" | "error" | "permission" | "route" | "task" | "tool"
+type CaptainChatLifecycleKind = "generationStopped" | "messageCompleted" | "toolCallResult" | "toolCallStarted"
 
 interface DesiredCaptainEvent {
   readonly type: CaptainEventType
@@ -29,7 +31,9 @@ interface ActiveCaptainChannel extends DesiredCaptainEvent {
 }
 
 export interface CaptainAppEventMapperState {
+  readonly producerId: string
   readonly nextLifecycleId: number
+  readonly activeToolCount: number
   readonly activeSessionId: string | null
   readonly displayedStatus: CaptainAppEventInput["displayedStatus"] | null
   readonly channels: Readonly<Partial<Record<CaptainAppChannel, ActiveCaptainChannel>>>
@@ -42,9 +46,17 @@ export interface CaptainAppEventMapResult {
 }
 
 const emptyParams: CaptainCaptionParams = Object.freeze({})
+const orderedChannels = ["route", "agent", "chat", "activity", "task", "permission", "tool", "error"] as const
 
-export function createCaptainAppEventMapperState(): CaptainAppEventMapperState {
-  return Object.freeze({ nextLifecycleId: 1, activeSessionId: null, displayedStatus: null, channels: Object.freeze({}) })
+export function createCaptainAppEventMapperState(producerId = "standalone"): CaptainAppEventMapperState {
+  return Object.freeze({
+    producerId,
+    nextLifecycleId: 1,
+    activeToolCount: 0,
+    activeSessionId: null,
+    displayedStatus: null,
+    channels: Object.freeze({}),
+  })
 }
 
 function desired(
@@ -71,10 +83,7 @@ function desired(
   })
 }
 
-function desiredEvents(
-  previous: CaptainAppEventMapperState,
-  input: CaptainAppEventInput,
-): Partial<Record<CaptainAppChannel, DesiredCaptainEvent>> {
+function desiredEvents(input: CaptainAppEventInput): Partial<Record<CaptainAppChannel, DesiredCaptainEvent>> {
   const next: Partial<Record<CaptainAppChannel, DesiredCaptainEvent>> = {
     route: desired("captain.idle", "route", "route", "captain.idle", `route:${input.route}`),
   }
@@ -105,44 +114,37 @@ function desiredEvents(
     }
   }
 
-  const wasRunning = previous.displayedStatus === "submitted" || previous.displayedStatus === "streaming"
   const isRunning = input.displayedStatus === "submitted" || input.displayedStatus === "streaming"
-  const sameSession = previous.activeSessionId === input.activeSessionId
   if (input.displayedStatus === "error") {
     next.task = desired("task.failed", "task", "task", "captain.failure", "failed", {
       expiresInMs: 8_000,
       lifecycleTerminal: true,
     })
   } else if (input.activeSessionId !== null && isRunning) {
-    next.task = desired(
-      "task.started",
-      "task",
-      "task",
-      "captain.executing",
-      `running:${input.displayedStatus}`,
-    )
-  } else if (input.activeSessionId !== null && input.displayedStatus === "ready" && wasRunning && sameSession) {
-    next.task = desired("task.succeeded", "task", "task", "captain.success", "succeeded", {
-      expiresInMs: 6_000,
-      lifecycleTerminal: true,
-    })
+    next.task = desired("task.started", "task", "task", "captain.executing", `running:${input.displayedStatus}`)
   }
 
   const permissionCount = input.pendingPermissions.length
   if (permissionCount > 0) {
-    const captionParams = Object.freeze({ count: permissionCount })
     next.permission = desired(
       "permission.required",
       "permission",
       "permission",
       "captain.warning",
       `count:${permissionCount}`,
-      { captionParams },
+      { captionParams: Object.freeze({ count: permissionCount }) },
     )
   }
 
   if (input.activity !== null) {
-    next.tool = desired("tool.started", "tool", "tool", "captain.executing", "active")
+    const finalizing = input.activity.phase === "finalizing"
+    next.activity = desired(
+      finalizing ? "task.started" : "assistant.thinking",
+      "chat",
+      "activity",
+      finalizing ? "captain.executing" : "captain.thinking",
+      finalizing ? "finalizing" : "thinking",
+    )
   }
   if (input.error !== null) {
     next.error = desired("task.failed", "chat", "error", "captain.failure", "present", {
@@ -177,55 +179,60 @@ function dismissal(active: ActiveCaptainChannel): CaptainEventDraft {
   })
 }
 
+function nextId(state: CaptainAppEventMapperState, channel: CaptainAppChannel): string | null {
+  if (state.nextLifecycleId >= Number.MAX_SAFE_INTEGER) return null
+  return `captain-app-${state.producerId}-${channel}-${state.nextLifecycleId}`
+}
+
 /** Pure state diff used by the hook; it never reads or copies free-form fields. */
 export function mapCaptainAppEvents(
   previous: CaptainAppEventMapperState,
   input: CaptainAppEventInput,
 ): CaptainAppEventMapResult {
   const sessionChanged = previous.activeSessionId !== input.activeSessionId
-  const desiredByChannel = desiredEvents(previous, input)
+  const desiredByChannel = desiredEvents(input)
   const channels: Partial<Record<CaptainAppChannel, ActiveCaptainChannel>> = { ...previous.channels }
   const events: CaptainEventDraft[] = []
   let nextLifecycleId = previous.nextLifecycleId
 
   if (sessionChanged) {
-    for (const channel of ["chat", "error", "permission", "task", "tool"] as const) {
+    for (const channel of ["chat", "activity", "error", "permission", "task", "tool"] as const) {
       const active = channels[channel]
       if (active) events.push(dismissal(active))
       delete channels[channel]
     }
   }
 
-  for (const channel of ["route", "agent", "chat", "task", "permission", "tool", "error"] as const) {
+  for (const channel of orderedChannels) {
     const wanted = desiredByChannel[channel]
     const active = channels[channel]
     if (!wanted) {
-      if (active) {
+      if (active && !active.lifecycleTerminal) {
         events.push(dismissal(active))
         delete channels[channel]
       }
       continue
     }
-
     if (active?.signature === wanted.signature) continue
     const mustStartLifecycle = !active || active.lifecycleTerminal
     if (mustStartLifecycle) {
       if (active && !active.lifecycleTerminal) events.push(dismissal(active))
-      if (nextLifecycleId >= Number.MAX_SAFE_INTEGER) continue
-      const id = `captain-app-${channel}-${nextLifecycleId}`
+      const id = nextId({ ...previous, nextLifecycleId }, channel)
+      if (!id) continue
       nextLifecycleId += 1
       channels[channel] = Object.freeze({ ...wanted, id })
       events.push(eventFrom(wanted, id))
       continue
     }
-
     channels[channel] = Object.freeze({ ...wanted, id: active.id })
     events.push(eventFrom(wanted, active.id))
   }
 
   return Object.freeze({
     state: Object.freeze({
+      producerId: previous.producerId,
       nextLifecycleId,
+      activeToolCount: sessionChanged ? 0 : previous.activeToolCount,
       activeSessionId: input.activeSessionId,
       displayedStatus: input.displayedStatus,
       channels: Object.freeze(channels),
@@ -233,6 +240,90 @@ export function mapCaptainAppEvents(
     events: Object.freeze(events),
     sessionChanged,
   })
+}
+
+/** Maps only a closed lifecycle kind after the caller proves active-session equality. */
+export function mapCaptainChatLifecycle(
+  previous: CaptainAppEventMapperState,
+  kind: CaptainChatLifecycleKind,
+): CaptainAppEventMapResult {
+  const channels: Partial<Record<CaptainAppChannel, ActiveCaptainChannel>> = { ...previous.channels }
+  const events: CaptainEventDraft[] = []
+  let nextLifecycleId = previous.nextLifecycleId
+  let activeToolCount = previous.activeToolCount
+
+  if (kind === "toolCallStarted") {
+    activeToolCount += 1
+    if (!channels.tool) {
+      const wanted = desired("tool.started", "tool", "tool", "captain.executing", "active")
+      const id = nextId(previous, "tool")
+      if (id) {
+        nextLifecycleId += 1
+        channels.tool = Object.freeze({ ...wanted, id })
+        events.push(eventFrom(wanted, id))
+      }
+    }
+  } else if (kind === "toolCallResult") {
+    activeToolCount = Math.max(0, activeToolCount - 1)
+    if (activeToolCount === 0 && channels.tool) {
+      events.push(dismissal(channels.tool))
+      delete channels.tool
+    }
+  } else {
+    activeToolCount = 0
+    for (const channel of ["chat", "activity", "tool"] as const) {
+      const active = channels[channel]
+      if (active) events.push(dismissal(active))
+      delete channels[channel]
+    }
+    const wanted =
+      kind === "messageCompleted"
+        ? desired("task.succeeded", "task", "task", "captain.success", "completed", {
+            expiresInMs: 6_000,
+            lifecycleTerminal: true,
+          })
+        : desired("task.cancelled", "task", "task", "captain.idle", "stopped", { lifecycleTerminal: true })
+    const current = channels.task
+    const id = current?.id ?? nextId(previous, "task")
+    if (id) {
+      if (!current) nextLifecycleId += 1
+      channels.task = Object.freeze({ ...wanted, id })
+      events.push(eventFrom(wanted, id))
+    }
+  }
+
+  return Object.freeze({
+    state: Object.freeze({
+      producerId: previous.producerId,
+      nextLifecycleId,
+      activeToolCount,
+      activeSessionId: previous.activeSessionId,
+      displayedStatus: previous.displayedStatus,
+      channels: Object.freeze(channels),
+    }),
+    events: Object.freeze(events),
+    sessionChanged: false,
+  })
+}
+
+function terminalEventsForUnmount(state: CaptainAppEventMapperState): readonly CaptainEventDraft[] {
+  return Object.freeze(
+    Object.values(state.channels).flatMap((active) => {
+      if (!active) return []
+      if (active.source !== "task") return [dismissal(active)]
+      return [
+        Object.freeze({
+          id: active.id,
+          type: "task.cancelled" as const,
+          source: active.source,
+          taskId: active.taskId,
+          captionKey: "captain.idle" as const,
+          captionParams: emptyParams,
+          expiresInMs: null,
+        }),
+      ]
+    }),
+  )
 }
 
 export function voiceIntentForCaptainEvent(type: CaptainEventType, eventId: string): CaptainSpeechIntent | null {
@@ -265,22 +356,56 @@ export function voiceIntentForCaptainEvent(type: CaptainEventType, eventId: stri
 
 export function useCaptainAppEvents(input: CaptainAppEventInput): void {
   const captain = useCaptain()
-  const mapper = React.useRef(createCaptainAppEventMapperState())
+  const chatService = useChatService()
+  const lease = React.useRef<CaptainProducerLease | null>(null)
+  const mapper = React.useRef<CaptainAppEventMapperState | null>(null)
+  const activeSession = React.useRef(input.activeSessionId)
+  const speechRequest = React.useRef(captain.speech.request)
+  activeSession.current = input.activeSessionId
+  speechRequest.current = captain.speech.request
   const hasActivity = input.activity !== null
   const hasError = input.error !== null
 
-  React.useEffect(() => {
-    const result = mapCaptainAppEvents(mapper.current, input)
+  const publishResult = React.useCallback((result: CaptainAppEventMapResult, stopSpeech = false) => {
     mapper.current = result.state
-    captain.publish(result.events)
-    if (result.sessionChanged) captain.cancelTaskSpeech()
+    const currentLease = lease.current
+    if (!currentLease) return
+    currentLease.publish(result.events)
+    if (result.sessionChanged || stopSpeech) currentLease.cancelTaskSpeech()
     for (const event of result.events) {
       if (event.source !== "task" && event.source !== "permission") continue
       const intent = voiceIntentForCaptainEvent(event.type, event.id)
-      if (intent) captain.speech.request(intent)
+      if (intent) speechRequest.current(intent)
     }
+  }, [])
+
+  React.useLayoutEffect(() => {
+    const producerLease = captain.acquireProducer()
+    if (!producerLease) return
+    lease.current = producerLease
+    mapper.current = createCaptainAppEventMapperState(producerLease.id)
+    const onLifecycle = (kind: CaptainChatLifecycleKind, event: { sessionId: string }) => {
+      if (event.sessionId !== activeSession.current || mapper.current === null) return
+      publishResult(mapCaptainChatLifecycle(mapper.current, kind), kind === "generationStopped")
+    }
+    const unsubscribes = [
+      chatService.serverEvents.on("toolCallStarted", (event) => onLifecycle("toolCallStarted", event)),
+      chatService.serverEvents.on("toolCallResult", (event) => onLifecycle("toolCallResult", event)),
+      chatService.serverEvents.on("messageCompleted", (event) => onLifecycle("messageCompleted", event)),
+      chatService.serverEvents.on("generationStopped", (event) => onLifecycle("generationStopped", event)),
+    ]
+    return () => {
+      for (const unsubscribe of unsubscribes) unsubscribe()
+      const current = mapper.current
+      lease.current = null
+      mapper.current = null
+      producerLease.release(current ? terminalEventsForUnmount(current) : [])
+    }
+  }, [captain.acquireProducer, chatService.serverEvents, publishResult])
+
+  React.useEffect(() => {
+    if (mapper.current) publishResult(mapCaptainAppEvents(mapper.current, input))
   }, [
-    captain,
     hasActivity,
     hasError,
     input.activeSessionId,
@@ -288,5 +413,12 @@ export function useCaptainAppEvents(input: CaptainAppEventInput): void {
     input.displayedStatus,
     input.pendingPermissions.length,
     input.route,
+    publishResult,
   ])
+}
+
+/** AppShell's real zero-DOM integration boundary; remounting it releases the producer lease. */
+export function CaptainAppEventBridge({ input }: { readonly input: CaptainAppEventInput }) {
+  useCaptainAppEvents(input)
+  return null
 }
