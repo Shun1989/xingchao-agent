@@ -31,6 +31,7 @@ node_modules/
 # Build output
 dist
 dist-electron
+dist-visual
 release
 
 # Locally downloaded Electron (dev) — produced by scripts/download-electron.ts
@@ -69,6 +70,7 @@ resources/agent-tool-runtime
 # Local dev scratch
 .wanta-dev/
 .playwright-mcp/
+tests/visual/test-results/
 
 # Local dev Electron userData
 wanta/
