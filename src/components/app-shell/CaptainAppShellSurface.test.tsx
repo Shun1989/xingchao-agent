@@ -33,10 +33,17 @@ class TypedLifecycleSource implements CaptainLifecycleSource {
   readonly listeners = new Set<(event: CaptainLifecycleEvent) => void>()
   readonly retiredListeners: Array<(event: CaptainLifecycleEvent) => void> = []
   unsubscribeCount = 0
+  subscribeCount = 0
+
+  public constructor(
+    private readonly onSubscribe?: (listener: (event: CaptainLifecycleEvent) => void, subscription: number) => void,
+  ) {}
 
   subscribe(listener: (event: CaptainLifecycleEvent) => void): () => void {
+    this.subscribeCount += 1
     this.listeners.add(listener)
     this.retiredListeners.push(listener)
+    this.onSubscribe?.(listener, this.subscribeCount)
     return () => {
       this.listeners.delete(listener)
       this.unsubscribeCount += 1
@@ -51,6 +58,14 @@ class TypedLifecycleSource implements CaptainLifecycleSource {
 
   emitDuringReactEffect(event: CaptainLifecycleEvent): void {
     for (const listener of this.listeners) listener(event)
+  }
+
+  emitMany(events: readonly CaptainLifecycleEvent[]): void {
+    act(() => {
+      for (const event of events) {
+        for (const listener of this.listeners) listener(event)
+      }
+    })
   }
 }
 
@@ -86,6 +101,7 @@ interface ViewState {
   readonly displayedStatus: CaptainAppEventInput["displayedStatus"]
   readonly route: CaptainAppEventInput["route"]
   readonly surfaceKey: number
+  readonly strictMode: boolean
 }
 
 function renderSurface(source: TypedLifecycleSource, initial: Partial<ViewState> = {}) {
@@ -100,38 +116,38 @@ function renderSurface(source: TypedLifecycleSource, initial: Partial<ViewState>
     displayedStatus: "ready",
     route: "chat",
     surfaceKey: 1,
+    strictMode: false,
     ...initial,
   }
 
   function draw(layoutEmitter?: React.ReactNode) {
     const input = { ...appInput(state.activeSessionId, state.displayedStatus), route: state.route }
-    act(() =>
-      root.render(
-        <I18nProvider>
-          <FleetSkinContext.Provider value={fleetSkin}>
-            <CaptainOrchestrator>
-              <CaptainAppShellSurface
-                key={state.surfaceKey}
-                activeProject={false}
-                activeSessionId={state.activeSessionId}
-                activeTask={false}
-                chatIsEmpty={state.chatIsEmpty}
-                eventInput={input}
-                lifecycleSource={source}
-                modalOpen={false}
-                route={state.route}
-                viewportWidth={1440}
-              >
-                <main data-captain-content data-route-child={state.child}>
-                  {layoutEmitter}
-                </main>
-                <Probe />
-              </CaptainAppShellSurface>
-            </CaptainOrchestrator>
-          </FleetSkinContext.Provider>
-        </I18nProvider>,
-      ),
+    const tree = (
+      <I18nProvider>
+        <FleetSkinContext.Provider value={fleetSkin}>
+          <CaptainOrchestrator>
+            <CaptainAppShellSurface
+              key={state.surfaceKey}
+              activeProject={false}
+              activeSessionId={state.activeSessionId}
+              activeTask={false}
+              chatIsEmpty={state.chatIsEmpty}
+              eventInput={input}
+              lifecycleSource={source}
+              modalOpen={false}
+              route={state.route}
+              viewportWidth={1440}
+            >
+              <main data-captain-content data-route-child={state.child}>
+                {layoutEmitter}
+              </main>
+              <Probe />
+            </CaptainAppShellSurface>
+          </CaptainOrchestrator>
+        </FleetSkinContext.Provider>
+      </I18nProvider>
     )
+    act(() => root.render(state.strictMode ? <React.StrictMode>{tree}</React.StrictMode> : tree))
   }
   draw()
   return {
@@ -154,16 +170,40 @@ afterEach(() => {
 })
 
 describe("CaptainAppShellSurface production seam", () => {
-  it("preserves one host node across main, settings, billing, and archived child changes", () => {
+  it("preserves one host node across real main, settings, billing, and archived route/layout changes", () => {
     const source = new TypedLifecycleSource()
     const view = renderSurface(source)
     const host = view.container.querySelector("[data-captain-host]")
 
-    for (const child of ["settings", "billing", "archived", "main"] as const) {
-      view.update({ child })
+    for (const [child, route, mode] of [
+      ["settings", "settings", "compact"],
+      ["billing", "billing", "compact"],
+      ["archived", "archived", "compact"],
+      ["main", "chat", "companion"],
+    ] as const) {
+      view.update({ child, route })
       expect(view.container.querySelector("[data-captain-host]")).toBe(host)
       expect(view.container.querySelector("[data-route-child]")?.getAttribute("data-route-child")).toBe(child)
+      expect(view.container.querySelector("[data-captain-host]")?.getAttribute("data-captain-mode")).toBe(mode)
     }
+  })
+
+  it("replays a one-shot insertion event into the replacement StrictMode lease exactly once", () => {
+    let emitted = false
+    const source = new TypedLifecycleSource((listener) => {
+      if (emitted) return
+      emitted = true
+      listener({ kind: "tool.started", sessionId: "active", callId: "strict-call", partId: "strict-part" })
+    })
+    const view = renderSurface(source, { strictMode: true })
+    const probe = view.container.querySelector("output")
+
+    expect(probe?.dataset.state).toBe("executing")
+    expect(Number(probe?.dataset.epoch)).toBeGreaterThan(0)
+    expect(source.subscribeCount).toBe(1)
+    expect(view.container.innerHTML).not.toContain("strict-call")
+    source.emit({ kind: "tool.result", sessionId: "active", callId: "strict-call", partId: "strict-part" })
+    expect(probe?.dataset.state).toBe("idle")
   })
 
   it("deduplicates translator-shaped starts/results and tracks parallel tools exactly", () => {
@@ -239,6 +279,204 @@ describe("CaptainAppShellSurface production seam", () => {
     view.update({ surfaceKey: 2 })
     const nextProbe = view.container.querySelector("output")
     expect(Number(nextProbe?.dataset.epoch)).toBeGreaterThan(epoch)
+  })
+
+  it("ignores late tools and opposite terminals until quiescence proves a new turn, then permits reused IDs", () => {
+    const cancel = vi.fn()
+    Object.defineProperty(window, "speechSynthesis", {
+      configurable: true,
+      value: { cancel, speak: vi.fn(), getVoices: () => [] },
+    })
+    const source = new TypedLifecycleSource()
+    const view = renderSurface(source, { displayedStatus: "streaming" })
+    const probe = view.container.querySelector("output")
+    source.emit({ kind: "turn.completed", sessionId: "active" })
+    expect(probe?.textContent).toBe("captain.success")
+
+    const cancellationsAfterCompletion = cancel.mock.calls.length
+    source.emit({ kind: "tool.result", sessionId: "active", callId: "reused", partId: "part" })
+    source.emit({ kind: "tool.started", sessionId: "active", callId: "reused", partId: "part" })
+    view.update({ child: "settings", route: "settings" })
+    source.emit({ kind: "turn.stopped", sessionId: "active" })
+    expect(probe?.textContent).toBe("captain.success")
+    expect(cancel.mock.calls.length).toBe(cancellationsAfterCompletion)
+
+    view.update({ displayedStatus: "ready" })
+    view.update({ child: "main", displayedStatus: "submitted", route: "chat" })
+    source.emit({ kind: "tool.started", sessionId: "active", callId: "reused", partId: "part" })
+    view.update({ displayedStatus: "ready" })
+    expect(probe?.dataset.eventId).toContain("-tool-")
+    source.emit({ kind: "turn.stopped", sessionId: "active" })
+    expect(probe?.textContent).not.toBe("captain.success")
+    expect(cancel.mock.calls.length).toBeGreaterThan(cancellationsAfterCompletion)
+  })
+
+  it("bounds the pre-lease queue at 64 events and fails closed until terminal reset", () => {
+    const queuedEvents = Array.from(
+      { length: 65 },
+      (_, index): CaptainLifecycleEvent => ({
+        kind: "tool.result",
+        sessionId: "active",
+        callId: `queued-${index}`,
+        partId: "part",
+      }),
+    )
+    const source = new TypedLifecycleSource((listener) => {
+      for (const event of queuedEvents) listener(event)
+    })
+    const view = renderSurface(source)
+    const probe = view.container.querySelector("output")
+    expect(probe?.dataset.state).toBe("executing")
+    source.emit({ kind: "turn.stopped", sessionId: "active" })
+    expect(probe?.dataset.state).toBe("idle")
+  })
+
+  it("bounds each opaque ID at 256 characters and its exact composite key", () => {
+    const source = new TypedLifecycleSource()
+    const view = renderSurface(source)
+    const probe = view.container.querySelector("output")
+    const boundedCall = "c".repeat(256)
+    const boundedPart = "p".repeat(256)
+    source.emit({ kind: "tool.started", sessionId: "active", callId: boundedCall, partId: boundedPart })
+    expect(probe?.dataset.state).toBe("executing")
+    source.emit({ kind: "tool.result", sessionId: "active", callId: boundedCall, partId: boundedPart })
+    expect(probe?.dataset.state).toBe("idle")
+
+    source.emit({ kind: "tool.result", sessionId: "active", callId: "x".repeat(257), partId: "part" })
+    expect(probe?.dataset.state).toBe("executing")
+    source.emit({ kind: "tool.result", sessionId: "active", callId: "x".repeat(257), partId: "part" })
+    expect(probe?.dataset.state).toBe("executing")
+    source.emit({ kind: "turn.stopped", sessionId: "active" })
+    expect(probe?.dataset.state).toBe("idle")
+  })
+
+  it("bounds active and retired identities at 128 without evicting ambiguous identities", () => {
+    const activeSource = new TypedLifecycleSource()
+    const activeView = renderSurface(activeSource)
+    const activeProbe = activeView.container.querySelector("output")
+    const starts = Array.from(
+      { length: 129 },
+      (_, index): CaptainLifecycleEvent => ({
+        kind: "tool.started",
+        sessionId: "active",
+        callId: `active-${index}`,
+        partId: "part",
+      }),
+    )
+    activeSource.emitMany(starts)
+    activeSource.emitMany(
+      Array.from(
+        { length: 129 },
+        (_, index): CaptainLifecycleEvent => ({
+          kind: "tool.result",
+          sessionId: "active",
+          callId: `active-${index}`,
+          partId: "part",
+        }),
+      ),
+    )
+    expect(activeProbe?.dataset.state).toBe("executing")
+    activeSource.emit({ kind: "turn.stopped", sessionId: "active" })
+    expect(activeProbe?.dataset.state).toBe("idle")
+
+    const retiredSource = new TypedLifecycleSource()
+    const retiredView = renderSurface(retiredSource)
+    const retiredProbe = retiredView.container.querySelector("output")
+    retiredSource.emitMany(
+      Array.from(
+        { length: 129 },
+        (_, index): CaptainLifecycleEvent => ({
+          kind: "tool.result",
+          sessionId: "active",
+          callId: `retired-${index}`,
+          partId: "part",
+        }),
+      ),
+    )
+    expect(retiredProbe?.dataset.state).toBe("executing")
+    retiredSource.emit({ kind: "tool.result", sessionId: "active", callId: "retired-0", partId: "part" })
+    expect(retiredProbe?.dataset.state).toBe("executing")
+    retiredSource.emit({ kind: "turn.stopped", sessionId: "active" })
+    expect(retiredProbe?.dataset.state).toBe("idle")
+  })
+
+  it("recomputes a stage slot from captured ResizeObserver callbacks and retargets replacements", async () => {
+    const callbacks: ResizeObserverCallback[] = []
+    const observed: Element[] = []
+    class TestResizeObserver {
+      public constructor(callback: ResizeObserverCallback) {
+        callbacks.push(callback)
+      }
+      public disconnect() {}
+      public observe(element: Element) {
+        observed.push(element)
+      }
+      public unobserve() {}
+    }
+    vi.stubGlobal("ResizeObserver", TestResizeObserver)
+    let slotWidth = 500
+    let slotLeft = 900
+    let controlRect = { bottom: 690, left: 120, right: 480, top: 110 }
+    const control = document.createElement("button")
+    control.setAttribute("data-captain-safe-control", "")
+    control.getBoundingClientRect = () => ({
+      ...controlRect,
+      height: controlRect.bottom - controlRect.top,
+      width: controlRect.right - controlRect.left,
+      x: controlRect.left,
+      y: controlRect.top,
+      toJSON: () => ({}),
+    })
+    const slot = document.createElement("div")
+    slot.setAttribute("data-captain-host-slot", "")
+    slot.getBoundingClientRect = () => ({
+      bottom: 700,
+      height: 600,
+      left: slotLeft,
+      right: slotLeft + slotWidth,
+      top: 100,
+      width: slotWidth,
+      x: slotLeft,
+      y: 100,
+      toJSON: () => ({}),
+    })
+    document.body.append(slot, control)
+    const source = new TypedLifecycleSource()
+    const view = renderSurface(source, { activeSessionId: null, chatIsEmpty: true, route: "fleet" })
+    const host = view.container.querySelector<HTMLElement>("[data-captain-host]")
+    if (!host) throw new Error("captain host missing")
+    host.getBoundingClientRect = slot.getBoundingClientRect
+    expect(observed).toContain(slot)
+    expect(host.style.width).toBe("500px")
+
+    slotWidth = 400
+    act(() => callbacks[0]?.([], {} as ResizeObserver))
+    expect(host.style.width).toBe("400px")
+
+    slotLeft = 100
+    act(() => callbacks[0]?.([], {} as ResizeObserver))
+    await vi.waitFor(() => expect(host.dataset.captainMode).toBe("compact"))
+    expect(host.style.width).toBe("")
+
+    const replacement = slot.cloneNode() as HTMLElement
+    replacement.getBoundingClientRect = () => ({
+      bottom: 700,
+      height: 600,
+      left: 920,
+      right: 1280,
+      top: 100,
+      width: 360,
+      x: 920,
+      y: 100,
+      toJSON: () => ({}),
+    })
+    controlRect = { bottom: 100, left: 0, right: 50, top: 50 }
+    act(() => slot.replaceWith(replacement))
+    await vi.waitFor(() => expect(observed).toContain(replacement))
+    host.getBoundingClientRect = replacement.getBoundingClientRect
+    act(() => callbacks[0]?.([], {} as ResizeObserver))
+    await vi.waitFor(() => expect(host.dataset.captainMode).toBe("stage"))
+    expect(host.style.width).toBe("360px")
   })
 
   it("reserves companion content and reports effective compact bounds after stage collision", async () => {

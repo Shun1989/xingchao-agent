@@ -172,10 +172,48 @@ describe("useCaptainAppEvents semantic mapping", () => {
     expect(mapCaptainChatLifecycle(terminal.state, "generationStopped").events).toEqual([])
     expect(mapCaptainChatLifecycle(terminal.state, "messageCompleted").events).toEqual([])
 
-    state = mapCaptainAppEvents(
-      terminal.state,
-      input({ activeSessionId: "active", displayedStatus: "submitted" }),
-    ).state
+    state = mapCaptainAppEvents(terminal.state, input({ activeSessionId: "active", displayedStatus: "ready" })).state
+    state = mapCaptainAppEvents(state, input({ activeSessionId: "active", displayedStatus: "submitted" })).state
     expect(types(mapCaptainChatLifecycle(state, "messageCompleted").events)).toContain("task.succeeded")
+  })
+
+  it("requires terminal, quiescent observation, then a later non-running to running transition", () => {
+    let state = mapCaptainAppEvents(
+      createCaptainAppEventMapperState(),
+      input({ activeSessionId: "active", displayedStatus: "streaming" }),
+    ).state
+    const completed = mapCaptainChatLifecycle(state, "messageCompleted")
+    state = completed.state
+
+    const sameRunning = mapCaptainAppEvents(
+      state,
+      input({
+        route: "settings",
+        activeSessionId: "active",
+        agentStatus: { status: "starting" },
+        displayedStatus: "streaming",
+        activity: { sessionId: "active", phase: "thinking" },
+        pendingPermissions: [{ id: "permission", sessionId: "active", action: "private", resources: [] }],
+      }),
+    )
+    expect(mapCaptainChatLifecycle(sameRunning.state, "generationStopped").events).toEqual([])
+    expect(sameRunning.events.filter((event) => event.taskId === "captain-task")).toEqual([])
+    expect(sameRunning.state.channels.task?.id).toBe(completed.state.channels.task?.id)
+
+    const quiescent = mapCaptainAppEvents(
+      sameRunning.state,
+      input({ route: "settings", activeSessionId: "active", displayedStatus: "ready" }),
+    )
+    expect(mapCaptainChatLifecycle(quiescent.state, "generationStopped").events).toEqual([])
+
+    const nextRun = mapCaptainAppEvents(
+      quiescent.state,
+      input({ activeSessionId: "active", displayedStatus: "submitted" }),
+    )
+    expect(nextRun.events.filter((event) => event.source === "task").map((event) => event.type)).toEqual([
+      "event.dismissed",
+      "task.started",
+    ])
+    expect(types(mapCaptainChatLifecycle(nextRun.state, "generationStopped").events)).toContain("task.cancelled")
   })
 })

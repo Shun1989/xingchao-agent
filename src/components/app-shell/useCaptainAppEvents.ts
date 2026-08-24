@@ -80,6 +80,7 @@ export interface CaptainAppEventMapperState {
   readonly nextLifecycleId: number
   readonly activeToolCount: number
   readonly terminalKind: "completed" | "stopped" | null
+  readonly terminalQuiescent: boolean
   readonly activeSessionId: string | null
   readonly displayedStatus: CaptainAppEventInput["displayedStatus"] | null
   readonly channels: Readonly<Partial<Record<CaptainAppChannel, ActiveCaptainChannel>>>
@@ -89,9 +90,14 @@ export interface CaptainAppEventMapResult {
   readonly state: CaptainAppEventMapperState
   readonly events: readonly CaptainEventDraft[]
   readonly sessionChanged: boolean
+  readonly turnStarted: boolean
 }
 
 const emptyParams: CaptainCaptionParams = Object.freeze({})
+const MAX_OPAQUE_ID_LENGTH = 256
+const MAX_COMPOSITE_KEY_LENGTH = 520
+const MAX_TOOL_IDENTITIES = 128
+const MAX_PENDING_LIFECYCLE_EVENTS = 64
 // Tool state is owned exclusively by the exact lifecycle adapter. App-input diffs must not
 // infer its absence and dismiss a real tool event that arrived earlier in the same commit.
 const orderedChannels = ["route", "agent", "chat", "activity", "task", "permission", "error"] as const
@@ -102,6 +108,7 @@ export function createCaptainAppEventMapperState(producerId = "standalone"): Cap
     nextLifecycleId: 1,
     activeToolCount: 0,
     terminalKind: null,
+    terminalQuiescent: false,
     activeSessionId: null,
     displayedStatus: null,
     channels: Object.freeze({}),
@@ -243,6 +250,10 @@ export function mapCaptainAppEvents(
   const channels: Partial<Record<CaptainAppChannel, ActiveCaptainChannel>> = { ...previous.channels }
   const events: CaptainEventDraft[] = []
   let nextLifecycleId = previous.nextLifecycleId
+  const wasRunning = previous.displayedStatus === "submitted" || previous.displayedStatus === "streaming"
+  const isRunning = input.displayedStatus === "submitted" || input.displayedStatus === "streaming"
+  const turnStarted =
+    previous.terminalKind !== null && previous.terminalQuiescent && !wasRunning && isRunning && !sessionChanged
 
   if (sessionChanged) {
     for (const channel of ["chat", "activity", "error", "permission", "task", "tool"] as const) {
@@ -251,8 +262,17 @@ export function mapCaptainAppEvents(
       delete channels[channel]
     }
   }
+  if (turnStarted) {
+    const terminalTask = channels.task
+    if (terminalTask) events.push(dismissal(terminalTask))
+    delete channels.task
+    const oldTool = channels.tool
+    if (oldTool) events.push(dismissal(oldTool))
+    delete channels.tool
+  }
 
   for (const channel of orderedChannels) {
+    if (channel === "task" && previous.terminalKind !== null && !turnStarted && !sessionChanged) continue
     const wanted = desiredByChannel[channel]
     const active = channels[channel]
     if (!wanted) {
@@ -281,15 +301,19 @@ export function mapCaptainAppEvents(
     state: Object.freeze({
       producerId: previous.producerId,
       nextLifecycleId,
-      activeToolCount: sessionChanged ? 0 : previous.activeToolCount,
-      terminalKind:
-        sessionChanged || channels.task?.signature.startsWith("running:") === true ? null : previous.terminalKind,
+      activeToolCount: sessionChanged || turnStarted ? 0 : previous.activeToolCount,
+      terminalKind: sessionChanged || turnStarted ? null : previous.terminalKind,
+      terminalQuiescent:
+        sessionChanged || turnStarted
+          ? false
+          : previous.terminalKind !== null && (previous.terminalQuiescent || !isRunning),
       activeSessionId: input.activeSessionId,
       displayedStatus: input.displayedStatus,
       channels: Object.freeze(channels),
     }),
     events: Object.freeze(events),
     sessionChanged,
+    turnStarted,
   })
 }
 
@@ -299,7 +323,7 @@ export function mapCaptainChatLifecycle(
   kind: CaptainChatLifecycleKind,
 ): CaptainAppEventMapResult {
   if (previous.terminalKind !== null) {
-    return Object.freeze({ state: previous, events: Object.freeze([]), sessionChanged: false })
+    return Object.freeze({ state: previous, events: Object.freeze([]), sessionChanged: false, turnStarted: false })
   }
   const channels: Partial<Record<CaptainAppChannel, ActiveCaptainChannel>> = { ...previous.channels }
   const events: CaptainEventDraft[] = []
@@ -353,12 +377,15 @@ export function mapCaptainChatLifecycle(
       activeToolCount,
       terminalKind:
         kind === "messageCompleted" ? "completed" : kind === "generationStopped" ? "stopped" : previous.terminalKind,
+      terminalQuiescent:
+        kind === "messageCompleted" || kind === "generationStopped" ? false : previous.terminalQuiescent,
       activeSessionId: previous.activeSessionId,
       displayedStatus: previous.displayedStatus,
       channels: Object.freeze(channels),
     }),
     events: Object.freeze(events),
     sessionChanged: false,
+    turnStarted: false,
   })
 }
 
@@ -410,17 +437,36 @@ export function voiceIntentForCaptainEvent(type: CaptainEventType, eventId: stri
   return null
 }
 
+interface CaptainLifecycleHandoff {
+  readonly activeTools: ReadonlySet<string>
+  readonly failedClosed: boolean
+  readonly retiredTools: ReadonlySet<string>
+  readonly terminalKind: CaptainAppEventMapperState["terminalKind"]
+}
+
+interface CaptainLifecycleGeneration {
+  active: boolean
+  handoff: CaptainLifecycleHandoff | null
+  pending: CaptainLifecycleEvent[]
+  pendingOverflow: boolean
+  process: ((event: CaptainLifecycleEvent) => void) | null
+  resetTurnStorage: (() => void) | null
+  readonly sessionId: string | null
+}
+
+function boundedToolEvent(event: CaptainLifecycleEvent): boolean {
+  return (
+    (event.kind !== "tool.started" && event.kind !== "tool.result") ||
+    (event.callId.length <= MAX_OPAQUE_ID_LENGTH && event.partId.length <= MAX_OPAQUE_ID_LENGTH)
+  )
+}
+
 export function useCaptainAppEvents(input: CaptainAppEventInput, lifecycleSource: CaptainLifecycleSource): void {
   const captain = useCaptain()
   const lease = React.useRef<CaptainProducerLease | null>(null)
   const mapper = React.useRef<CaptainAppEventMapperState | null>(null)
   const speechRequest = React.useRef(captain.speech.request)
-  const lifecycleGeneration = React.useRef<{
-    active: boolean
-    pending: CaptainLifecycleEvent[]
-    process: ((event: CaptainLifecycleEvent) => void) | null
-    sessionId: string | null
-  } | null>(null)
+  const lifecycleGeneration = React.useRef<CaptainLifecycleGeneration | null>(null)
   speechRequest.current = captain.speech.request
   const hasActivity = input.activity !== null
   const hasError = input.error !== null
@@ -439,23 +485,36 @@ export function useCaptainAppEvents(input: CaptainAppEventInput, lifecycleSource
   }, [])
 
   React.useInsertionEffect(() => {
-    const generation = {
+    const generation: CaptainLifecycleGeneration = {
       active: true,
-      pending: [] as CaptainLifecycleEvent[],
-      process: null as ((event: CaptainLifecycleEvent) => void) | null,
+      handoff: null,
+      pending: [],
+      pendingOverflow: false,
+      process: null,
+      resetTurnStorage: null,
       sessionId: input.activeSessionId,
     }
     lifecycleGeneration.current = generation
     const unsubscribe = lifecycleSource.subscribe((event) => {
       if (!generation.active || event.sessionId !== generation.sessionId) return
-      if (generation.process) generation.process(event)
-      else generation.pending.push(event)
+      if (generation.process) {
+        generation.process(event)
+        return
+      }
+      if (!boundedToolEvent(event) || generation.pending.length >= MAX_PENDING_LIFECYCLE_EVENTS) {
+        generation.pendingOverflow = true
+        return
+      }
+      generation.pending.push(event)
     })
     return () => {
       generation.active = false
       unsubscribe()
       generation.pending.length = 0
+      generation.pendingOverflow = false
+      generation.handoff = null
       generation.process = null
+      generation.resetTurnStorage = null
       if (lifecycleGeneration.current === generation) lifecycleGeneration.current = null
     }
   }, [input.activeSessionId, lifecycleSource])
@@ -469,13 +528,28 @@ export function useCaptainAppEvents(input: CaptainAppEventInput, lifecycleSource
     mapper.current = createCaptainAppEventMapperState(producerLease.id)
     publishResult(mapCaptainAppEvents(mapper.current, input))
     const sessionId = input.activeSessionId
-    const activeTools = new Set<string>()
-    const retiredTools = new Set<string>()
+    const handoff = generation.handoff
+    generation.handoff = null
+    const activeTools = new Set(handoff?.activeTools ?? [])
+    const retiredTools = new Set(handoff?.retiredTools ?? [])
+    let failedClosed = handoff?.failedClosed ?? false
+    const clearTurnStorage = () => {
+      activeTools.clear()
+      retiredTools.clear()
+      failedClosed = false
+      generation.pending.length = 0
+      generation.pendingOverflow = false
+      generation.handoff = null
+    }
+    const enterFailClosed = () => {
+      if (failedClosed || mapper.current === null || mapper.current.terminalKind !== null) return
+      failedClosed = true
+      publishResult(mapCaptainChatLifecycle(mapper.current, "toolCallStarted"))
+    }
     const process = (event: CaptainLifecycleEvent) => {
       if (!generation.active || event.sessionId !== sessionId || mapper.current === null) return
       if (event.kind === "turn.completed" || event.kind === "turn.stopped") {
-        activeTools.clear()
-        retiredTools.clear()
+        clearTurnStorage()
         const kind = event.kind === "turn.completed" ? "messageCompleted" : "generationStopped"
         const result = mapCaptainChatLifecycle(mapper.current, kind)
         publishResult(
@@ -484,23 +558,60 @@ export function useCaptainAppEvents(input: CaptainAppEventInput, lifecycleSource
         )
         return
       }
+      if (mapper.current.terminalKind !== null || failedClosed) return
+      if (!boundedToolEvent(event)) {
+        enterFailClosed()
+        return
+      }
       const opaqueKey = `${event.callId.length}:${event.callId}${event.partId}`
+      if (opaqueKey.length > MAX_COMPOSITE_KEY_LENGTH) {
+        enterFailClosed()
+        return
+      }
       if (event.kind === "tool.started") {
         if (retiredTools.has(opaqueKey) || activeTools.has(opaqueKey)) return
+        if (activeTools.size + retiredTools.size >= MAX_TOOL_IDENTITIES) {
+          enterFailClosed()
+          return
+        }
         const wasEmpty = activeTools.size === 0
         activeTools.add(opaqueKey)
         if (wasEmpty) publishResult(mapCaptainChatLifecycle(mapper.current, "toolCallStarted"))
         return
       }
       if (retiredTools.has(opaqueKey)) return
+      if (!activeTools.delete(opaqueKey)) {
+        if (activeTools.size + retiredTools.size >= MAX_TOOL_IDENTITIES) {
+          enterFailClosed()
+          return
+        }
+        retiredTools.add(opaqueKey)
+        return
+      }
       retiredTools.add(opaqueKey)
-      if (!activeTools.delete(opaqueKey)) return
       if (activeTools.size === 0) publishResult(mapCaptainChatLifecycle(mapper.current, "toolCallResult"))
     }
     generation.process = process
+    generation.resetTurnStorage = clearTurnStorage
+    if (handoff?.terminalKind === "completed" && sessionId !== null) process({ kind: "turn.completed", sessionId })
+    else if (handoff?.terminalKind === "stopped" && sessionId !== null) process({ kind: "turn.stopped", sessionId })
+    else if (failedClosed) {
+      failedClosed = false
+      enterFailClosed()
+    } else if (activeTools.size > 0) publishResult(mapCaptainChatLifecycle(mapper.current, "toolCallStarted"))
     for (const event of generation.pending.splice(0)) process(event)
+    if (generation.pendingOverflow) enterFailClosed()
     return () => {
       generation.process = null
+      generation.resetTurnStorage = null
+      if (generation.active) {
+        generation.handoff = Object.freeze({
+          activeTools: new Set(activeTools),
+          failedClosed,
+          retiredTools: new Set(retiredTools),
+          terminalKind: mapper.current?.terminalKind ?? null,
+        })
+      }
       activeTools.clear()
       retiredTools.clear()
       const current = mapper.current
@@ -511,7 +622,10 @@ export function useCaptainAppEvents(input: CaptainAppEventInput, lifecycleSource
   }, [captain.acquireProducer, input.activeSessionId, lifecycleSource, publishResult])
 
   React.useEffect(() => {
-    if (mapper.current) publishResult(mapCaptainAppEvents(mapper.current, input))
+    if (!mapper.current) return
+    const result = mapCaptainAppEvents(mapper.current, input)
+    if (result.turnStarted) lifecycleGeneration.current?.resetTurnStorage?.()
+    publishResult(result)
   }, [
     hasActivity,
     hasError,

@@ -248,7 +248,7 @@ export function CaptainHost({
         }
       }
       for (const element of document.querySelectorAll<HTMLElement>(
-        "[data-captain-safe-control], [data-captain-content]",
+        "[data-captain-safe-control], [data-captain-content], [data-captain-host-slot]",
       )) {
         observeExternal(element)
       }
