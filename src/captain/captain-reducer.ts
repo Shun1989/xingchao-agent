@@ -10,6 +10,7 @@ import type {
   CaptainRetiredEventIndex,
   CaptainSnapshot,
   CaptainState,
+  CaptainStreamSequenceIndex,
 } from "./captain-types.ts"
 
 import { CAPTAIN_CAPTION_KEYS } from "./captain-types.ts"
@@ -91,108 +92,126 @@ function emptyRecord<T>(): Record<string, T> {
   return Object.create(null) as Record<string, T>
 }
 
-function cloneRecord<T>(source: Readonly<Record<string, T>>): Record<string, T> {
-  return Object.assign(emptyRecord<T>(), source)
-}
-
 function compareExactStrings(left: string, right: string): number {
   if (left === right) return 0
   return left < right ? -1 : 1
 }
 
-interface RetiredEventNode {
+interface PersistentStringNode {
   readonly key: string
-  readonly sequence: number
+  readonly value: number
   readonly height: number
-  readonly left: RetiredEventNode | null
-  readonly right: RetiredEventNode | null
+  readonly left: PersistentStringNode | null
+  readonly right: PersistentStringNode | null
 }
 
-interface InternalRetiredEventIndex extends CaptainRetiredEventIndex {
-  readonly root: RetiredEventNode | null
+interface InternalPersistentStringIndex {
+  readonly size: number
+  readonly height: number
+  readonly root: PersistentStringNode | null
 }
 
-function nodeHeight(node: RetiredEventNode | null): number {
+function nodeHeight(node: PersistentStringNode | null): number {
   return node?.height ?? 0
 }
 
-function retiredNode(
+function persistentStringNode(
   key: string,
-  sequence: number,
-  left: RetiredEventNode | null,
-  right: RetiredEventNode | null,
-): RetiredEventNode {
-  return Object.freeze({ key, sequence, height: Math.max(nodeHeight(left), nodeHeight(right)) + 1, left, right })
+  value: number,
+  left: PersistentStringNode | null,
+  right: PersistentStringNode | null,
+): PersistentStringNode {
+  return Object.freeze({ key, value, height: Math.max(nodeHeight(left), nodeHeight(right)) + 1, left, right })
 }
 
-function rotateRetiredRight(root: RetiredEventNode): RetiredEventNode {
+function rotatePersistentRight(root: PersistentStringNode): PersistentStringNode {
   const pivot = root.left
   if (pivot === null) return root
-  const movedRoot = retiredNode(root.key, root.sequence, pivot.right, root.right)
-  return retiredNode(pivot.key, pivot.sequence, pivot.left, movedRoot)
+  const movedRoot = persistentStringNode(root.key, root.value, pivot.right, root.right)
+  return persistentStringNode(pivot.key, pivot.value, pivot.left, movedRoot)
 }
 
-function rotateRetiredLeft(root: RetiredEventNode): RetiredEventNode {
+function rotatePersistentLeft(root: PersistentStringNode): PersistentStringNode {
   const pivot = root.right
   if (pivot === null) return root
-  const movedRoot = retiredNode(root.key, root.sequence, root.left, pivot.left)
-  return retiredNode(pivot.key, pivot.sequence, movedRoot, pivot.right)
+  const movedRoot = persistentStringNode(root.key, root.value, root.left, pivot.left)
+  return persistentStringNode(pivot.key, pivot.value, movedRoot, pivot.right)
 }
 
-function balanceRetiredNode(root: RetiredEventNode): RetiredEventNode {
+function balancePersistentNode(root: PersistentStringNode): PersistentStringNode {
   const balance = nodeHeight(root.left) - nodeHeight(root.right)
   if (balance > 1 && root.left !== null) {
-    const left = nodeHeight(root.left.left) < nodeHeight(root.left.right) ? rotateRetiredLeft(root.left) : root.left
-    return rotateRetiredRight(retiredNode(root.key, root.sequence, left, root.right))
+    const left = nodeHeight(root.left.left) < nodeHeight(root.left.right) ? rotatePersistentLeft(root.left) : root.left
+    return rotatePersistentRight(persistentStringNode(root.key, root.value, left, root.right))
   }
   if (balance < -1 && root.right !== null) {
     const right =
-      nodeHeight(root.right.right) < nodeHeight(root.right.left) ? rotateRetiredRight(root.right) : root.right
-    return rotateRetiredLeft(retiredNode(root.key, root.sequence, root.left, right))
+      nodeHeight(root.right.right) < nodeHeight(root.right.left) ? rotatePersistentRight(root.right) : root.right
+    return rotatePersistentLeft(persistentStringNode(root.key, root.value, root.left, right))
   }
   return root
 }
 
-function insertRetiredNode(root: RetiredEventNode | null, key: string, sequence: number): RetiredEventNode {
-  if (root === null) return retiredNode(key, sequence, null, null)
+function setPersistentStringNode(root: PersistentStringNode | null, key: string, value: number): PersistentStringNode {
+  if (root === null) return persistentStringNode(key, value, null, null)
   const comparison = compareExactStrings(key, root.key)
-  if (comparison === 0) return root
+  if (comparison === 0) return root.value === value ? root : persistentStringNode(key, value, root.left, root.right)
   const next =
     comparison < 0
-      ? retiredNode(root.key, root.sequence, insertRetiredNode(root.left, key, sequence), root.right)
-      : retiredNode(root.key, root.sequence, root.left, insertRetiredNode(root.right, key, sequence))
-  return balanceRetiredNode(next)
+      ? persistentStringNode(root.key, root.value, setPersistentStringNode(root.left, key, value), root.right)
+      : persistentStringNode(root.key, root.value, root.left, setPersistentStringNode(root.right, key, value))
+  return balancePersistentNode(next)
 }
 
-function internalRetiredIndex(index: CaptainRetiredEventIndex): InternalRetiredEventIndex {
-  return index as InternalRetiredEventIndex
+function internalPersistentIndex(
+  index: CaptainRetiredEventIndex | CaptainStreamSequenceIndex,
+): InternalPersistentStringIndex {
+  return index as unknown as InternalPersistentStringIndex
 }
 
-function retiredEventIndex(root: RetiredEventNode | null, size: number): CaptainRetiredEventIndex {
-  const index = { size, height: nodeHeight(root) } as InternalRetiredEventIndex
+function persistentStringIndex(root: PersistentStringNode | null, size: number): InternalPersistentStringIndex {
+  const index = { size, height: nodeHeight(root) } as InternalPersistentStringIndex
   Object.defineProperty(index, "root", { value: root, enumerable: false })
-  return Object.freeze(index) as CaptainRetiredEventIndex
+  return Object.freeze(index)
 }
 
-const emptyRetiredEventIndex = retiredEventIndex(null, 0)
+const emptyRetiredEventIndex = persistentStringIndex(null, 0) as unknown as CaptainRetiredEventIndex
+const emptyStreamSequenceIndex = persistentStringIndex(null, 0) as unknown as CaptainStreamSequenceIndex
 
-function retireCaptainEvent(index: CaptainRetiredEventIndex, id: string, sequence: number): CaptainRetiredEventIndex {
-  if (retiredCaptainEventSequence(index, id) !== undefined) return index
-  const root = insertRetiredNode(internalRetiredIndex(index).root, id, sequence)
-  return retiredEventIndex(root, index.size + 1)
-}
-
-export function retiredCaptainEventSequence(index: CaptainRetiredEventIndex, id: string): number | undefined {
-  let node = internalRetiredIndex(index).root
+function persistentStringValue(
+  index: CaptainRetiredEventIndex | CaptainStreamSequenceIndex,
+  key: string,
+): number | undefined {
+  let node = internalPersistentIndex(index).root
   while (node !== null) {
-    const comparison = compareExactStrings(id, node.key)
-    if (comparison === 0) return node.sequence
+    const comparison = compareExactStrings(key, node.key)
+    if (comparison === 0) return node.value
     node = comparison < 0 ? node.left : node.right
   }
   return undefined
 }
 
-function retiredNodesShare(left: RetiredEventNode | null, right: RetiredEventNode | null): boolean {
+function setPersistentStringValue<T extends CaptainRetiredEventIndex | CaptainStreamSequenceIndex>(
+  index: T,
+  key: string,
+  value: number,
+): T {
+  const current = persistentStringValue(index, key)
+  if (current === value) return index
+  const root = setPersistentStringNode(internalPersistentIndex(index).root, key, value)
+  return persistentStringIndex(root, index.size + (current === undefined ? 1 : 0)) as unknown as T
+}
+
+function retireCaptainEvent(index: CaptainRetiredEventIndex, id: string, sequence: number): CaptainRetiredEventIndex {
+  if (retiredCaptainEventSequence(index, id) !== undefined) return index
+  return setPersistentStringValue(index, id, sequence)
+}
+
+export function retiredCaptainEventSequence(index: CaptainRetiredEventIndex, id: string): number | undefined {
+  return persistentStringValue(index, id)
+}
+
+function persistentNodesShare(left: PersistentStringNode | null, right: PersistentStringNode | null): boolean {
   if (left === null) return false
   let matching = right
   while (matching !== null) {
@@ -201,7 +220,7 @@ function retiredNodesShare(left: RetiredEventNode | null, right: RetiredEventNod
     matching = comparison < 0 ? matching.left : matching.right
   }
   if (matching === left) return true
-  return retiredNodesShare(left.left, right) || retiredNodesShare(left.right, right)
+  return persistentNodesShare(left.left, right) || persistentNodesShare(left.right, right)
 }
 
 /** Read-only diagnostic proving that persistent index versions retain unchanged AVL nodes. */
@@ -209,7 +228,7 @@ export function retiredCaptainIndexesShareStructure(
   left: CaptainRetiredEventIndex,
   right: CaptainRetiredEventIndex,
 ): boolean {
-  return retiredNodesShare(internalRetiredIndex(left).root, internalRetiredIndex(right).root)
+  return persistentNodesShare(internalPersistentIndex(left).root, internalPersistentIndex(right).root)
 }
 
 function hasUnsafeControlCharacter(value: string): boolean {
@@ -274,7 +293,29 @@ function sanitizeEvent(value: CaptainEvent): CaptainEvent | null {
 }
 
 function streamId(event: CaptainEvent): string {
-  return `${event.source}\0${event.taskId ?? ""}`
+  return streamIdFromParts(event.source, event.taskId)
+}
+
+function streamIdFromParts(source: CaptainEventSource, taskId: string | null): string {
+  return `${source}\0${taskId ?? ""}`
+}
+
+/** Exact lookup for one producer stream's latest accepted sequence. */
+export function captainStreamSequence(
+  index: CaptainStreamSequenceIndex,
+  source: CaptainEventSource,
+  taskId: string | null,
+): number | undefined {
+  if (!CAPTAIN_EVENT_SOURCES.has(source) || (taskId !== null && !isSafeIdentifier(taskId))) return undefined
+  return persistentStringValue(index, streamIdFromParts(source, taskId))
+}
+
+/** Read-only diagnostic proving that stream-index versions retain unchanged AVL nodes. */
+export function captainStreamIndexesShareStructure(
+  left: CaptainStreamSequenceIndex,
+  right: CaptainStreamSequenceIndex,
+): boolean {
+  return persistentNodesShare(internalPersistentIndex(left).root, internalPersistentIndex(right).root)
 }
 
 function sameStream(left: CaptainEvent, right: CaptainEvent): boolean {
@@ -341,7 +382,7 @@ function snapshotFor(activeEvents: Readonly<Record<string, CaptainEvent>>): Capt
 
 function freezeState(
   activeEvents: Record<string, CaptainEvent>,
-  latestSequenceByStream: Record<string, number>,
+  latestSequenceByStream: CaptainStreamSequenceIndex,
   retiredEventIds: CaptainRetiredEventIndex,
   now: number,
   epoch: number,
@@ -350,7 +391,7 @@ function freezeState(
   return Object.freeze({
     epoch,
     activeEvents: frozenEvents,
-    latestSequenceByStream: Object.freeze(latestSequenceByStream),
+    latestSequenceByStream,
     retiredEventIds,
     snapshot: snapshotFor(frozenEvents),
     now,
@@ -385,7 +426,7 @@ function retireExpiredEvents(
 export function createCaptainState(now = 0, epoch = 0): CaptainReducerState {
   const safeNow = Number.isFinite(now) ? now : 0
   const safeEpoch = Number.isSafeInteger(epoch) && epoch >= 0 ? epoch : 0
-  return freezeState(emptyRecord<CaptainEvent>(), emptyRecord<number>(), emptyRetiredEventIndex, safeNow, safeEpoch)
+  return freezeState(emptyRecord<CaptainEvent>(), emptyStreamSequenceIndex, emptyRetiredEventIndex, safeNow, safeEpoch)
 }
 
 export function captainReducer(state: CaptainReducerState, input: CaptainEvent): CaptainReducerState {
@@ -398,9 +439,7 @@ export function captainReducer(state: CaptainReducerState, input: CaptainEvent):
   if (existing !== undefined && !sameStream(existing, event)) return state
 
   const stream = streamId(event)
-  const latestSequence = Object.hasOwn(state.latestSequenceByStream, stream)
-    ? state.latestSequenceByStream[stream]
-    : undefined
+  const latestSequence = captainStreamSequence(state.latestSequenceByStream, event.source, event.taskId)
   if (latestSequence !== undefined && event.sequence <= latestSequence) return state
 
   const now = Math.max(state.now, event.startedAt)
@@ -408,11 +447,10 @@ export function captainReducer(state: CaptainReducerState, input: CaptainEvent):
   const activeEvents = expiry.activeEvents
   let retiredEventIds = expiry.retiredEventIds
   if (retiredCaptainEventSequence(retiredEventIds, event.id) !== undefined) {
-    return freezeState(activeEvents, cloneRecord(state.latestSequenceByStream), retiredEventIds, now, state.epoch)
+    return freezeState(activeEvents, state.latestSequenceByStream, retiredEventIds, now, state.epoch)
   }
 
-  const latestSequenceByStream = cloneRecord(state.latestSequenceByStream)
-  latestSequenceByStream[stream] = event.sequence
+  const latestSequenceByStream = setPersistentStringValue(state.latestSequenceByStream, stream, event.sequence)
 
   if (TERMINAL_EVENT_TYPES.has(event.type)) {
     delete activeEvents[event.id]
@@ -429,13 +467,7 @@ export function captainReducer(state: CaptainReducerState, input: CaptainEvent):
 export function tickCaptainState(state: CaptainReducerState, now: number): CaptainReducerState {
   if (!Number.isFinite(now) || now <= state.now) return state
   const expiry = retireExpiredEvents(state.activeEvents, state.retiredEventIds, now)
-  return freezeState(
-    expiry.activeEvents,
-    cloneRecord(state.latestSequenceByStream),
-    expiry.retiredEventIds,
-    now,
-    state.epoch,
-  )
+  return freezeState(expiry.activeEvents, state.latestSequenceByStream, expiry.retiredEventIds, now, state.epoch)
 }
 
 /**
@@ -445,5 +477,5 @@ export function tickCaptainState(state: CaptainReducerState, now: number): Capta
 export function resetCaptainState(state: CaptainReducerState, nextEpoch: number, now = state.now): CaptainReducerState {
   if (!Number.isSafeInteger(nextEpoch) || nextEpoch <= state.epoch) return state
   const nextNow = Number.isFinite(now) ? Math.max(state.now, now) : state.now
-  return freezeState(emptyRecord<CaptainEvent>(), emptyRecord<number>(), emptyRetiredEventIndex, nextNow, nextEpoch)
+  return freezeState(emptyRecord<CaptainEvent>(), emptyStreamSequenceIndex, emptyRetiredEventIndex, nextNow, nextEpoch)
 }

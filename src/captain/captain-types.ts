@@ -72,6 +72,7 @@ export interface CaptainSnapshot {
 }
 
 declare const captainRetiredEventIndexBrand: unique symbol
+declare const captainStreamSequenceIndexBrand: unique symbol
 
 /** Opaque, persistent string index. Public diagnostics expose only size and AVL height. */
 export interface CaptainRetiredEventIndex {
@@ -80,10 +81,17 @@ export interface CaptainRetiredEventIndex {
   readonly [captainRetiredEventIndexBrand]: true
 }
 
+/** Opaque persistent index of the highest accepted sequence for each source/task stream. */
+export interface CaptainStreamSequenceIndex {
+  readonly size: number
+  readonly height: number
+  readonly [captainStreamSequenceIndexBrand]: true
+}
+
 export interface CaptainReducerState {
   readonly epoch: number
   readonly activeEvents: Readonly<Record<string, CaptainEvent>>
-  readonly latestSequenceByStream: Readonly<Record<string, number>>
+  readonly latestSequenceByStream: CaptainStreamSequenceIndex
   /** Epoch-local tombstones. Reset only after event producers for this epoch are quiescent. */
   readonly retiredEventIds: CaptainRetiredEventIndex
   readonly snapshot: CaptainSnapshot

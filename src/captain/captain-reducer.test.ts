@@ -1,9 +1,11 @@
-import type { CaptainEvent, CaptainEventType } from "./captain-types.ts"
+import type { CaptainEvent, CaptainEventSource, CaptainEventType } from "./captain-types.ts"
 
 import { describe, expect, it } from "vitest"
 import {
   captainExpressionByState,
   captainReducer,
+  captainStreamIndexesShareStructure,
+  captainStreamSequence,
   createCaptainState,
   resetCaptainState,
   retiredCaptainEventSequence,
@@ -309,7 +311,8 @@ describe("captain priority reducer", () => {
     expect(state.activeEvents[id]?.id).toBe(id)
     expect(state.snapshot.activeEventId).toBe(id)
     expect(Object.getPrototypeOf(state.activeEvents)).toBeNull()
-    expect(Object.getPrototypeOf(state.latestSequenceByStream)).toBeNull()
+    expect(Object.isFrozen(state.latestSequenceByStream)).toBe(true)
+    expect(Object.keys(state.latestSequenceByStream).sort()).toEqual(["height", "size"])
   })
 
   it("permanently retires a terminal lifecycle ID and treats later reuse or dismissal as no-ops", () => {
@@ -357,7 +360,7 @@ describe("captain priority reducer", () => {
     let state = captainReducer(createCaptainState(), earlyTerminal)
 
     expect(retiredCaptainEventSequence(state.retiredEventIds, earlyTerminal.id)).toBe(2)
-    expect(state.latestSequenceByStream[`task\0task-early`]).toBe(2)
+    expect(captainStreamSequence(state.latestSequenceByStream, "task", "task-early")).toBe(2)
     const retired = state
     state = captainReducer(
       state,
@@ -479,12 +482,13 @@ describe("captain priority reducer", () => {
     let state = captainReducer(createCaptainState(), task)
     state = captainReducer(state, dismiss(task, 2))
     expect(state.retiredEventIds.size).toBe(1)
-    expect(Object.keys(state.latestSequenceByStream)).toHaveLength(1)
+    expect(state.latestSequenceByStream.size).toBe(1)
+    expect(captainStreamSequence(state.latestSequenceByStream, "task", "task-epoch")).toBe(2)
 
     const reset = resetCaptainState(state, 1)
     expect(reset.epoch).toBe(1)
     expect(Object.keys(reset.activeEvents)).toHaveLength(0)
-    expect(Object.keys(reset.latestSequenceByStream)).toHaveLength(0)
+    expect(reset.latestSequenceByStream.size).toBe(0)
     expect(reset.retiredEventIds.size).toBe(0)
     expect(reset.snapshot.state).toBe("idle")
     expect(resetCaptainState(reset, 1)).toBe(reset)
@@ -569,5 +573,81 @@ describe("captain priority reducer", () => {
     expect(state.retiredEventIds.size).toBe(2)
     expect(retiredCaptainEventSequence(state.retiredEventIds, composedId)).toBe(1)
     expect(retiredCaptainEventSequence(state.retiredEventIds, decomposedId)).toBe(2)
+  })
+
+  it("keeps thousands of independent stream watermarks in a balanced persistent index", () => {
+    const initial = createCaptainState()
+    let state = initial
+    let midpoint = initial.latestSequenceByStream
+    const startedAt = performance.now()
+    for (let index = 0; index < 4_096; index += 1) {
+      const source: CaptainEventSource = index % 2 === 0 ? "task" : "tool"
+      const taskId = `independent-stream-${index.toString().padStart(4, "0")}`
+      state = captainReducer(
+        state,
+        event("event.dismissed", {
+          id: `independent-terminal-${index.toString().padStart(4, "0")}`,
+          source,
+          taskId,
+          sequence: index + 1,
+          startedAt: index + 1,
+        }),
+      )
+      if (index === 2_047) midpoint = state.latestSequenceByStream
+    }
+    const elapsedMs = performance.now() - startedAt
+
+    expect(state.latestSequenceByStream).not.toBe(midpoint)
+    expect(captainStreamIndexesShareStructure(midpoint, state.latestSequenceByStream)).toBe(true)
+    expect(Object.isFrozen(state.latestSequenceByStream)).toBe(true)
+    expect(state.latestSequenceByStream.size).toBe(4_096)
+    expect(state.latestSequenceByStream.height).toBeLessThanOrEqual(2 * Math.ceil(Math.log2(4_096 + 1)))
+    expect(midpoint.size).toBe(2_048)
+    expect(captainStreamSequence(midpoint, "tool", "independent-stream-4095")).toBeUndefined()
+    for (let index = 0; index < 4_096; index += 1) {
+      const source: CaptainEventSource = index % 2 === 0 ? "task" : "tool"
+      expect(
+        captainStreamSequence(
+          state.latestSequenceByStream,
+          source,
+          `independent-stream-${index.toString().padStart(4, "0")}`,
+        ),
+      ).toBe(index + 1)
+    }
+    expect(initial.latestSequenceByStream.size).toBe(0)
+    expect(elapsedMs).toBeLessThan(5_000)
+  })
+
+  it("rejects unsafe task IDs at the public stream lookup boundary", () => {
+    let state = createCaptainState()
+    state = captainReducer(state, {
+      ...event("event.dismissed", {
+        id: "null-task-stream-terminal",
+        sequence: 7,
+        startedAt: 7,
+      }),
+      taskId: null,
+    })
+    state = captainReducer(
+      state,
+      event("event.dismissed", {
+        id: "ordinary-task-stream-terminal",
+        taskId: "ordinary-task-stream",
+        sequence: 9,
+        startedAt: 9,
+      }),
+    )
+
+    expect(captainStreamSequence(state.latestSequenceByStream, "task", null)).toBe(7)
+    expect(captainStreamSequence(state.latestSequenceByStream, "task", "ordinary-task-stream")).toBe(9)
+    for (const unsafeTaskId of [
+      "",
+      "contains\0nul",
+      "contains\nline-feed",
+      "contains\rcarriage-return",
+      "x".repeat(161),
+    ]) {
+      expect(captainStreamSequence(state.latestSequenceByStream, "task", unsafeTaskId)).toBeUndefined()
+    }
   })
 })
