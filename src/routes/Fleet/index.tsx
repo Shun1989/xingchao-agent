@@ -75,7 +75,12 @@ export function FleetHarborRoute({ onOpenVoyage }: { onOpenVoyage: () => void })
               role="alert"
             >
               <span>{error}</span>
-              <button className="shrink-0 underline underline-offset-4" type="button" onClick={retry}>
+              <button
+                className="shrink-0 underline underline-offset-4"
+                type="button"
+                data-captain-safe-control
+                onClick={retry}
+              >
                 重试
               </button>
             </div>

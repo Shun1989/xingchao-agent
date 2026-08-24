@@ -1,0 +1,136 @@
+// @vitest-environment happy-dom
+
+import type { CaptainEventType } from "@/captain/captain-types.ts"
+import type { CaptainAppEventInput } from "./app-shell-types.ts"
+
+import { describe, expect, it } from "vitest"
+import {
+  createCaptainAppEventMapperState,
+  mapCaptainAppEvents,
+  voiceIntentForCaptainEvent,
+} from "./useCaptainAppEvents.ts"
+
+function input(overrides: Partial<CaptainAppEventInput> = {}): CaptainAppEventInput {
+  return {
+    route: "chat",
+    activeSessionId: null,
+    displayedStatus: "ready",
+    agentStatus: { status: "ready" },
+    pendingPermissions: [],
+    activity: null,
+    error: null,
+    ...overrides,
+  }
+}
+
+function types(events: readonly { type: CaptainEventType }[]): CaptainEventType[] {
+  return events.map((event) => event.type)
+}
+
+describe("useCaptainAppEvents semantic mapping", () => {
+  it("diffs route, listening, submitted, streaming, completion, and failure into stable lifecycle IDs", () => {
+    let state = createCaptainAppEventMapperState()
+    let result = mapCaptainAppEvents(state, input({ route: "fleet" }))
+    state = result.state
+    expect(types(result.events)).toContain("captain.idle")
+
+    result = mapCaptainAppEvents(state, input())
+    state = result.state
+    expect(types(result.events)).toContain("input.listening")
+
+    result = mapCaptainAppEvents(
+      state,
+      input({ activeSessionId: "session-private-value", displayedStatus: "submitted" }),
+    )
+    state = result.state
+    const submittedTask = result.events.find((event) => event.source === "task" && event.type === "task.started")
+    expect(types(result.events)).toContain("assistant.thinking")
+    expect(submittedTask).toBeDefined()
+
+    result = mapCaptainAppEvents(
+      state,
+      input({ activeSessionId: "session-private-value", displayedStatus: "streaming" }),
+    )
+    state = result.state
+    expect(result.events.find((event) => event.source === "chat")?.type).toBe("task.started")
+    expect(result.events.find((event) => event.source === "task")?.id).toBe(submittedTask?.id)
+
+    result = mapCaptainAppEvents(state, input({ activeSessionId: "session-private-value", displayedStatus: "ready" }))
+    state = result.state
+    expect(result.events.find((event) => event.source === "task")).toMatchObject({
+      id: submittedTask?.id,
+      type: "task.succeeded",
+      captionKey: "captain.success",
+    })
+
+    result = mapCaptainAppEvents(
+      state,
+      input({ activeSessionId: "session-private-value", displayedStatus: "error", error: "PRIVATE ERROR BODY" }),
+    )
+    expect(types(result.events)).toContain("task.failed")
+  })
+
+  it("maps agent, permission, tool activity, and task state without forwarding unsafe payloads", () => {
+    const privateValues = [
+      "CHAT BODY: launch the missile",
+      "rm -rf C:\\private",
+      "C:\\Users\\secret\\credential.txt",
+      "May I upload your token?",
+      "raw tool output with api_key=secret",
+      "PRIVATE ERROR BODY",
+      "session-private-value",
+    ]
+    let state = createCaptainAppEventMapperState()
+    let result = mapCaptainAppEvents(
+      state,
+      input({
+        activeSessionId: privateValues[6],
+        agentStatus: { status: "starting" },
+        displayedStatus: "submitted",
+        pendingPermissions: [
+          {
+            id: "permission-1",
+            sessionId: privateValues[6],
+            action: privateValues[1],
+            resources: [privateValues[2]],
+            metadata: { question: privateValues[3], credential: "secret" },
+          },
+        ],
+        activity: {
+          sessionId: privateValues[6],
+          phase: "thinking",
+          message: privateValues[4],
+          finishReason: privateValues[0],
+        },
+        error: privateValues[5],
+      }),
+    )
+    state = result.state
+
+    expect(types(result.events)).toEqual(
+      expect.arrayContaining(["assistant.thinking", "task.started", "permission.required", "tool.started", "task.failed"]),
+    )
+    expect(result.events.find((event) => event.source === "permission")?.captionParams).toEqual({ count: 1 })
+    const serialized = JSON.stringify(result.events)
+    for (const privateValue of privateValues) expect(serialized).not.toContain(privateValue)
+
+    result = mapCaptainAppEvents(
+      state,
+      input({ activeSessionId: "another-private-session", agentStatus: { status: "error", message: privateValues[5] } }),
+    )
+    expect(types(result.events)).toContain("task.failed")
+    expect(JSON.stringify(result.events)).not.toContain(privateValues[5])
+  })
+
+  it("constructs voice requests only from the closed intent catalog", () => {
+    expect(voiceIntentForCaptainEvent("permission.required", "permission-1")).toEqual({
+      id: "voice:permission-1",
+      category: "confirmation",
+      messageKey: "captain.voice.confirmation",
+      params: {},
+    })
+    expect(voiceIntentForCaptainEvent("task.succeeded", "task-1")?.messageKey).toBe("captain.voice.completion")
+    expect(voiceIntentForCaptainEvent("task.failed", "task-2")?.messageKey).toBe("captain.voice.risk")
+    expect(voiceIntentForCaptainEvent("tool.started", "tool-1")).toBeNull()
+  })
+})

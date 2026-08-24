@@ -3,6 +3,7 @@ import { resolveAppEntryState } from "@/app-entry"
 import { ErrorBoundary } from "@/components/ErrorBoundary"
 import { FleetSkinProvider } from "@/components/FleetSkinProvider"
 import { RuntimeFleetProvider } from "@/components/RuntimeFleetProvider"
+import { CaptainOrchestrator } from "@/components/captain/CaptainOrchestrator.tsx"
 import { ThemeProvider } from "@/components/ThemeProvider"
 import { Button } from "@/components/ui/button"
 import { XingchaoThemeProvider } from "@/components/XingchaoThemeProvider"
@@ -70,13 +71,15 @@ export function App() {
         <ThemeProvider>
           <RuntimeFleetProvider>
             <FleetSkinProvider>
-              <XingchaoThemeProvider>
-                <AuthProvider>
-                  <RuntimeCapabilitiesProvider>
-                    <AuthGate />
-                  </RuntimeCapabilitiesProvider>
-                </AuthProvider>
-              </XingchaoThemeProvider>
+              <CaptainOrchestrator>
+                <XingchaoThemeProvider>
+                  <AuthProvider>
+                    <RuntimeCapabilitiesProvider>
+                      <AuthGate />
+                    </RuntimeCapabilitiesProvider>
+                  </AuthProvider>
+                </XingchaoThemeProvider>
+              </CaptainOrchestrator>
             </FleetSkinProvider>
           </RuntimeFleetProvider>
         </ThemeProvider>

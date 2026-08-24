@@ -9,6 +9,111 @@
   pointer-events: none;
 }
 
+.captain-host {
+  position: fixed;
+  z-index: 35;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto auto;
+  gap: 0.5rem;
+  min-height: 0;
+  color: var(--fleet-color-text, var(--foreground));
+  pointer-events: none;
+  transform: translateY(var(--captain-safe-shift-y, 0));
+}
+
+.captain-host--stage {
+  top: calc(var(--app-titlebar-height, 2.75rem) + 1rem);
+  right: 1.5rem;
+  bottom: 1.5rem;
+  width: clamp(360px, 35vw, 520px);
+}
+
+.captain-host--companion {
+  top: calc(var(--app-titlebar-height, 2.75rem) + 1rem);
+  right: 1rem;
+  bottom: 1rem;
+  width: clamp(240px, 19vw, 300px);
+}
+
+.captain-host--compact {
+  top: calc(var(--app-titlebar-height, 2.75rem) + 0.75rem);
+  right: 0.75rem;
+  width: min(72px, calc(100vw - 1.5rem));
+  height: auto;
+}
+
+.captain-host__decorative {
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid var(--fleet-surface-overlay-border, var(--border));
+  border-radius: var(--fleet-surface-overlay-radius, 1rem);
+  background: var(--fleet-surface-overlay-fill, var(--card));
+  box-shadow: var(--fleet-surface-overlay-shadow-value, var(--oo-overlay-shadow));
+  pointer-events: none;
+}
+
+.captain-host--compact .captain-host__decorative {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+}
+
+.captain-host__caption {
+  padding: 0.55rem 0.75rem;
+  border: 1px solid var(--fleet-surface-overlay-border, var(--border));
+  border-radius: var(--oo-radius-control, 0.625rem);
+  background: color-mix(in oklab, var(--fleet-color-elevated, var(--card)) 92%, transparent);
+  box-shadow: var(--oo-overlay-shadow);
+  font-size: 0.75rem;
+  line-height: 1.35;
+  text-align: center;
+  pointer-events: none;
+}
+
+.captain-host--compact .captain-host__caption {
+  position: fixed;
+  right: 5.5rem;
+  top: calc(var(--app-titlebar-height, 2.75rem) + 0.75rem);
+  width: min(20rem, calc(100vw - 7rem));
+}
+
+.captain-host__controls {
+  display: flex;
+  justify-content: center;
+  gap: 0.35rem;
+  pointer-events: auto;
+}
+
+.captain-host__controls button {
+  display: grid;
+  width: 2rem;
+  height: 2rem;
+  place-items: center;
+  border: 1px solid var(--fleet-surface-input-border, var(--border));
+  border-radius: 999px;
+  background: var(--fleet-surface-input-fill, var(--background));
+  color: var(--fleet-color-text, var(--foreground));
+  pointer-events: auto;
+}
+
+.captain-host__controls button:hover {
+  background: color-mix(in oklab, var(--fleet-color-accent, var(--accent)) 18%, var(--background));
+}
+
+.captain-host__controls button:focus-visible {
+  outline: 2px solid var(--fleet-color-focus, var(--ring));
+  outline-offset: 2px;
+}
+
+.captain-host__controls svg {
+  width: 0.9rem;
+  height: 0.9rem;
+}
+
+.captain-host--compact .captain-host__controls {
+  flex-wrap: wrap;
+}
+
 .captain-renderer[data-captain-mode="stage"] {
   width: clamp(360px, var(--captain-composition-width), 520px);
 }

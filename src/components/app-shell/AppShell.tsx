@@ -78,6 +78,7 @@ import { useArtifactsPanelState } from "./use-artifacts-panel-state.ts"
 import { useBrowserDownloadNotifications } from "./use-browser-download-notifications.ts"
 import { useBrowserPanelState } from "./use-browser-panel-state.ts"
 import { useChatConnectionRetry } from "./use-chat-connection-retry.ts"
+import { useCaptainAppEvents } from "./useCaptainAppEvents.ts"
 import { useChatQueueState } from "./use-chat-queue-state.ts"
 import { useComposerNavigation } from "./use-composer-navigation.ts"
 import { useComposerSubmission } from "./use-composer-submission.ts"
@@ -89,6 +90,7 @@ import { useSidebarChromeState } from "./use-sidebar-chrome-state.ts"
 import { useUpdateReadyToast } from "./use-update-ready-toast.ts"
 import { useWorkspaceActivation } from "./use-workspace-activation.ts"
 import { ProjectContextBar } from "@/components/app-shell/ProjectContextBar"
+import { CaptainHost } from "@/components/captain/CaptainHost.tsx"
 import { useAttentionService, useBrowserService, useChatService } from "@/components/AppContext"
 import { useSkillInventoryResource } from "@/components/AppDataHooks"
 import { AppUpdateTitlebarEntry } from "@/components/AppUpdateTitlebarEntry"
@@ -863,6 +865,15 @@ export function AppShell({ auth }: { auth: UseAuth }) {
   const initialSendPending = Boolean(activePendingChatTransition && !pendingCaughtUp)
   const bridgeInitialSendPending = initialSendPending && messages.length === 0
   const displayedStatus: ChatStatus = initialSendPending ? "submitted" : status
+  useCaptainAppEvents({
+    route,
+    activeSessionId: activeChatSessionId,
+    displayedStatus,
+    agentStatus,
+    pendingPermissions,
+    activity,
+    error,
+  })
   const activePendingQuestionCount = pendingQuestions.length
   const activeChatTurnState = React.useMemo(
     () =>
@@ -2038,10 +2049,28 @@ export function AppShell({ auth }: { auth: UseAuth }) {
     },
     [handleSelectSession],
   )
+  const captainModalOpen = Boolean(
+    tasksDialogOpen ||
+      searchOpen ||
+      sessionActions.archiveTarget ||
+      sessionActions.renameTarget ||
+      projectActions.archiveTarget ||
+      projectActions.removeTarget ||
+      projectActions.renameTarget,
+  )
+  const captainHost = (
+    <CaptainHost
+      key="global-captain-host"
+      route={route}
+      activeSessionId={activeChatSessionId}
+      modalOpen={captainModalOpen}
+    />
+  )
 
   if (route === "settings") {
     return (
       <>
+        {captainHost}
         <React.Suspense fallback={<RouteLoadingFallback />}>
           <SettingsRoute
             linkRuntime={linkRuntime}
@@ -2057,6 +2086,7 @@ export function AppShell({ auth }: { auth: UseAuth }) {
   if (route === "billing" && oomolEnabled) {
     return (
       <>
+        {captainHost}
         <React.Suspense fallback={<RouteLoadingFallback />}>
           <BillingRoute
             cacheScope={billingCacheScope}
@@ -2075,6 +2105,7 @@ export function AppShell({ auth }: { auth: UseAuth }) {
   if (route === "archived") {
     return (
       <>
+        {captainHost}
         <React.Suspense fallback={<RouteLoadingFallback />}>
           <ArchivedRoute
             listArchived={listArchived}
@@ -2091,7 +2122,9 @@ export function AppShell({ auth }: { auth: UseAuth }) {
   }
 
   return (
-    <div
+    <>
+      {captainHost}
+      <div
       ref={appChromeRef}
       data-fleet-skin={globalThis.document?.documentElement.dataset.fleetSkin}
       className={cn(
@@ -2442,6 +2475,7 @@ export function AppShell({ auth }: { auth: UseAuth }) {
           onSortModeChange={setTaskSortMode}
         />
       </React.Suspense>
-    </div>
+      </div>
+    </>
   )
 }

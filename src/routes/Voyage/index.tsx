@@ -71,11 +71,18 @@ export function VoyageRoute({ onLaunch }: { onLaunch: (mission: Mission) => Prom
   return (
     <div className="fleet-route h-full overflow-y-auto">
       <div className="mx-auto grid max-w-[100rem] gap-6 px-8 py-8">
-        <header>
-          <p className="text-xs tracking-[.2em] text-primary">MISSION CHART</p>
-          <h1 className="mt-1 text-3xl font-semibold">航海图</h1>
-          <p className="mt-2 text-muted-foreground">澜汐先推荐团队；你确认或修改后，主团主题才会生效并进入执行。</p>
-        </header>
+        <section className="grid min-h-[18rem] grid-cols-[minmax(0,1.25fr)_minmax(18rem,.75fr)] overflow-hidden rounded-2xl border max-[900px]:grid-cols-1">
+          <header className="flex flex-col justify-center p-8">
+            <p className="text-xs tracking-[.2em] text-primary">MISSION CHART</p>
+            <h1 className="mt-1 text-3xl font-semibold">航海图</h1>
+            <p className="mt-2 text-muted-foreground">澜汐先推荐团队；你确认或修改后，主团主题才会生效并进入执行。</p>
+          </header>
+          <div
+            aria-hidden="true"
+            className="relative min-h-72 overflow-hidden border-l border-border max-[900px]:min-h-52 max-[900px]:border-t max-[900px]:border-l-0"
+            data-captain-host-slot
+          />
+        </section>
         <section className="fleet-panel grid gap-4 p-5">
           <label className="text-sm font-medium" htmlFor="mission-goal">
             这次航程要交付什么？
@@ -89,7 +96,13 @@ export function VoyageRoute({ onLaunch }: { onLaunch: (mission: Mission) => Prom
             className="fleet-input w-full resize-y border p-4 text-sm leading-6 outline-none focus:ring-2 focus:ring-ring"
           />
           <div>
-            <button type="button" className="fleet-button-primary" disabled={!goal.trim()} onClick={createPlan}>
+            <button
+              type="button"
+              className="fleet-button-primary"
+              data-captain-safe-control
+              disabled={!goal.trim()}
+              onClick={createPlan}
+            >
               <GitBranch className="size-4" /> 推荐团队并生成航海图
             </button>
           </div>
@@ -190,6 +203,7 @@ export function VoyageRoute({ onLaunch }: { onLaunch: (mission: Mission) => Prom
               </div>
               <button
                 type="button"
+                data-captain-safe-control
                 disabled={launching || mission.fleetRevision !== runtimeFleet.snapshot.revision}
                 onClick={() => void launch()}
                 className="flex shrink-0 items-center gap-2 rounded-lg bg-background px-4 py-2.5 text-sm font-semibold text-primary"
