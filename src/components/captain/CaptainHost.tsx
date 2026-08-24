@@ -43,6 +43,8 @@ interface RectEdges {
 
 const stageRoutes = new Set<AppShellRoute>(["fleet", "voyage"])
 const companionRoutes = new Set<AppShellRoute>(["connections", "skills"])
+const compactLayout = Object.freeze({ mode: "compact", minWidth: 0, maxWidth: 72 } satisfies CaptainLayout)
+const companionLayout = Object.freeze({ mode: "companion", minWidth: 240, maxWidth: 300 } satisfies CaptainLayout)
 const safeControlSelector = [
   ".oo-composer",
   ".oo-main-titlebar",
@@ -181,56 +183,90 @@ export function CaptainHost({
   const [safeShift, setSafeShift] = React.useState(0)
   const safeShiftRef = React.useRef(0)
   const [collisionCompact, setCollisionCompact] = React.useState(false)
+  const collisionCompactRef = React.useRef(false)
+  const desiredRectRef = React.useRef<RectEdges | null>(null)
   const [slotStyle, setSlotStyle] = React.useState<CSSProperties | undefined>(() => stageSlotStyle(layout.mode))
   const manualSequence = React.useRef(0)
   const hostRef = React.useRef<HTMLDivElement | null>(null)
-  const desiredMode =
-    expanded && layout.mode === "compact" && !effectiveModalOpen && width >= 1180 ? "companion" : layout.mode
-  const mode = collisionCompact && desiredMode !== "compact" ? "compact" : desiredMode
-  const bounds =
-    mode === layout.mode ? layout : ({ mode: "companion", minWidth: 240, maxWidth: 300 } satisfies CaptainLayout)
+  const desiredLayout =
+    expanded && layout.mode === "compact" && !effectiveModalOpen && width >= 1180 ? companionLayout : layout
+  const effectiveLayout = collisionCompact && desiredLayout.mode !== "compact" ? compactLayout : desiredLayout
+  const mode = effectiveLayout.mode
 
   const updatePlacement = React.useCallback(() => {
     const host = hostRef.current
     if (!host) return
     const transformed = host.getBoundingClientRect()
-    const previousShift = safeShiftRef.current
-    const hostRect = {
-      top: transformed.top - previousShift,
-      bottom: transformed.bottom - previousShift,
+    const measuredRect = {
+      top: transformed.top - safeShiftRef.current,
+      bottom: transformed.bottom - safeShiftRef.current,
       left: transformed.left,
       right: transformed.right,
     }
+    const hostRect = collisionCompactRef.current && desiredRectRef.current ? desiredRectRef.current : measuredRect
+    if (!collisionCompactRef.current) desiredRectRef.current = measuredRect
     const controls = [...document.querySelectorAll<HTMLElement>("[data-captain-safe-control]")]
       .filter((control) => !host.contains(control))
       .map((control) => control.getBoundingClientRect())
     const placement = safeCaptainPlacement(hostRect, controls, window.innerHeight)
-    const mustCompact = desiredMode !== "compact" && !placement.possible
+    const mustCompact = desiredLayout.mode !== "compact" && !placement.possible
+    collisionCompactRef.current = mustCompact
     setCollisionCompact(mustCompact)
     const nextShift = mustCompact ? 0 : placement.shift
     safeShiftRef.current = nextShift
     setSafeShift(nextShift)
-    setSlotStyle(stageSlotStyle(desiredMode) ?? stageContentStyle(desiredMode))
-  }, [desiredMode])
+    setSlotStyle(
+      mustCompact ? undefined : (stageSlotStyle(desiredLayout.mode) ?? stageContentStyle(desiredLayout.mode)),
+    )
+  }, [desiredLayout.mode])
 
   React.useLayoutEffect(() => {
-    updatePlacement()
-    window.addEventListener("resize", updatePlacement)
-    window.addEventListener("scroll", updatePlacement, true)
-    const observer = typeof MutationObserver === "function" ? new MutationObserver(updatePlacement) : null
-    observer?.observe(document.body, { childList: true, subtree: true })
+    collisionCompactRef.current = false
+    desiredRectRef.current = null
+    safeShiftRef.current = 0
+    setCollisionCompact(false)
+    setSafeShift(0)
+    setSlotStyle(stageSlotStyle(desiredLayout.mode) ?? stageContentStyle(desiredLayout.mode))
+  }, [desiredLayout.maxWidth, desiredLayout.minWidth, desiredLayout.mode, effectiveModalOpen, route, width])
+
+  React.useLayoutEffect(() => {
+    const host = hostRef.current
+    const ownedMarkers = new Set<HTMLElement>()
+    const observed = new WeakSet<Element>()
     const resizeObserver = typeof ResizeObserver === "function" ? new ResizeObserver(updatePlacement) : null
-    if (hostRef.current) resizeObserver?.observe(hostRef.current)
-    for (const element of document.querySelectorAll<HTMLElement>(
-      "[data-captain-safe-control], [data-captain-content]",
-    )) {
+    const observeExternal = (element: HTMLElement) => {
+      if (host?.contains(element) || observed.has(element)) return
+      observed.add(element)
       resizeObserver?.observe(element)
     }
+    const markObserveAndPlace = () => {
+      for (const control of document.querySelectorAll<HTMLElement>(safeControlSelector)) {
+        if (host?.contains(control)) continue
+        if (!control.hasAttribute("data-captain-safe-control")) {
+          control.setAttribute("data-captain-safe-control", "")
+          ownedMarkers.add(control)
+        }
+      }
+      for (const element of document.querySelectorAll<HTMLElement>(
+        "[data-captain-safe-control], [data-captain-content]",
+      )) {
+        observeExternal(element)
+      }
+      updatePlacement()
+    }
+    markObserveAndPlace()
+    window.addEventListener("resize", updatePlacement)
+    window.addEventListener("scroll", updatePlacement, true)
+    const observer = typeof MutationObserver === "function" ? new MutationObserver(markObserveAndPlace) : null
+    observer?.observe(document.body, { childList: true, subtree: true })
     return () => {
       observer?.disconnect()
       resizeObserver?.disconnect()
       window.removeEventListener("resize", updatePlacement)
       window.removeEventListener("scroll", updatePlacement, true)
+      for (const control of ownedMarkers) {
+        if (control.isConnected) control.removeAttribute("data-captain-safe-control")
+      }
     }
   }, [updatePlacement])
 
@@ -241,28 +277,6 @@ export function CaptainHost({
     observer?.observe(document.body, { childList: true, subtree: true })
     return () => observer?.disconnect()
   }, [])
-
-  React.useEffect(() => {
-    const host = hostRef.current
-    const ownedMarkers = new Set<HTMLElement>()
-    const markSafeControls = () => {
-      for (const control of document.querySelectorAll<HTMLElement>(safeControlSelector)) {
-        if (host?.contains(control) || control.hasAttribute("data-captain-safe-control")) continue
-        control.setAttribute("data-captain-safe-control", "")
-        ownedMarkers.add(control)
-      }
-      updatePlacement()
-    }
-    markSafeControls()
-    const observer = typeof MutationObserver === "function" ? new MutationObserver(markSafeControls) : null
-    observer?.observe(document.body, { childList: true, subtree: true })
-    return () => {
-      observer?.disconnect()
-      for (const control of ownedMarkers) {
-        if (control.isConnected) control.removeAttribute("data-captain-safe-control")
-      }
-    }
-  }, [updatePlacement])
 
   React.useLayoutEffect(() => {
     const content = document.querySelector<HTMLElement>("[data-captain-content]")
@@ -315,8 +329,8 @@ export function CaptainHost({
       className={`captain-host captain-host--${mode} pointer-events-none`}
       data-captain-host
       data-captain-mode={mode}
-      data-captain-min-width={bounds.minWidth}
-      data-captain-max-width={bounds.maxWidth}
+      data-captain-min-width={effectiveLayout.minWidth}
+      data-captain-max-width={effectiveLayout.maxWidth}
       data-captain-avoids-safe-controls="true"
       style={style}
       aria-label={t("captain.host.label")}

@@ -1,3 +1,4 @@
+import type { ChatService } from "../../../electron/chat/common.ts"
 import type { CaptainAppEventInput } from "./app-shell-types.ts"
 import type {
   CaptainCaptionKey,
@@ -7,13 +8,57 @@ import type {
 } from "@/captain/captain-types.ts"
 import type { CaptainSpeechIntent } from "@/captain/captain-voice.ts"
 import type { CaptainEventDraft, CaptainProducerLease } from "@/components/captain/captain-context.ts"
+import type { ConnectionClientService } from "@oomol/connection"
 
 import * as React from "react"
-import { useChatService } from "@/components/AppContext.ts"
 import { useCaptain } from "@/components/captain/captain-context.ts"
 
 type CaptainAppChannel = "activity" | "agent" | "chat" | "error" | "permission" | "route" | "task" | "tool"
 type CaptainChatLifecycleKind = "generationStopped" | "messageCompleted" | "toolCallResult" | "toolCallStarted"
+
+export type CaptainLifecycleEvent =
+  | {
+      readonly kind: "tool.started"
+      readonly sessionId: string
+      readonly callId: string
+      readonly partId: string
+    }
+  | {
+      readonly kind: "tool.result"
+      readonly sessionId: string
+      readonly callId: string
+      readonly partId: string
+    }
+  | { readonly kind: "turn.completed"; readonly sessionId: string }
+  | { readonly kind: "turn.stopped"; readonly sessionId: string }
+
+export interface CaptainLifecycleSource {
+  subscribe(listener: (event: CaptainLifecycleEvent) => void): () => void
+}
+
+export function createCaptainLifecycleSource(
+  serverEvents: ConnectionClientService<ChatService>["serverEvents"],
+): CaptainLifecycleSource {
+  return Object.freeze({
+    subscribe(listener: (event: CaptainLifecycleEvent) => void): () => void {
+      const unsubscribes = [
+        serverEvents.on("toolCallStarted", (event) =>
+          listener({ kind: "tool.started", sessionId: event.sessionId, callId: event.callId, partId: event.partId }),
+        ),
+        serverEvents.on("toolCallResult", (event) =>
+          listener({ kind: "tool.result", sessionId: event.sessionId, callId: event.callId, partId: event.partId }),
+        ),
+        serverEvents.on("messageCompleted", (event) =>
+          listener({ kind: "turn.completed", sessionId: event.sessionId }),
+        ),
+        serverEvents.on("generationStopped", (event) => listener({ kind: "turn.stopped", sessionId: event.sessionId })),
+      ]
+      return () => {
+        for (const unsubscribe of unsubscribes) unsubscribe()
+      }
+    },
+  })
+}
 
 interface DesiredCaptainEvent {
   readonly type: CaptainEventType
@@ -47,7 +92,9 @@ export interface CaptainAppEventMapResult {
 }
 
 const emptyParams: CaptainCaptionParams = Object.freeze({})
-const orderedChannels = ["route", "agent", "chat", "activity", "task", "permission", "tool", "error"] as const
+// Tool state is owned exclusively by the exact lifecycle adapter. App-input diffs must not
+// infer its absence and dismiss a real tool event that arrived earlier in the same commit.
+const orderedChannels = ["route", "agent", "chat", "activity", "task", "permission", "error"] as const
 
 export function createCaptainAppEventMapperState(producerId = "standalone"): CaptainAppEventMapperState {
   return Object.freeze({
@@ -218,7 +265,7 @@ export function mapCaptainAppEvents(
     if (active?.signature === wanted.signature) continue
     const mustStartLifecycle = !active || active.lifecycleTerminal
     if (mustStartLifecycle) {
-      if (active && !active.lifecycleTerminal) events.push(dismissal(active))
+      if (active) events.push(dismissal(active))
       const id = nextId({ ...previous, nextLifecycleId }, channel)
       if (!id) continue
       nextLifecycleId += 1
@@ -251,7 +298,7 @@ export function mapCaptainChatLifecycle(
   previous: CaptainAppEventMapperState,
   kind: CaptainChatLifecycleKind,
 ): CaptainAppEventMapResult {
-  if (previous.terminalKind === "stopped" || (previous.terminalKind === "completed" && kind !== "generationStopped")) {
+  if (previous.terminalKind !== null) {
     return Object.freeze({ state: previous, events: Object.freeze([]), sessionChanged: false })
   }
   const channels: Partial<Record<CaptainAppChannel, ActiveCaptainChannel>> = { ...previous.channels }
@@ -363,14 +410,17 @@ export function voiceIntentForCaptainEvent(type: CaptainEventType, eventId: stri
   return null
 }
 
-export function useCaptainAppEvents(input: CaptainAppEventInput): void {
+export function useCaptainAppEvents(input: CaptainAppEventInput, lifecycleSource: CaptainLifecycleSource): void {
   const captain = useCaptain()
-  const chatService = useChatService()
   const lease = React.useRef<CaptainProducerLease | null>(null)
   const mapper = React.useRef<CaptainAppEventMapperState | null>(null)
-  const activeSession = React.useRef(input.activeSessionId)
   const speechRequest = React.useRef(captain.speech.request)
-  activeSession.current = input.activeSessionId
+  const lifecycleGeneration = React.useRef<{
+    active: boolean
+    pending: CaptainLifecycleEvent[]
+    process: ((event: CaptainLifecycleEvent) => void) | null
+    sessionId: string | null
+  } | null>(null)
   speechRequest.current = captain.speech.request
   const hasActivity = input.activity !== null
   const hasError = input.error !== null
@@ -388,29 +438,77 @@ export function useCaptainAppEvents(input: CaptainAppEventInput): void {
     }
   }, [])
 
+  React.useInsertionEffect(() => {
+    const generation = {
+      active: true,
+      pending: [] as CaptainLifecycleEvent[],
+      process: null as ((event: CaptainLifecycleEvent) => void) | null,
+      sessionId: input.activeSessionId,
+    }
+    lifecycleGeneration.current = generation
+    const unsubscribe = lifecycleSource.subscribe((event) => {
+      if (!generation.active || event.sessionId !== generation.sessionId) return
+      if (generation.process) generation.process(event)
+      else generation.pending.push(event)
+    })
+    return () => {
+      generation.active = false
+      unsubscribe()
+      generation.pending.length = 0
+      generation.process = null
+      if (lifecycleGeneration.current === generation) lifecycleGeneration.current = null
+    }
+  }, [input.activeSessionId, lifecycleSource])
+
   React.useLayoutEffect(() => {
+    const generation = lifecycleGeneration.current
+    if (!generation || !generation.active || generation.sessionId !== input.activeSessionId) return
     const producerLease = captain.acquireProducer()
     if (!producerLease) return
     lease.current = producerLease
     mapper.current = createCaptainAppEventMapperState(producerLease.id)
-    const onLifecycle = (kind: CaptainChatLifecycleKind, event: { sessionId: string }) => {
-      if (event.sessionId !== activeSession.current || mapper.current === null) return
-      publishResult(mapCaptainChatLifecycle(mapper.current, kind), kind === "generationStopped")
+    publishResult(mapCaptainAppEvents(mapper.current, input))
+    const sessionId = input.activeSessionId
+    const activeTools = new Set<string>()
+    const retiredTools = new Set<string>()
+    const process = (event: CaptainLifecycleEvent) => {
+      if (!generation.active || event.sessionId !== sessionId || mapper.current === null) return
+      if (event.kind === "turn.completed" || event.kind === "turn.stopped") {
+        activeTools.clear()
+        retiredTools.clear()
+        const kind = event.kind === "turn.completed" ? "messageCompleted" : "generationStopped"
+        const result = mapCaptainChatLifecycle(mapper.current, kind)
+        publishResult(
+          result,
+          result.events.some((captainEvent) => captainEvent.type === "task.cancelled"),
+        )
+        return
+      }
+      const opaqueKey = `${event.callId.length}:${event.callId}${event.partId}`
+      if (event.kind === "tool.started") {
+        if (retiredTools.has(opaqueKey) || activeTools.has(opaqueKey)) return
+        const wasEmpty = activeTools.size === 0
+        activeTools.add(opaqueKey)
+        if (wasEmpty) publishResult(mapCaptainChatLifecycle(mapper.current, "toolCallStarted"))
+        return
+      }
+      if (retiredTools.has(opaqueKey)) return
+      retiredTools.add(opaqueKey)
+      if (!activeTools.delete(opaqueKey)) return
+      if (activeTools.size === 0) publishResult(mapCaptainChatLifecycle(mapper.current, "toolCallResult"))
     }
-    const unsubscribes = [
-      chatService.serverEvents.on("toolCallStarted", (event) => onLifecycle("toolCallStarted", event)),
-      chatService.serverEvents.on("toolCallResult", (event) => onLifecycle("toolCallResult", event)),
-      chatService.serverEvents.on("messageCompleted", (event) => onLifecycle("messageCompleted", event)),
-      chatService.serverEvents.on("generationStopped", (event) => onLifecycle("generationStopped", event)),
-    ]
+    generation.process = process
+    for (const event of generation.pending.splice(0)) process(event)
     return () => {
-      for (const unsubscribe of unsubscribes) unsubscribe()
+      generation.process = null
+      activeTools.clear()
+      retiredTools.clear()
       const current = mapper.current
       lease.current = null
       mapper.current = null
       producerLease.release(current ? terminalEventsForUnmount(current) : [])
     }
-  }, [captain.acquireProducer, chatService.serverEvents, publishResult])
+  }, [captain.acquireProducer, input.activeSessionId, lifecycleSource, publishResult])
 
   React.useEffect(() => {
     if (mapper.current) publishResult(mapCaptainAppEvents(mapper.current, input))
@@ -427,7 +525,13 @@ export function useCaptainAppEvents(input: CaptainAppEventInput): void {
 }
 
 /** AppShell's real zero-DOM integration boundary; remounting it releases the producer lease. */
-export function CaptainAppEventBridge({ input }: { readonly input: CaptainAppEventInput }) {
-  useCaptainAppEvents(input)
+export function CaptainAppEventBridge({
+  input,
+  lifecycleSource,
+}: {
+  readonly input: CaptainAppEventInput
+  readonly lifecycleSource: CaptainLifecycleSource
+}) {
+  useCaptainAppEvents(input, lifecycleSource)
   return null
 }

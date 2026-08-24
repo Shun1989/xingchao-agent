@@ -78,7 +78,8 @@ import { useArtifactsPanelState } from "./use-artifacts-panel-state.ts"
 import { useBrowserDownloadNotifications } from "./use-browser-download-notifications.ts"
 import { useBrowserPanelState } from "./use-browser-panel-state.ts"
 import { useChatConnectionRetry } from "./use-chat-connection-retry.ts"
-import { CaptainAppEventBridge } from "./useCaptainAppEvents.ts"
+import { CaptainAppShellSurface } from "./CaptainAppShellSurface.tsx"
+import { createCaptainLifecycleSource } from "./useCaptainAppEvents.ts"
 import { useChatQueueState } from "./use-chat-queue-state.ts"
 import { useComposerNavigation } from "./use-composer-navigation.ts"
 import { useComposerSubmission } from "./use-composer-submission.ts"
@@ -90,7 +91,6 @@ import { useSidebarChromeState } from "./use-sidebar-chrome-state.ts"
 import { useUpdateReadyToast } from "./use-update-ready-toast.ts"
 import { useWorkspaceActivation } from "./use-workspace-activation.ts"
 import { ProjectContextBar } from "@/components/app-shell/ProjectContextBar"
-import { CaptainHost } from "@/components/captain/CaptainHost.tsx"
 import { useAttentionService, useBrowserService, useChatService } from "@/components/AppContext"
 import { useSkillInventoryResource } from "@/components/AppDataHooks"
 import { AppUpdateTitlebarEntry } from "@/components/AppUpdateTitlebarEntry"
@@ -202,6 +202,10 @@ export function AppShell({ auth }: { auth: UseAuth }) {
   const attentionService = useAttentionService()
   const browserService = useBrowserService()
   const chatService = useChatService()
+  const captainLifecycleSource = React.useMemo(
+    () => createCaptainLifecycleSource(chatService.serverEvents),
+    [chatService.serverEvents],
+  )
   useBrowserDownloadNotifications()
   const attention = useAttention()
   const appUpdate = useAppUpdate()
@@ -2053,88 +2057,76 @@ export function AppShell({ auth }: { auth: UseAuth }) {
       projectActions.removeTarget ||
       projectActions.renameTarget,
   )
-  const captainHost = (
-    <React.Fragment key="global-captain-surface">
-      <CaptainAppEventBridge
-        input={{
-          route,
-          activeSessionId: activeChatSessionId,
-          displayedStatus,
-          agentStatus,
-          pendingPermissions,
-          activity,
-          error,
-        }}
-      />
-      <CaptainHost
-        route={route}
-        activeSessionId={activeChatSessionId}
-        chatIsEmpty={captainChatIsEmpty}
-        activeProject={activeProject !== undefined}
-        activeTask={captainActiveTask}
-        modalOpen={captainModalOpen}
-      />
-    </React.Fragment>
+  const renderCaptainSurface = (children: React.ReactNode) => (
+    <CaptainAppShellSurface
+      activeProject={activeProject !== undefined}
+      activeSessionId={activeChatSessionId}
+      activeTask={captainActiveTask}
+      chatIsEmpty={captainChatIsEmpty}
+      eventInput={{
+        route,
+        activeSessionId: activeChatSessionId,
+        displayedStatus,
+        agentStatus,
+        pendingPermissions,
+        activity,
+        error,
+      }}
+      lifecycleSource={captainLifecycleSource}
+      modalOpen={captainModalOpen}
+      route={route}
+    >
+      {children}
+    </CaptainAppShellSurface>
   )
 
   if (route === "settings") {
-    return (
-      <>
-        {captainHost}
-        <React.Suspense fallback={<RouteLoadingFallback />}>
-          <SettingsRoute
-            linkRuntime={linkRuntime}
-            update={appUpdate}
-            titlebarActions={<AppUpdateTitlebarEntry update={appUpdate} />}
-            onBack={() => setRoute("chat")}
-          />
-        </React.Suspense>
-      </>
+    return renderCaptainSurface(
+      <React.Suspense fallback={<RouteLoadingFallback />}>
+        <SettingsRoute
+          linkRuntime={linkRuntime}
+          update={appUpdate}
+          titlebarActions={<AppUpdateTitlebarEntry update={appUpdate} />}
+          onBack={() => setRoute("chat")}
+        />
+      </React.Suspense>,
     )
   }
 
   if (route === "billing" && oomolEnabled) {
-    return (
-      <>
-        {captainHost}
-        <React.Suspense fallback={<RouteLoadingFallback />}>
-          <BillingRoute
-            cacheScope={billingCacheScope}
-            connectionProviders={activeProviders}
-            initialTarget={billingInitialTarget}
-            sharedConnectorCount={sharedConnectorCount}
-            titlebarActions={<AppUpdateTitlebarEntry update={appUpdate} />}
-            workspace={teamWorkspace.activeWorkspace}
-            onBack={() => setRoute("chat")}
-          />
-        </React.Suspense>
-      </>
+    return renderCaptainSurface(
+      <React.Suspense fallback={<RouteLoadingFallback />}>
+        <BillingRoute
+          cacheScope={billingCacheScope}
+          connectionProviders={activeProviders}
+          initialTarget={billingInitialTarget}
+          sharedConnectorCount={sharedConnectorCount}
+          titlebarActions={<AppUpdateTitlebarEntry update={appUpdate} />}
+          workspace={teamWorkspace.activeWorkspace}
+          onBack={() => setRoute("chat")}
+        />
+      </React.Suspense>,
     )
   }
 
   if (route === "archived") {
-    return (
-      <>
-        {captainHost}
-        <React.Suspense fallback={<RouteLoadingFallback />}>
-          <ArchivedRoute
-            listArchived={listArchived}
-            onBack={() => setRoute("chat")}
-            refreshSessions={refreshSessions}
-            removeSession={removeSessionWithRuntimeCleanup}
-            ready={ready}
-            titlebarActions={<AppUpdateTitlebarEntry update={appUpdate} />}
-            unarchiveSession={unarchive}
-          />
-        </React.Suspense>
-      </>
+    return renderCaptainSurface(
+      <React.Suspense fallback={<RouteLoadingFallback />}>
+        <ArchivedRoute
+          listArchived={listArchived}
+          onBack={() => setRoute("chat")}
+          refreshSessions={refreshSessions}
+          removeSession={removeSessionWithRuntimeCleanup}
+          ready={ready}
+          titlebarActions={<AppUpdateTitlebarEntry update={appUpdate} />}
+          unarchiveSession={unarchive}
+        />
+      </React.Suspense>,
     )
   }
 
-  return (
-    <>
-      {captainHost}
-      <div
+  return renderCaptainSurface(
+    <div
       ref={appChromeRef}
       data-captain-content
       data-fleet-skin={globalThis.document?.documentElement.dataset.fleetSkin}
@@ -2486,7 +2478,6 @@ export function AppShell({ auth }: { auth: UseAuth }) {
           onSortModeChange={setTaskSortMode}
         />
       </React.Suspense>
-      </div>
-    </>
+    </div>,
   )
 }

@@ -239,6 +239,70 @@ describe("CaptainHost adaptive layout", () => {
     await vi.waitFor(() => expect(host.dataset.captainMode).toBe("companion"))
   })
 
+  it("uses one effective compact layout after stage collision and clears stage geometry", async () => {
+    Object.defineProperty(window, "innerHeight", { configurable: true, value: 800 })
+    const slot = document.createElement("div")
+    slot.setAttribute("data-captain-host-slot", "")
+    slot.getBoundingClientRect = () => ({
+      bottom: 760,
+      height: 700,
+      left: 900,
+      right: 1400,
+      top: 60,
+      width: 500,
+      x: 900,
+      y: 60,
+      toJSON: () => ({}),
+    })
+    const control = document.createElement("button")
+    control.setAttribute("data-captain-safe-control", "")
+    control.getBoundingClientRect = () => ({
+      bottom: 740,
+      height: 680,
+      left: 920,
+      right: 1380,
+      top: 60,
+      width: 460,
+      x: 920,
+      y: 60,
+      toJSON: () => ({}),
+    })
+    document.body.append(slot, control)
+    const view = renderCaptain({ activeSessionId: null, chatIsEmpty: true, route: "fleet", viewportWidth: 1600 })
+    const host = view.container.querySelector<HTMLElement>("[data-captain-host]")
+    if (!host) throw new Error("captain host missing")
+    host.getBoundingClientRect = slot.getBoundingClientRect
+
+    act(() => window.dispatchEvent(new Event("scroll")))
+    await vi.waitFor(() => expect(host.dataset.captainMode).toBe("compact"))
+    expect(host.dataset.captainMinWidth).toBe("0")
+    expect(host.dataset.captainMaxWidth).toBe("72")
+    expect(host.style.width).toBe("")
+    expect(host.style.left).toBe("")
+    expect(host.style.height).toBe("")
+  })
+
+  it("marks controls before resize observation, excludes the host, and avoids self-resize oscillation", () => {
+    const observed: Element[] = []
+    class TestResizeObserver {
+      public constructor(_callback: ResizeObserverCallback) {}
+      public disconnect() {}
+      public observe(element: Element) {
+        observed.push(element)
+      }
+      public unobserve() {}
+    }
+    vi.stubGlobal("ResizeObserver", TestResizeObserver)
+    const externalControl = document.createElement("button")
+    document.body.append(externalControl)
+
+    const view = renderCaptain({ activeSessionId: "active", chatIsEmpty: false, route: "chat", viewportWidth: 1440 })
+    const host = view.container.querySelector<HTMLElement>("[data-captain-host]")
+    expect(externalControl.hasAttribute("data-captain-safe-control")).toBe(true)
+    expect(observed).toContain(externalControl)
+    expect(observed).not.toContain(host)
+  })
+
   it("detects alert dialogs and returns to the approved layout after they close", async () => {
     const view = renderCaptain({ activeSessionId: "active", chatIsEmpty: false, route: "chat", viewportWidth: 1440 })
     const alertDialog = document.createElement("div")
