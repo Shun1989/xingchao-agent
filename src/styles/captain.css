@@ -1,0 +1,155 @@
+.captain-renderer,
+.captain-static-fallback {
+  position: relative;
+  isolation: isolate;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.captain-renderer[data-captain-mode="stage"] {
+  width: clamp(360px, var(--captain-composition-width), 520px);
+}
+
+.captain-renderer[data-captain-mode="companion"] {
+  width: clamp(240px, var(--captain-composition-width), 300px);
+}
+
+.captain-renderer[data-captain-mode="compact"] {
+  width: min(var(--captain-composition-width), 72px);
+  aspect-ratio: 1;
+  border-radius: 50%;
+}
+
+.captain-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  will-change: transform, opacity;
+}
+
+.captain-layer--scene {
+  z-index: 0;
+  inset: calc(0px - var(--captain-parallax-px));
+}
+
+.captain-layer--base {
+  z-index: 1;
+}
+
+.captain-layer--uniform {
+  z-index: 2;
+}
+
+.captain-layer--expression {
+  z-index: 3;
+}
+
+.captain-layer--foreground {
+  z-index: 4;
+  inset: calc(0px - var(--captain-parallax-px));
+}
+
+.captain-layer--presentation[data-visible="false"] {
+  visibility: hidden;
+  opacity: 0;
+}
+
+.captain-layer__image,
+.captain-static-fallback__image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: var(--captain-focal-position, 50% 42%);
+  user-select: none;
+  pointer-events: none;
+}
+
+.captain-layer__image--person {
+  object-fit: contain;
+}
+
+.captain-expression-light {
+  position: absolute;
+  inset: 8% 10%;
+  background: radial-gradient(
+    circle at 54% 30%,
+    color-mix(in srgb, var(--fleet-color-accent) 18%, transparent),
+    transparent 54%
+  );
+  mix-blend-mode: screen;
+}
+
+.captain-mouth {
+  position: absolute;
+  top: 35%;
+  left: 50%;
+  width: 1.5%;
+  height: 1%;
+  border-radius: 999px;
+  transform: translateX(-50%) scaleY(var(--captain-mouth-level));
+  transform-origin: center top;
+}
+
+.captain-mouth::after {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: color-mix(in srgb, var(--fleet-color-danger) 55%, transparent);
+  content: "";
+  transform-origin: center top;
+}
+
+.captain-renderer[data-reduced-motion="false"] .captain-mouth[data-mouth-cadence="clock"]::after {
+  animation: captain-mouth-clock 480ms steps(4, end) infinite;
+}
+
+@keyframes captain-mouth-clock {
+  0%,
+  100% {
+    opacity: 0.55;
+    transform: scaleY(0.35);
+  }
+
+  50% {
+    opacity: 0.9;
+    transform: scaleY(1);
+  }
+}
+
+.captain-static-fallback__image {
+  object-position: center;
+}
+
+.captain-renderer[data-reduced-motion="true"] *,
+.captain-renderer[data-reduced-motion="true"] *::before,
+.captain-renderer[data-reduced-motion="true"] *::after {
+  animation: none !important;
+  transition: none !important;
+  transform: none !important;
+}
+
+.captain-renderer[data-reduced-motion="true"] .captain-layer--expression {
+  opacity: 0.72 !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .captain-renderer *,
+  .captain-renderer *::before,
+  .captain-renderer *::after {
+    animation: none !important;
+    transition: none !important;
+    transform: none !important;
+  }
+
+  .captain-renderer .captain-layer--expression {
+    opacity: 0.72 !important;
+  }
+
+  .captain-layer--scene,
+  .captain-layer--foreground {
+    inset: 0;
+  }
+}

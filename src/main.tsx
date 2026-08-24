@@ -17,12 +17,14 @@ import { ContentPackService } from "../electron/xingchao/common.ts"
 import { App } from "@/App"
 import { AppContext } from "@/components/AppContext"
 import { detectInitialLocale, translate } from "@/i18n/i18n"
+import { safeReactRootOptions } from "@/lib/react-root-error-options"
 import { reportRendererIssue } from "@/lib/renderer-diagnostics"
 
 import "@univerjs/preset-sheets-core/lib/index.css"
 import "./index.css"
 
 const electronConnectionBridgeName = "oomol-connection-electron-bridge"
+const reactRootOptions = safeReactRootOptions()
 const rootElement = document.querySelector("#root")
 if (!rootElement) {
   throw new Error("Wanta: missing #root mount node")
@@ -54,7 +56,7 @@ if (!hasElectronConnectionBridge()) {
   const authService = client.use(AuthService)
   const updateService = client.use(UpdateService)
 
-  createRoot(rootElement).render(
+  createRoot(rootElement, reactRootOptions).render(
     <AppContext.Provider
       value={{
         attentionService,
@@ -83,7 +85,7 @@ function hasElectronConnectionBridge(): boolean {
 
 function renderStartupError(container: Element): void {
   const locale = detectInitialLocale()
-  createRoot(container).render(
+  createRoot(container, reactRootOptions).render(
     <main className="flex min-h-screen items-center justify-center bg-background p-6 text-foreground">
       <div className="max-w-md space-y-4 text-center">
         <div className="space-y-2">
