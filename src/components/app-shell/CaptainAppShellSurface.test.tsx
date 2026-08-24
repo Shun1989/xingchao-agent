@@ -331,6 +331,70 @@ describe("CaptainAppShellSurface production seam", () => {
     expect(probe?.dataset.state).toBe("idle")
   })
 
+  it("accepts a terminal as the max-plus-one pre-lease event and recovers from queue saturation", async () => {
+    const queuedEvents = Array.from(
+      { length: 64 },
+      (_, index): CaptainLifecycleEvent => ({
+        kind: "tool.result",
+        sessionId: "active",
+        callId: `queued-${index}`,
+        partId: "part",
+      }),
+    )
+    const source = new TypedLifecycleSource((listener) => {
+      for (const event of queuedEvents) listener(event)
+      listener({ kind: "turn.completed", sessionId: "active" })
+    })
+    const view = renderSurface(source, { displayedStatus: "streaming" })
+    const probe = view.container.querySelector("output")
+
+    await vi.waitFor(() => expect(probe?.dataset.state).toBe("success"))
+    expect(probe?.textContent).toBe("captain.success")
+  })
+
+  it("accepts a new run when quiescence was observed before the first terminal", () => {
+    const source = new TypedLifecycleSource()
+    const view = renderSurface(source, { displayedStatus: "ready" })
+    const probe = view.container.querySelector("output")
+
+    source.emit({ kind: "turn.completed", sessionId: "active" })
+    expect(probe?.textContent).toBe("captain.success")
+    view.update({ displayedStatus: "submitted" })
+    source.emit({ kind: "turn.stopped", sessionId: "active" })
+
+    expect(probe?.textContent).not.toBe("captain.success")
+  })
+
+  it("accepts a successor tool emitted during the ready-to-running commit", () => {
+    const source = new TypedLifecycleSource()
+    const view = renderSurface(source, { displayedStatus: "streaming" })
+    const probe = view.container.querySelector("output")
+    source.emit({ kind: "turn.completed", sessionId: "active" })
+    view.update({ displayedStatus: "ready" })
+
+    function EmitSuccessorToolOnLayout() {
+      React.useLayoutEffect(() => {
+        source.emitDuringReactEffect({
+          kind: "tool.started",
+          sessionId: "active",
+          callId: "successor-call",
+          partId: "successor-part",
+        })
+      }, [])
+      return null
+    }
+
+    view.update({ displayedStatus: "submitted" }, <EmitSuccessorToolOnLayout />)
+    view.update({ displayedStatus: "ready" })
+
+    expect(probe?.dataset.state).toBe("executing")
+    expect(probe?.dataset.eventId).toContain("-tool-")
+    expect(view.container.innerHTML).not.toContain("successor-call")
+    expect(view.container.innerHTML).not.toContain("successor-part")
+    source.emit({ kind: "tool.result", sessionId: "active", callId: "successor-call", partId: "successor-part" })
+    expect(probe?.dataset.state).toBe("idle")
+  })
+
   it("bounds each opaque ID at 256 characters and its exact composite key", () => {
     const source = new TypedLifecycleSource()
     const view = renderSurface(source)
@@ -403,6 +467,7 @@ describe("CaptainAppShellSurface production seam", () => {
   it("recomputes a stage slot from captured ResizeObserver callbacks and retargets replacements", async () => {
     const callbacks: ResizeObserverCallback[] = []
     const observed: Element[] = []
+    const unobserved: Element[] = []
     class TestResizeObserver {
       public constructor(callback: ResizeObserverCallback) {
         callbacks.push(callback)
@@ -411,7 +476,9 @@ describe("CaptainAppShellSurface production seam", () => {
       public observe(element: Element) {
         observed.push(element)
       }
-      public unobserve() {}
+      public unobserve(element: Element) {
+        unobserved.push(element)
+      }
     }
     vi.stubGlobal("ResizeObserver", TestResizeObserver)
     let slotWidth = 500
@@ -473,10 +540,21 @@ describe("CaptainAppShellSurface production seam", () => {
     controlRect = { bottom: 100, left: 0, right: 50, top: 50 }
     act(() => slot.replaceWith(replacement))
     await vi.waitFor(() => expect(observed).toContain(replacement))
+    expect(unobserved).toContain(slot)
     host.getBoundingClientRect = replacement.getBoundingClientRect
     act(() => callbacks[0]?.([], {} as ResizeObserver))
     await vi.waitFor(() => expect(host.dataset.captainMode).toBe("stage"))
     expect(host.style.width).toBe("360px")
+
+    const secondReplacement = replacement.cloneNode() as HTMLElement
+    secondReplacement.getBoundingClientRect = replacement.getBoundingClientRect
+    act(() => replacement.replaceWith(secondReplacement))
+    await vi.waitFor(() => expect(observed).toContain(secondReplacement))
+    expect(unobserved).toContain(replacement)
+    expect(observed).not.toContain(host)
+    for (const controlElement of host.querySelectorAll("[data-captain-safe-control]")) {
+      expect(observed).not.toContain(controlElement)
+    }
   })
 
   it("reserves companion content and reports effective compact bounds after stage collision", async () => {

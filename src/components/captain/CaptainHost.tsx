@@ -232,13 +232,8 @@ export function CaptainHost({
   React.useLayoutEffect(() => {
     const host = hostRef.current
     const ownedMarkers = new Set<HTMLElement>()
-    const observed = new WeakSet<Element>()
+    const observed = new Set<Element>()
     const resizeObserver = typeof ResizeObserver === "function" ? new ResizeObserver(updatePlacement) : null
-    const observeExternal = (element: HTMLElement) => {
-      if (host?.contains(element) || observed.has(element)) return
-      observed.add(element)
-      resizeObserver?.observe(element)
-    }
     const markObserveAndPlace = () => {
       for (const control of document.querySelectorAll<HTMLElement>(safeControlSelector)) {
         if (host?.contains(control)) continue
@@ -247,10 +242,21 @@ export function CaptainHost({
           ownedMarkers.add(control)
         }
       }
+      const nextTargets = new Set<Element>()
       for (const element of document.querySelectorAll<HTMLElement>(
         "[data-captain-safe-control], [data-captain-content], [data-captain-host-slot]",
       )) {
-        observeExternal(element)
+        if (!host?.contains(element)) nextTargets.add(element)
+      }
+      for (const element of observed) {
+        if (nextTargets.has(element)) continue
+        resizeObserver?.unobserve(element)
+        observed.delete(element)
+      }
+      for (const element of nextTargets) {
+        if (observed.has(element)) continue
+        observed.add(element)
+        resizeObserver?.observe(element)
       }
       updatePlacement()
     }
@@ -262,6 +268,7 @@ export function CaptainHost({
     return () => {
       observer?.disconnect()
       resizeObserver?.disconnect()
+      observed.clear()
       window.removeEventListener("resize", updatePlacement)
       window.removeEventListener("scroll", updatePlacement, true)
       for (const control of ownedMarkers) {

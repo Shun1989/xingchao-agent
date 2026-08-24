@@ -32,6 +32,12 @@ export type CaptainLifecycleEvent =
   | { readonly kind: "turn.completed"; readonly sessionId: string }
   | { readonly kind: "turn.stopped"; readonly sessionId: string }
 
+type CaptainTerminalLifecycleEvent = Extract<
+  CaptainLifecycleEvent,
+  { readonly kind: "turn.completed" | "turn.stopped" }
+>
+type CaptainNonTerminalLifecycleEvent = Exclude<CaptainLifecycleEvent, CaptainTerminalLifecycleEvent>
+
 export interface CaptainLifecycleSource {
   subscribe(listener: (event: CaptainLifecycleEvent) => void): () => void
 }
@@ -240,6 +246,20 @@ function nextId(state: CaptainAppEventMapperState, channel: CaptainAppChannel): 
   return `captain-app-${state.producerId}-${channel}-${state.nextLifecycleId}`
 }
 
+function statusIsRunning(status: CaptainAppEventInput["displayedStatus"] | null): boolean {
+  return status === "submitted" || status === "streaming"
+}
+
+function startsProvenTurn(previous: CaptainAppEventMapperState, input: CaptainAppEventInput): boolean {
+  return (
+    previous.terminalKind !== null &&
+    previous.terminalQuiescent &&
+    !statusIsRunning(previous.displayedStatus) &&
+    statusIsRunning(input.displayedStatus) &&
+    previous.activeSessionId === input.activeSessionId
+  )
+}
+
 /** Pure state diff used by the hook; it never reads or copies free-form fields. */
 export function mapCaptainAppEvents(
   previous: CaptainAppEventMapperState,
@@ -250,10 +270,8 @@ export function mapCaptainAppEvents(
   const channels: Partial<Record<CaptainAppChannel, ActiveCaptainChannel>> = { ...previous.channels }
   const events: CaptainEventDraft[] = []
   let nextLifecycleId = previous.nextLifecycleId
-  const wasRunning = previous.displayedStatus === "submitted" || previous.displayedStatus === "streaming"
-  const isRunning = input.displayedStatus === "submitted" || input.displayedStatus === "streaming"
-  const turnStarted =
-    previous.terminalKind !== null && previous.terminalQuiescent && !wasRunning && isRunning && !sessionChanged
+  const isRunning = statusIsRunning(input.displayedStatus)
+  const turnStarted = startsProvenTurn(previous, input)
 
   if (sessionChanged) {
     for (const channel of ["chat", "activity", "error", "permission", "task", "tool"] as const) {
@@ -272,7 +290,14 @@ export function mapCaptainAppEvents(
   }
 
   for (const channel of orderedChannels) {
-    if (channel === "task" && previous.terminalKind !== null && !turnStarted && !sessionChanged) continue
+    if (
+      previous.terminalKind !== null &&
+      !turnStarted &&
+      !sessionChanged &&
+      (channel === "activity" || channel === "chat" || channel === "task")
+    ) {
+      continue
+    }
     const wanted = desiredByChannel[channel]
     const active = channels[channel]
     if (!wanted) {
@@ -378,7 +403,9 @@ export function mapCaptainChatLifecycle(
       terminalKind:
         kind === "messageCompleted" ? "completed" : kind === "generationStopped" ? "stopped" : previous.terminalKind,
       terminalQuiescent:
-        kind === "messageCompleted" || kind === "generationStopped" ? false : previous.terminalQuiescent,
+        kind === "messageCompleted" || kind === "generationStopped"
+          ? previous.displayedStatus !== null && !statusIsRunning(previous.displayedStatus)
+          : previous.terminalQuiescent,
       activeSessionId: previous.activeSessionId,
       displayedStatus: previous.displayedStatus,
       channels: Object.freeze(channels),
@@ -446,11 +473,14 @@ interface CaptainLifecycleHandoff {
 
 interface CaptainLifecycleGeneration {
   active: boolean
+  completePreparedTurn: (() => void) | null
   handoff: CaptainLifecycleHandoff | null
-  pending: CaptainLifecycleEvent[]
+  pending: CaptainNonTerminalLifecycleEvent[]
   pendingOverflow: boolean
+  pendingTerminal: CaptainTerminalLifecycleEvent | null
+  preparedTurn: boolean
+  prepareTurn: (() => void) | null
   process: ((event: CaptainLifecycleEvent) => void) | null
-  resetTurnStorage: (() => void) | null
   readonly sessionId: string | null
 }
 
@@ -459,6 +489,10 @@ function boundedToolEvent(event: CaptainLifecycleEvent): boolean {
     (event.kind !== "tool.started" && event.kind !== "tool.result") ||
     (event.callId.length <= MAX_OPAQUE_ID_LENGTH && event.partId.length <= MAX_OPAQUE_ID_LENGTH)
   )
+}
+
+function terminalLifecycleEvent(event: CaptainLifecycleEvent): event is CaptainTerminalLifecycleEvent {
+  return event.kind === "turn.completed" || event.kind === "turn.stopped"
 }
 
 export function useCaptainAppEvents(input: CaptainAppEventInput, lifecycleSource: CaptainLifecycleSource): void {
@@ -487,11 +521,14 @@ export function useCaptainAppEvents(input: CaptainAppEventInput, lifecycleSource
   React.useInsertionEffect(() => {
     const generation: CaptainLifecycleGeneration = {
       active: true,
+      completePreparedTurn: null,
       handoff: null,
       pending: [],
       pendingOverflow: false,
+      pendingTerminal: null,
+      preparedTurn: false,
+      prepareTurn: null,
       process: null,
-      resetTurnStorage: null,
       sessionId: input.activeSessionId,
     }
     lifecycleGeneration.current = generation
@@ -499,6 +536,11 @@ export function useCaptainAppEvents(input: CaptainAppEventInput, lifecycleSource
       if (!generation.active || event.sessionId !== generation.sessionId) return
       if (generation.process) {
         generation.process(event)
+        return
+      }
+      if (generation.pendingTerminal !== null) return
+      if (terminalLifecycleEvent(event)) {
+        generation.pendingTerminal = event
         return
       }
       if (!boundedToolEvent(event) || generation.pending.length >= MAX_PENDING_LIFECYCLE_EVENTS) {
@@ -512,12 +554,30 @@ export function useCaptainAppEvents(input: CaptainAppEventInput, lifecycleSource
       unsubscribe()
       generation.pending.length = 0
       generation.pendingOverflow = false
+      generation.pendingTerminal = null
+      generation.preparedTurn = false
       generation.handoff = null
+      generation.prepareTurn = null
+      generation.completePreparedTurn = null
       generation.process = null
-      generation.resetTurnStorage = null
       if (lifecycleGeneration.current === generation) lifecycleGeneration.current = null
     }
   }, [input.activeSessionId, lifecycleSource])
+
+  React.useInsertionEffect(() => {
+    const generation = lifecycleGeneration.current
+    const current = mapper.current
+    if (
+      !generation ||
+      !generation.active ||
+      generation.sessionId !== input.activeSessionId ||
+      current === null ||
+      !startsProvenTurn(current, input)
+    ) {
+      return
+    }
+    generation.prepareTurn?.()
+  }, [input.activeSessionId, input.displayedStatus])
 
   React.useLayoutEffect(() => {
     const generation = lifecycleGeneration.current
@@ -539,6 +599,8 @@ export function useCaptainAppEvents(input: CaptainAppEventInput, lifecycleSource
       failedClosed = false
       generation.pending.length = 0
       generation.pendingOverflow = false
+      generation.pendingTerminal = null
+      generation.preparedTurn = false
       generation.handoff = null
     }
     const enterFailClosed = () => {
@@ -592,18 +654,43 @@ export function useCaptainAppEvents(input: CaptainAppEventInput, lifecycleSource
       if (activeTools.size === 0) publishResult(mapCaptainChatLifecycle(mapper.current, "toolCallResult"))
     }
     generation.process = process
-    generation.resetTurnStorage = clearTurnStorage
+    generation.prepareTurn = () => {
+      if (generation.process === null || generation.preparedTurn) return
+      clearTurnStorage()
+      generation.preparedTurn = true
+      generation.process = null
+    }
+    generation.completePreparedTurn = () => {
+      if (!generation.preparedTurn) return
+      generation.preparedTurn = false
+      generation.process = process
+      const pending = generation.pending.splice(0)
+      const pendingOverflow = generation.pendingOverflow
+      const pendingTerminal = generation.pendingTerminal
+      generation.pendingOverflow = false
+      generation.pendingTerminal = null
+      for (const event of pending) process(event)
+      if (pendingOverflow) enterFailClosed()
+      if (pendingTerminal) process(pendingTerminal)
+    }
     if (handoff?.terminalKind === "completed" && sessionId !== null) process({ kind: "turn.completed", sessionId })
     else if (handoff?.terminalKind === "stopped" && sessionId !== null) process({ kind: "turn.stopped", sessionId })
     else if (failedClosed) {
       failedClosed = false
       enterFailClosed()
     } else if (activeTools.size > 0) publishResult(mapCaptainChatLifecycle(mapper.current, "toolCallStarted"))
-    for (const event of generation.pending.splice(0)) process(event)
-    if (generation.pendingOverflow) enterFailClosed()
+    const pending = generation.pending.splice(0)
+    const pendingOverflow = generation.pendingOverflow
+    const pendingTerminal = generation.pendingTerminal
+    generation.pendingOverflow = false
+    generation.pendingTerminal = null
+    for (const event of pending) process(event)
+    if (pendingOverflow) enterFailClosed()
+    if (pendingTerminal) process(pendingTerminal)
     return () => {
       generation.process = null
-      generation.resetTurnStorage = null
+      generation.prepareTurn = null
+      generation.completePreparedTurn = null
       if (generation.active) {
         generation.handoff = Object.freeze({
           activeTools: new Set(activeTools),
@@ -624,8 +711,9 @@ export function useCaptainAppEvents(input: CaptainAppEventInput, lifecycleSource
   React.useEffect(() => {
     if (!mapper.current) return
     const result = mapCaptainAppEvents(mapper.current, input)
-    if (result.turnStarted) lifecycleGeneration.current?.resetTurnStorage?.()
+    if (result.turnStarted) lifecycleGeneration.current?.prepareTurn?.()
     publishResult(result)
+    if (result.turnStarted) lifecycleGeneration.current?.completePreparedTurn?.()
   }, [
     hasActivity,
     hasError,

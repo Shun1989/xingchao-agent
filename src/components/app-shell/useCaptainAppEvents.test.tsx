@@ -216,4 +216,24 @@ describe("useCaptainAppEvents semantic mapping", () => {
     ])
     expect(types(mapCaptainChatLifecycle(nextRun.state, "generationStopped").events)).toContain("task.cancelled")
   })
+
+  it("uses the latest quiescent semantic status when the terminal arrives", () => {
+    let state = mapCaptainAppEvents(
+      createCaptainAppEventMapperState(),
+      input({ activeSessionId: "active", displayedStatus: "ready" }),
+    ).state
+    const completed = mapCaptainChatLifecycle(state, "messageCompleted")
+
+    expect(completed.state.terminalQuiescent).toBe(true)
+    const nextRun = mapCaptainAppEvents(
+      completed.state,
+      input({ activeSessionId: "active", displayedStatus: "submitted" }),
+    )
+
+    expect(nextRun.turnStarted).toBe(true)
+    expect(nextRun.events.filter((event) => event.source === "task").map((event) => event.type)).toEqual([
+      "event.dismissed",
+      "task.started",
+    ])
+  })
 })
