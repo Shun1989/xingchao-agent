@@ -108,3 +108,46 @@ Publication evidence for Runtime Fleet Activation:
 - Fetch reported 0 behind / 20 ahead; an ordinary non-force push advanced `origin/codex/xingchao-platform` from
   `253440c` through `04bbaa2be2102981d541decc7970ebdde9b81b1d`.
 - The upstream push URL remained `DISABLED`; no Release, Prerelease, or installer was created or uploaded.
+
+## 2026-08-25 focused review: MkThingsHQ/mkagent
+
+Snapshot date: 2026-08-25. Evidence was read from the repository metadata, first-party README and architecture/security
+documents, selected implementation and tests, release metadata, commit history, contributor API, and public Actions API.
+No MkAgent or Craft source code was copied into Xingchao Navigation.
+
+| Repository                                                  | Stars | License    | Activity and maturity evidence                                                                                                                                           |
+| ----------------------------------------------------------- | ----: | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| [MkThingsHQ/mkagent](https://github.com/MkThingsHQ/mkagent) |   165 | Apache-2.0 | Created 2026-08-09; latest push 2026-08-24; one visible contributor; one v0.1.0 release on 2026-08-10; the latest three CI runs were failing at the 2026-08-25 snapshot. |
+
+MkAgent is a deliberately reduced, local-first Craft Agents distribution. Its `NOTICE` and upstream-sync documentation
+pin the inherited Craft OSS baseline and separate unchanged reuse, deliberate Lite seams, and removed features. Its Bun
+monorepo exposes Desktop, WebUI, and CLI through a shared server/protocol layer, while the Pi agent SDK runs in a separate
+subprocess over JSONL stdio. Sessions use JSONL storage, per-session serialized writes, temporary-file replacement, and a
+durability regression that requires a user message to reach disk before an acknowledgement is emitted.
+
+### Xingchao adoption decision
+
+1. **Adopt now as governance, not as a rewrite.** Add a pinned-Wanta lineage manifest and classify audited files as
+   strict upstream reuse, Xingchao seam, or intentionally removed/owned behavior. Hash drift and require the appropriate
+   regression group for each changed seam. This is the strongest immediate lesson because Xingchao is already a Wanta
+   derivative and must survive future upstream syncs without losing security or branding boundaries.
+2. **Use the event/durability ideas in Tasks 12–13.** Treat fleet selection, captain state, voice policy, permission
+   decisions, rollback, and terminal outcomes as versioned runtime events. Do not acknowledge a user-visible committed
+   choice until its persisted state is durable; restart tests must replay the same authoritative state.
+3. **Keep a protocol-neutral runtime seam as a later extension point.** Shared DTOs and one runtime serving several
+   clients are useful long-term, but WebUI/CLI are not part of the current deliverable. The immediate design should keep
+   Electron UI, orchestration, persistence, and provider adapters separable without introducing Bun, Pi, or WebSocket RPC
+   merely to resemble MkAgent.
+4. **Retain process isolation as a provider hardening option.** A provider runtime subprocess can contain crashes and
+   dependency conflicts, and a minimal IPC contract can narrow which code handles credentials even though the subprocess
+   still receives them. Adopt it only when a second provider or unstable native/runtime dependency justifies the
+   operational cost; do not replace the working Wanta/OpenCode kernel pre-emptively.
+5. **Do not copy its weak or immature edges.** MkAgent's current main branch is not green, Windows/macOS packages are
+   unsigned/ad-hoc signed, and public history is too short for production reliability claims. Its documented
+   multi-window `latest writer wins` model is weaker than Xingchao's explicit producer/epoch rules; JSONL needs schema
+   versioning, corruption reporting, locking, and compaction before it can be a durable Xingchao mission ledger. Path
+   checks and destructive workspace handling must also be independently threat-modeled rather than inherited by trust.
+
+Apache-2.0 permits compatible reuse when its terms and notices are preserved, but MkAgent itself carries attributed Craft
+lineage. Xingchao will therefore absorb the design principles above and keep its implementation original unless a future
+change has a specific, reviewed reason to import code with complete Apache/NOTICE attribution.

@@ -93,3 +93,24 @@ This document separates implemented behavior from planned release work. A passin
   a crew recommendation plus task DAG, and Supply Depot rendered the trusted built-in 10-crew/60-Agent/10-theme pack.
 - No mission execution, paid model request, pack import, installer build, GitHub Release, or public distribution was
   performed during this smoke test.
+
+## Adaptive captain and complete-skin continuation on 2026-08-25
+
+- Completed the manifest-driven global skin runtime and independent captain orchestrator through the deterministic
+  visual-regression slice. All ten built-in fleets render complete shared-shell materials, scene layers, captain
+  presentation, and fleet-specific visual language; switching is no longer represented by palette changes alone.
+- Added adaptive captain `stage`, `companion`, and `compact` presentation modes, explicit mute/voice controls, persistent
+  subtitles, reduced-motion behavior, high-contrast behavior, and deterministic turn-lifecycle priorities. This remains
+  the approved layered-renderer fallback with a Live2D adapter seam; it is not evidence that a production Cubism model
+  or licensed Live2D asset pack exists.
+- Added an isolated Electron visual harness with exactly 50 reviewed 1440 × 852 PNG baselines: ten fleets across three
+  standard captain modes, plus ten reduced-motion companion and ten high-contrast companion captures. The immutable
+  comparison passed 54/54 with zero allowed pixel differences; the URL-confinement policy passed 1/1; the relevant
+  captain layout/lifecycle matrix passed 56/56; project type checking and full lint also passed.
+- Independent review initially found three Important defects: remote-authority `file:` handling, a double-applied stage
+  width that approved an incomplete scene, and a partially frozen clock. All three were reproduced, fixed, covered by
+  focused regressions, and independently re-reviewed with zero Critical, Important, or Minor findings remaining.
+- The complete-skin first version is **not yet accepted**. Electron end-to-end coverage for fleet selection, cross-page
+  persistence, restart recovery, explicit voice enable/mute, asset-failure rollback, and accessibility remains Task 12;
+  the complete acceptance/documentation gate remains Task 13.
+- No paid model call, browser download, push, release, installer publication, or public distribution was performed.
