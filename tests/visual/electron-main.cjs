@@ -1,23 +1,12 @@
 const { app, BrowserWindow, session } = require("electron")
 const path = require("node:path")
 const { pathToFileURL } = require("node:url")
+const { createLocalVisualUrlPolicy } = require("./local-url-policy.cjs")
 
 const visualBuildRoot = path.resolve(__dirname, "../../dist-visual")
 const visualEntry = path.join(visualBuildRoot, "index.html")
 const visualEntryUrl = pathToFileURL(visualEntry).href
-
-function isAllowedVisualUrl(rawUrl) {
-  try {
-    const url = new URL(rawUrl)
-    if (url.protocol === "data:" || url.protocol === "blob:") return true
-    if (url.protocol !== "file:") return false
-    const candidate = path.resolve(decodeURIComponent(url.pathname.replace(/^\/(?:([A-Za-z]:))/, "$1")))
-    const relative = path.relative(visualBuildRoot, candidate)
-    return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative))
-  } catch {
-    return false
-  }
-}
+const isAllowedVisualUrl = createLocalVisualUrlPolicy(visualBuildRoot)
 
 app.commandLine.appendSwitch("lang", "zh-CN")
 app.commandLine.appendSwitch("disable-renderer-backgrounding")
@@ -27,7 +16,8 @@ app.whenReady().then(async () => {
   isolatedSession.setPermissionCheckHandler(() => false)
   isolatedSession.setPermissionRequestHandler((_webContents, _permission, callback) => callback(false))
   isolatedSession.webRequest.onBeforeRequest((details, callback) => {
-    callback({ cancel: !isAllowedVisualUrl(details.url) })
+    const rendererResource = details.resourceType !== "mainFrame" && details.resourceType !== "subFrame"
+    callback({ cancel: !isAllowedVisualUrl(details.url, rendererResource) })
   })
 
   const window = new BrowserWindow({

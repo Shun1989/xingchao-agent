@@ -65,11 +65,7 @@ export function parseVisualCase(params: URLSearchParams): VisualCaseParseResult 
   }
 }
 
-const FROZEN_TIME = Date.parse("2026-08-23T08:00:00+08:00")
-
 export function prepareVisualEnvironment(visualCase: VisualCase): void {
-  Date.now = () => FROZEN_TIME
-  Math.random = () => 0.5
   localStorage.clear()
   localStorage.setItem(storageKey("activeCrew"), visualCase.crewId)
   localStorage.setItem(storageKey("locale"), "zh-CN")

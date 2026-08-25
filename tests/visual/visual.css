@@ -234,7 +234,7 @@ input {
 }
 
 :root[data-visual-mode="stage"] .visual-dashboard {
-  grid-template-columns: minmax(0, 1fr) minmax(460px, 40%);
+  grid-template-columns: minmax(0, 1fr) clamp(360px, var(--fleet-captain-stage-width), 520px);
   gap: 1.15rem;
 }
 

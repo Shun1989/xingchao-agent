@@ -114,6 +114,63 @@ test("isolates the harness from the authenticated app and network", async ({ pag
   ).toBe(true)
 })
 
+test("freezes the complete Date API before application bootstrap", async ({ page }) => {
+  const visualCase = {
+    crewId: BUILTIN_CREW_IDS[0],
+    mode: "stage",
+    contrast: "standard",
+    reducedMotion: false,
+  } as const
+  await page.goto(harnessUrl(visualCase))
+  await expectVisualCaseReady(page)
+
+  expect(
+    await page.evaluate(() => ({
+      called: Date(),
+      constructed: new Date().getTime(),
+      explicit: new Date("2001-02-03T04:05:06.000Z").toISOString(),
+      now: Date.now(),
+    })),
+  ).toEqual({
+    called: "Sun Aug 23 2026 08:00:00 GMT+0800 (中国标准时间)",
+    constructed: 1_787_443_200_000,
+    explicit: "2001-02-03T04:05:06.000Z",
+    now: 1_787_443_200_000,
+  })
+})
+
+test("applies the stage manifest width once and fills the resolved host", async ({ page }) => {
+  const visualCase = {
+    crewId: BUILTIN_CREW_IDS[0],
+    mode: "stage",
+    contrast: "standard",
+    reducedMotion: false,
+  } as const
+  await page.goto(harnessUrl(visualCase))
+  await expectVisualCaseReady(page)
+
+  const sizing = await page.evaluate(() => {
+    const dashboard = document.querySelector<HTMLElement>(".visual-dashboard")
+    const decorative = document.querySelector<HTMLElement>("[data-captain-decorative]")
+    const host = document.querySelector<HTMLElement>("[data-captain-host]")
+    const renderer = document.querySelector<HTMLElement>("[data-captain-renderer]")
+    if (!dashboard || !decorative || !host || !renderer) throw new Error("Stage sizing targets are missing")
+    const decorativeStyle = getComputedStyle(decorative)
+    return {
+      dashboardWidth: dashboard.getBoundingClientRect().width,
+      decorativeContentWidth:
+        decorative.getBoundingClientRect().width -
+        Number.parseFloat(decorativeStyle.borderLeftWidth) -
+        Number.parseFloat(decorativeStyle.borderRightWidth),
+      hostWidth: host.getBoundingClientRect().width,
+      rendererWidth: renderer.getBoundingClientRect().width,
+    }
+  })
+  const expectedHostWidth = Math.min(520, Math.max(360, sizing.dashboardWidth * 0.36))
+  expect.soft(sizing.hostWidth).toBeCloseTo(expectedHostWidth, 0)
+  expect.soft(sizing.rendererWidth).toBeCloseTo(sizing.decorativeContentWidth, 0)
+})
+
 for (const crewId of BUILTIN_CREW_IDS) {
   for (const mode of ["stage", "companion", "compact"] as const) {
     const visualCase = { crewId, mode, contrast: "standard", reducedMotion: false } as const
