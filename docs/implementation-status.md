@@ -110,7 +110,33 @@ This document separates implemented behavior from planned release work. A passin
 - Independent review initially found three Important defects: remote-authority `file:` handling, a double-applied stage
   width that approved an incomplete scene, and a partially frozen clock. All three were reproduced, fixed, covered by
   focused regressions, and independently re-reviewed with zero Critical, Important, or Minor findings remaining.
-- The complete-skin first version is **not yet accepted**. Electron end-to-end coverage for fleet selection, cross-page
+- As of that 2026-08-25 checkpoint, the complete-skin first version was **not yet accepted**. Electron end-to-end coverage for fleet selection, cross-page
   persistence, restart recovery, explicit voice enable/mute, asset-failure rollback, and accessibility remains Task 12;
   the complete acceptance/documentation gate remains Task 13.
 - No paid model call, browser download, push, release, installer publication, or public distribution was performed.
+
+## Adaptive captain complete-skin first-version acceptance on 2026-08-27
+
+- The complete-skin first version is now accepted as a **local deliverable**. All ten built-in fleets atomically switch the
+  shared shell, scene backdrop and foreground, component materials, crest, captain presentation, and persisted fleet
+  selection. A required-asset failure leaves the prior complete skin active instead of exposing a partial switch.
+- The captain is responsive across `stage`, `companion`, and `compact` layouts and reacts to task state. Voice remains
+  opt-in and muted by default; explicit enable, key-event narration, one-click mute, persistent captions, reduced motion,
+  and high contrast are covered. This is a high-quality layered animated captain with a Live2D interface seam; it is not
+  Live2D and does not include a Cubism model or publication license.
+- The tracked visual corpus contains exactly 50 reviewed baselines: ten fleets across three standard captain modes, ten
+  reduced-motion companion captures, and ten high-contrast companion captures. The tracked skin corpus contains 60
+  assets, with provenance recorded for each fleet family.
+- The full Windows gate passed: 354 test files passed and 2 skipped; 2,889 tests passed and 19 skipped; type checking,
+  lint, formatting of 1,103 files, renderer/main/preload build, all 54 visual scenarios, all 6 Electron end-to-end
+  scenarios, and `git diff --check` exited successfully.
+- Electron acceptance covers all ten fleet switches, cross-page persistence, restart recovery, explicit voice enable and
+  mute, rollback, reduced motion, high contrast, and captain containment without horizontal overflow at 1024x640,
+  1280x720, 1440x900, 1920x1080, and 2560x1440. A separate observable development smoke exercised the real desktop
+  shell and all ten fleets without the previously reported Windows `0x80000003` application error.
+- The Windows crash was isolated to Chromium's sandboxed GPU child in the Playwright Electron harness. Only the Windows
+  visual/end-to-end launchers use `--no-sandbox`; the production desktop entry is unchanged. The harness still denies
+  unexpected network navigation, uses temporary profile data, and performs no paid or external calls.
+- Remaining work is explicitly outside this first-version acceptance: production Live2D/Cubism assets, external Skill
+  mirror `EPERM` reliability, migration of older `safeStorage` profile data, signed installers, release audit, push, and
+  public distribution. No paid model call, download, push, release, or publication was performed.

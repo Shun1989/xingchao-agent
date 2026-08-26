@@ -852,7 +852,7 @@ git commit -m "test: cover complete fleet skin visuals"
 - Modify: `tests/visual/playwright.config.ts`
 - Modify: `package.json`
 
-- [ ] **Step 1: Write failing end-to-end scenarios**
+- [x] **Step 1: Write failing end-to-end scenarios**
 
 Add these exact scenarios:
 
@@ -863,7 +863,7 @@ Add these exact scenarios:
 5. Inject one required-asset loader failure and assert old skin and persisted selection remain.
 6. Assert keyboard access, reduced motion, and high contrast.
 
-- [ ] **Step 2: Run RED**
+- [x] **Step 2: Run RED**
 
 ```powershell
 corepack pnpm run e2e:fleet-skins
@@ -871,7 +871,7 @@ corepack pnpm run e2e:fleet-skins
 
 Expected: FAIL because the script/fixture/scenarios do not exist.
 
-- [ ] **Step 3: Implement the isolated test fixture**
+- [x] **Step 3: Implement the isolated test fixture**
 
 Reuse the bundled Electron and a temporary user-data directory created per worker. Stub `speechSynthesis` with a call log, not real audio. Provide a test-only asset loader injection through the harness composition root; never add a production query parameter that disables validation. Add script:
 
@@ -879,7 +879,7 @@ Reuse the bundled Electron and a temporary user-data directory created per worke
 "e2e:fleet-skins": "pnpm run visual:build && playwright test --config tests/visual/playwright.config.ts tests/e2e/fleet-skins.electron.spec.ts"
 ```
 
-- [ ] **Step 4: Run GREEN**
+- [x] **Step 4: Run GREEN**
 
 ```powershell
 corepack pnpm run e2e:fleet-skins
@@ -887,7 +887,7 @@ corepack pnpm run e2e:fleet-skins
 
 Expected: all six scenarios PASS with no console errors, page errors, network requests, or missing resources.
 
-- [ ] **Step 5: Commit Task 12**
+- [x] **Step 5: Commit Task 12**
 
 ```powershell
 git add -- tests/e2e tests/visual/playwright.config.ts package.json
@@ -905,7 +905,7 @@ git commit -m "test: verify fleet skins in Electron"
 - Modify: `README.zh-CN.md`
 - Create: `docs/verification/adaptive-captain-fleet-skins-2026-08-23.md`
 
-- [ ] **Step 1: Run the repository quality gate**
+- [x] **Step 1: Run the repository quality gate**
 
 ```powershell
 corepack pnpm run ts-check
@@ -919,7 +919,7 @@ corepack pnpm run build
 
 Expected: every command exits 0. Fix failures caused by this work. Record unrelated/pre-existing failures verbatim and keep completion blocked until the required gate is green.
 
-- [ ] **Step 2: Run desktop smoke at required sizes**
+- [x] **Step 2: Run desktop smoke at required sizes**
 
 Start the observable worktree development build:
 
@@ -929,7 +929,7 @@ corepack pnpm run dev:worktree
 
 Inspect renderer/main logs and `wanta/logs/diagnostics.jsonl`. Exercise 1024×640, 1280×720, 1440×900, 1920×1080, and 2560×1440; verify captain placement, input/permission/cancel/retry/window controls, all ten switches, one rollback, cross-page continuity, voice enable/mute, reduced motion, and high contrast. Capture machine-readable screenshots/log references; do not rely only on narration.
 
-- [ ] **Step 3: Audit completion evidence**
+- [x] **Step 3: Audit completion evidence**
 
 Run:
 
@@ -941,18 +941,18 @@ rg -n "TODO|TBD|temporary skin|mock skin|Live2D complete|完整皮肤首版已�
 
 Expected: no unowned files, whitespace errors, temporary assets, or false Live2D/completion claims. Verify `tests/visual/baselines` contains exactly 50 tracked PNGs and `PROVENANCE.md` covers every tracked skin asset.
 
-- [ ] **Step 4: Update documentation according to evidence**
+- [x] **Step 4: Update documentation according to evidence**
 
 Only if every Task 13 check is green, mark the complete-skin first version complete in `docs/implementation-status.md` and README. Explicitly state “高品质分层动态舰长；预留 Live2D 接口；当前不是 Live2D”. If any check remains red, mark the feature `未完成` or `阻塞` and list the exact missing fleet/check.
 
-- [ ] **Step 5: Commit the verified delivery**
+- [x] **Step 5: Commit the verified delivery**
 
 ```powershell
 git add -- docs/implementation-status.md docs/verification/adaptive-captain-fleet-skins-2026-08-23.md README.md README.zh-CN.md
 git commit -m "docs: verify adaptive captain first version"
 ```
 
-- [ ] **Step 6: Stop before publication**
+- [x] **Step 6: Stop before publication**
 
 Record the final local commit SHA and branch. Do not push, create a Release, build a public installer, or publish promotional content. Publication remains a separate user-approved operation.
 
@@ -960,13 +960,13 @@ Record the final local commit SHA and branch. Do not push, create a Release, bui
 
 ## Plan Self-review Checklist
 
-- [ ] Every design-spec section maps to at least one task and one verification command.
-- [ ] No task uses a temporary asset, partial skin, DOM snapshot, or manual assertion as a substitute for the required test.
-- [ ] All ten exact `BUILTIN_CREW_IDS` appear in the asset and manifest work.
-- [ ] The 50-image equation is explicit: `10 × 3 + 10 reduced-motion + 10 high-contrast`.
-- [ ] Imported content packs remain unable to activate assets or executable presentation data.
-- [ ] The atomic switch persists only after complete commit and rolls back all visible state on required failure.
-- [ ] Captain state priority, expiry, concurrency restoration, voice opt-in, caption persistence, and queue cancellation are all covered.
-- [ ] Live2D is only an interface seam and non-goal for this version.
-- [ ] Every production task starts with a focused failing test and ends with a commit.
-- [ ] No remote push or publication is included.
+- [x] Every design-spec section maps to at least one task and one verification command.
+- [x] No task uses a temporary asset, partial skin, DOM snapshot, or manual assertion as a substitute for the required test.
+- [x] All ten exact `BUILTIN_CREW_IDS` appear in the asset and manifest work.
+- [x] The 50-image equation is explicit: `10 × 3 + 10 reduced-motion + 10 high-contrast`.
+- [x] Imported content packs remain unable to activate assets or executable presentation data.
+- [x] The atomic switch persists only after complete commit and rolls back all visible state on required failure.
+- [x] Captain state priority, expiry, concurrency restoration, voice opt-in, caption persistence, and queue cancellation are all covered.
+- [x] Live2D is only an interface seam and non-goal for this version.
+- [x] Every production task starts with a focused failing test and ends with a commit.
+- [x] No remote push or publication is included.

@@ -19,6 +19,8 @@
 
 </div>
 
+> **星潮航局分支说明：** 当前产品入口与验收状态以 [`README.md`](README.md) 为准。完整皮肤首版已在本地通过十支舰队切换、50 张视觉基线和 Electron 桌面门禁；舰长采用高品质分层动态效果并联动语音状态，预留 Live2D 接口，当前不是 Live2D。本文件保留 Wanta 上游中文说明，用于追踪继承能力与归属，不代表星潮航局已经签名或公开发行。
+
 <p align="center">
   <img src="docs/assets/wanta-gmail-analysis.png" alt="Wanta 使用连接工具分析 Gmail，并在产物面板中预览生成的电子表格" />
 </p>
