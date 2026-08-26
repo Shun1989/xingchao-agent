@@ -96,7 +96,7 @@ describe("snapshotSelectedAttachment", () => {
     expect(snapshot.path).not.toBe(sourcePath)
     expect(await readFile(snapshot.path, "utf8")).toBe("original-workbook")
     expect(await readFile(sourcePath, "utf8")).toBe("original-workbook")
-    expect((await stat(snapshot.path)).mode & 0o777).toBe(0o400)
+    expect((await stat(snapshot.path)).mode & 0o777).toBe(process.platform === "win32" ? 0o444 : 0o400)
     expect((await stat(sourcePath)).mtimeMs).toBe(sourceBefore.mtimeMs)
   })
 

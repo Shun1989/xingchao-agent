@@ -66,7 +66,11 @@ test("collectGitTurnDiffs never follows an untracked symbolic link", async () =>
     const baseline = await captureGitTurnBaseline(root)
     const secretPath = path.join(outside, "secret.txt")
     await writeFile(secretPath, "must not be exposed\n", "utf8")
-    await symlink(secretPath, path.join(root, "leak.txt"))
+    if (process.platform === "win32") {
+      await symlink(outside, path.join(root, "leak"), "junction")
+    } else {
+      await symlink(secretPath, path.join(root, "leak.txt"))
+    }
 
     const result = await collectGitTurnDiffs(baseline, () => "text/plain")
     const diffs = result.files

@@ -6,6 +6,11 @@ import { test } from "vitest"
 import { buildLocalMachineSkillDeletePlan } from "./delete-plan.ts"
 
 test("buildLocalMachineSkillDeletePlan includes agent hosts and registry sources", () => {
+  const home = path.resolve("home", "me")
+  const agentRoot = path.join(home, ".agents", "skills")
+  const claudeRoot = path.join(home, ".claude", "skills")
+  const globalRegistryRoot = path.join(home, ".config", "oo", "skills", "registry")
+  const wantaRegistryRoot = path.join(home, ".config", "wanta", "agent", "oo-store", "config", "skills", "registry")
   const group: ManagedSkillGroup = {
     externalHosts: [],
     hosts: [
@@ -14,9 +19,9 @@ test("buildLocalMachineSkillDeletePlan includes agent hosts and registry sources
         agentName: "Wanta",
         kind: "registry",
         packageName: "@oomol/example",
-        path: "/home/me/.agents/skills/example",
+        path: path.join(agentRoot, "example"),
         scope: "runtime",
-        sourcePath: "/home/me/.config/wanta/agent/oo-store/config/skills/registry/example",
+        sourcePath: path.join(wantaRegistryRoot, "example"),
         status: "installed",
         version: "1.0.0",
       },
@@ -25,9 +30,9 @@ test("buildLocalMachineSkillDeletePlan includes agent hosts and registry sources
         agentName: "Claude Code",
         kind: "registry",
         packageName: "@oomol/example",
-        path: "/home/me/.claude/skills/example",
+        path: path.join(claudeRoot, "example"),
         scope: "external",
-        sourcePath: "/home/me/.config/oo/skills/registry/example",
+        sourcePath: path.join(globalRegistryRoot, "example"),
         status: "installed",
         version: "1.0.0",
       },
@@ -41,10 +46,10 @@ test("buildLocalMachineSkillDeletePlan includes agent hosts and registry sources
   }
 
   const plan = buildLocalMachineSkillDeletePlan({
-    agentSkillRoots: ["/home/me/.agents/skills", "/home/me/.claude/skills"],
-    globalRegistrySkillRoot: "/home/me/.config/oo/skills/registry",
+    agentSkillRoots: [agentRoot, claudeRoot],
+    globalRegistrySkillRoot: globalRegistryRoot,
     group,
-    wantaRegistrySkillRoot: "/home/me/.config/wanta/agent/oo-store/config/skills/registry",
+    wantaRegistrySkillRoot: wantaRegistryRoot,
   })
 
   assert.deepEqual(plan.storeTargets, [
@@ -62,15 +67,18 @@ test("buildLocalMachineSkillDeletePlan includes agent hosts and registry sources
   assert.deepEqual(
     plan.targets.map((target) => `${target.kind}:${path.normalize(target.path)}`).sort(),
     [
-      "agent-host:/home/me/.agents/skills/example",
-      "agent-host:/home/me/.claude/skills/example",
-      "global-registry-source:/home/me/.config/oo/skills/registry/example",
-      "wanta-registry-source:/home/me/.config/wanta/agent/oo-store/config/skills/registry/example",
+      `agent-host:${path.join(agentRoot, "example")}`,
+      `agent-host:${path.join(claudeRoot, "example")}`,
+      `global-registry-source:${path.join(globalRegistryRoot, "example")}`,
+      `wanta-registry-source:${path.join(wantaRegistryRoot, "example")}`,
     ].sort(),
   )
 })
 
 test("buildLocalMachineSkillDeletePlan skips registry store work for local skills", () => {
+  const home = path.resolve("home", "me")
+  const codexRoot = path.join(home, ".codex", "skills")
+  const localSkillPath = path.join(codexRoot, "local-skill")
   const group: ManagedSkillGroup = {
     externalHosts: [],
     hosts: [
@@ -78,7 +86,7 @@ test("buildLocalMachineSkillDeletePlan skips registry store work for local skill
         agentId: "codex",
         agentName: "Codex",
         kind: "local",
-        path: "/home/me/.codex/skills/local-skill",
+        path: localSkillPath,
         scope: "external",
         status: "installed",
       },
@@ -90,17 +98,17 @@ test("buildLocalMachineSkillDeletePlan skips registry store work for local skill
   }
 
   const plan = buildLocalMachineSkillDeletePlan({
-    agentSkillRoots: ["/home/me/.codex/skills"],
-    globalRegistrySkillRoot: "/home/me/.config/oo/skills/registry",
+    agentSkillRoots: [codexRoot],
+    globalRegistrySkillRoot: path.join(home, ".config", "oo", "skills", "registry"),
     group,
-    wantaRegistrySkillRoot: "/home/me/.config/wanta/agent/oo-store/config/skills/registry",
+    wantaRegistrySkillRoot: path.join(home, ".config", "wanta", "agent", "oo-store", "config", "skills", "registry"),
   })
 
   assert.deepEqual(plan.storeTargets, [])
   assert.deepEqual(plan.targets, [
     {
       kind: "agent-host",
-      path: "/home/me/.codex/skills/local-skill",
+      path: localSkillPath,
     },
   ])
 })

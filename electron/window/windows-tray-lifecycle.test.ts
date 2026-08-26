@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest"
+import { branding } from "../branding.ts"
 import { buildWindowsTrayMenuTemplate } from "./windows-tray-lifecycle.ts"
 
 type TrayMenuClick = () => void
@@ -9,7 +10,7 @@ describe("buildWindowsTrayMenuTemplate", () => {
     const onExit = vi.fn()
     const [openItem, exitItem] = buildWindowsTrayMenuTemplate({ onExit, onOpen })
 
-    expect(openItem?.label).toBe("Open Wanta")
+    expect(openItem?.label).toBe(`Open ${branding.appName}`)
     expect(exitItem?.label).toBe("Exit")
 
     expect(openItem?.click).toBeTypeOf("function")
@@ -29,7 +30,7 @@ describe("buildWindowsTrayMenuTemplate", () => {
       onOpen: () => undefined,
     })
 
-    expect(openItem?.label).toBe("打开 Wanta")
+    expect(openItem?.label).toBe(`打开 ${branding.appName}`)
     expect(exitItem?.label).toBe("退出")
   })
 

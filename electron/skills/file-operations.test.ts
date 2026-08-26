@@ -167,7 +167,7 @@ test("removeSkillDirectoryIfSafe rejects symlinks pointing outside allowed roots
   const outside = await mkdtemp(path.join(os.tmpdir(), "wanta-skill-outside-"))
   const outsideSkillPath = await writeRegistrySkill(outside, "example", "@oomol/example")
   const linkPath = path.join(root, "example")
-  await symlink(outsideSkillPath, linkPath)
+  await symlink(outsideSkillPath, linkPath, process.platform === "win32" ? "junction" : undefined)
 
   const result = await removeSkillDirectoryIfSafe({
     allowedRoots: [root],

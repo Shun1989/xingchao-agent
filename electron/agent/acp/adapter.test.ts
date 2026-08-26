@@ -20,6 +20,7 @@ import { agent, PROTOCOL_VERSION, RequestError } from "@agentclientprotocol/sdk"
 import { mkdtemp } from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
+import { pathToFileURL } from "node:url"
 import { afterEach, describe, expect, test, vi } from "vitest"
 import { AGENT_PROFILES } from "../contract/profile.ts"
 import { AcpAgentAdapter } from "./adapter.ts"
@@ -394,8 +395,13 @@ describe("AcpAgentAdapter", () => {
     // agent resolves with its own tools.
     expect(harness.fake.promptRequests[0]!.prompt).toEqual([
       { type: "text", text: "read the notes" },
-      { type: "resource_link", uri: "file:///tmp/notes.md", name: "notes.md", mimeType: "text/markdown" },
-      { type: "resource_link", uri: "file:///tmp/optimized.png", name: "optimized.png", mimeType: "image/png" },
+      { type: "resource_link", uri: pathToFileURL("/tmp/notes.md").href, name: "notes.md", mimeType: "text/markdown" },
+      {
+        type: "resource_link",
+        uri: pathToFileURL("/tmp/optimized.png").href,
+        name: "optimized.png",
+        mimeType: "image/png",
+      },
     ])
   })
 

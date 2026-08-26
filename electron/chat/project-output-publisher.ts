@@ -16,14 +16,23 @@ function pathInside(root: string, candidate: string): boolean {
   return relative !== ".." && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative)
 }
 
-function safeOutputName(value: string, fallback: string): string {
-  const normalized = [...value.normalize("NFC")]
+function normalizedOutputName(value: string): string {
+  return [...value.normalize("NFC")]
     .map((character) => ((character.codePointAt(0) ?? 0) < 32 ? "-" : character))
     .join("")
     .replace(/[<>:"/\\|?*]/gu, "-")
     .replace(/\s+/gu, " ")
     .replace(/[ .]+$/gu, "")
     .trim()
+}
+
+function outputNameRequiresFallback(value: string): boolean {
+  const normalized = normalizedOutputName(value)
+  return !normalized || /^(?:con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\..*)?$/iu.test(normalized)
+}
+
+function safeOutputName(value: string, fallback: string): string {
+  const normalized = normalizedOutputName(value)
   const originalExtension = path.extname(normalized || value)
   const fallbackExtension = path.extname(fallback)
   const fallbackName = fallbackExtension || !originalExtension ? fallback : `${fallback}${originalExtension}`
@@ -195,6 +204,7 @@ async function publishGroups(
 }> {
   const groups = new Map<string, PublishGroup>()
   let failures = 0
+  let fallbackFileIndex = 0
   for (const item of bundle.items) {
     const source = await plainArtifactFile(artifactRoot, item.path)
     if (!source) {
@@ -207,9 +217,12 @@ async function publishGroups(
       failures += 1
       continue
     }
-    const segments = rawSegments.map((segment, index) =>
-      safeOutputName(segment, index === rawSegments.length - 1 ? `output-${groups.size + 1}` : "output"),
-    )
+    const segments = rawSegments.map((segment, index) => {
+      const isFileName = index === rawSegments.length - 1
+      const fallback =
+        isFileName && outputNameRequiresFallback(segment) ? `output-${(fallbackFileIndex += 1)}` : "output"
+      return safeOutputName(segment, fallback)
+    })
     const directoryName = segments.length > 1 ? segments[0] : undefined
     const key = directoryName ? `directory:${directoryName}` : `file:${item.id}`
     const group = groups.get(key) ?? { ...(directoryName ? { directoryName } : {}), items: [] }

@@ -100,7 +100,7 @@ export function getOoPath(env: NodeJS.ProcessEnv = process.env, platform: NodeJS
           "/usr/local/bin",
           "/usr/bin",
           "/bin",
-          homeDirectory ? path.join(homeDirectory, ".local", "bin") : undefined,
+          homeDirectory ? path.posix.join(homeDirectory, ".local", "bin") : undefined,
         ]
 
   return pathParts.filter((part): part is string => Boolean(part)).join(platform === "win32" ? ";" : ":")

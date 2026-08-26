@@ -11,7 +11,7 @@ describe("dev auth state helpers", () => {
       userDataDir: "/tmp/repo/wanta",
     })
 
-    assert.equal(userDataDir, "/tmp/repo/wanta")
+    assert.equal(userDataDir, path.resolve("/tmp/repo/wanta"))
   })
 
   test("resolveDevUserDataDir accepts env-only bootstrap config", async () => {
@@ -21,7 +21,7 @@ describe("dev auth state helpers", () => {
       },
     })
 
-    assert.equal(userDataDir, "/tmp/worktree-user-data")
+    assert.equal(userDataDir, path.resolve("/tmp/worktree-user-data"))
   })
 
   test("inspectAuthState requires both profile and oomol-token cookie marker", async () => {

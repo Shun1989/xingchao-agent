@@ -6,6 +6,12 @@ import { test } from "vitest"
 import { metadataFileName } from "./constants.ts"
 import { readRegistrySkillSourceCandidates, resolveUsableRegistrySkillSourcePath } from "./source.ts"
 
+function canonicalStorePath(homePath: string): string {
+  if (process.platform === "darwin") return path.join(homePath, "Library", "Application Support", "oo")
+  if (process.platform === "win32") return path.join(homePath, "AppData", "Roaming", "oo")
+  return path.join(homePath, ".config", "oo")
+}
+
 async function writeRegistrySkill(rootPath: string, packageName: string): Promise<void> {
   await mkdir(rootPath, { recursive: true })
   await Promise.all([
@@ -29,12 +35,12 @@ test("readRegistrySkillSourceCandidates keeps canonical store as an explicit fal
         env: {},
         homeDirectory: homePath,
         includeCanonicalStore: true,
-        platform: "darwin",
+        platform: process.platform,
         skillId: " gpt-image-2 ",
       }),
       [
         path.join(cacheRoot, "registry", "gpt-image-2"),
-        path.join(homePath, "Library", "Application Support", "oo", "skills", "registry", "gpt-image-2"),
+        path.join(canonicalStorePath(homePath), "skills", "registry", "gpt-image-2"),
       ],
     )
   } finally {
@@ -46,15 +52,7 @@ test("resolveUsableRegistrySkillSourcePath prefers Wanta cache over canonical oo
   const homePath = await mkdtemp(path.join(os.tmpdir(), "wanta-skill-source-prefer-"))
   const cacheRoot = path.join(homePath, "wanta", "skills")
   const isolatedSourcePath = path.join(cacheRoot, "registry", "gpt-image-2")
-  const canonicalSourcePath = path.join(
-    homePath,
-    "Library",
-    "Application Support",
-    "oo",
-    "skills",
-    "registry",
-    "gpt-image-2",
-  )
+  const canonicalSourcePath = path.join(canonicalStorePath(homePath), "skills", "registry", "gpt-image-2")
 
   try {
     await Promise.all([
@@ -69,7 +67,7 @@ test("resolveUsableRegistrySkillSourcePath prefers Wanta cache over canonical oo
         homeDirectory: homePath,
         includeCanonicalStore: true,
         packageName: "@alice/gpt-image-2",
-        platform: "darwin",
+        platform: process.platform,
         skillId: "gpt-image-2",
       }),
       isolatedSourcePath,
@@ -82,15 +80,7 @@ test("resolveUsableRegistrySkillSourcePath prefers Wanta cache over canonical oo
 test("resolveUsableRegistrySkillSourcePath rejects canonical package mismatches", async () => {
   const homePath = await mkdtemp(path.join(os.tmpdir(), "wanta-skill-source-mismatch-"))
   const cacheRoot = path.join(homePath, "wanta", "skills")
-  const canonicalSourcePath = path.join(
-    homePath,
-    "Library",
-    "Application Support",
-    "oo",
-    "skills",
-    "registry",
-    "gpt-image-2",
-  )
+  const canonicalSourcePath = path.join(canonicalStorePath(homePath), "skills", "registry", "gpt-image-2")
 
   try {
     await writeRegistrySkill(canonicalSourcePath, "@bob/gpt-image-2")
@@ -102,7 +92,7 @@ test("resolveUsableRegistrySkillSourcePath rejects canonical package mismatches"
         homeDirectory: homePath,
         includeCanonicalStore: true,
         packageName: "@alice/gpt-image-2",
-        platform: "darwin",
+        platform: process.platform,
         skillId: "gpt-image-2",
       }),
       undefined,

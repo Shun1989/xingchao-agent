@@ -73,7 +73,7 @@ test("LinkRuntimeManager persists only an origin-bound encrypted token with owne
   })
   const file = path.join(dir, "link-runtime.json")
   assert.equal((await readFile(file, "utf8")).includes("runtime-secret"), false)
-  assert.equal((await stat(file)).mode & 0o777, 0o600)
+  assert.equal((await stat(file)).mode & 0o777, process.platform === "win32" ? 0o666 : 0o600)
 })
 
 test("LinkRuntimeManager preserves a token on same-origin edits and requires a replacement for origin changes", async () => {

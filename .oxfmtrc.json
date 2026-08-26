@@ -29,6 +29,7 @@
     "node_modules",
     "release",
     ".electron-dist",
-    ".wanta-dev"
+    ".wanta-dev",
+    "CLAUDE.md"
   ]
 }

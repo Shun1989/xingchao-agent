@@ -320,5 +320,37 @@ test("supports keyboard controls, reduced motion, and system high contrast", asy
   await expect(page.getByRole("button", { name: "一键静音" })).toBeFocused()
   await page.keyboard.press("Space")
   await expect.poll(async () => (await fleetApp.bridge()).speech.cancelCount).toBeGreaterThan(cancellations)
+
+  for (const contentSize of [
+    { width: 1024, height: 640 },
+    { width: 1280, height: 720 },
+    { width: 1440, height: 900 },
+    { width: 1920, height: 1080 },
+    { width: 2560, height: 1440 },
+  ] as const) {
+    expect(await fleetApp.resize(contentSize)).toEqual(contentSize)
+    const layout = await page.evaluate(() => {
+      const host = document.querySelector<HTMLElement>("[data-captain-host]")
+      const root = document.documentElement
+      const hostRect = host?.getBoundingClientRect()
+      return {
+        captainConnected: host?.isConnected ?? false,
+        captainInsideViewport:
+          hostRect !== undefined &&
+          hostRect.left >= 0 &&
+          hostRect.top >= 0 &&
+          hostRect.right <= window.innerWidth &&
+          hostRect.bottom <= window.innerHeight,
+        horizontalOverflow: root.scrollWidth > window.innerWidth,
+        skin: root.dataset.fleetSkin ?? null,
+      }
+    })
+    expect(layout).toEqual({
+      captainConnected: true,
+      captainInsideViewport: true,
+      horizontalOverflow: false,
+      skin: "watchtide",
+    })
+  }
   expectNoRuntimeErrors(fleetApp)
 })

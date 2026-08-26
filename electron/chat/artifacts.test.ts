@@ -1,12 +1,14 @@
+import path from "node:path"
+import { pathToFileURL } from "node:url"
 import { describe, expect, it, vi } from "vitest"
 import { isLikelyUtf8Text, mimeFromFile, mimeFromPath, normalizeLocalPathCandidate } from "./artifacts.ts"
 
 describe("normalizeLocalPathCandidate", () => {
   it("normalizes file URLs and home-relative paths", () => {
-    expect(normalizeLocalPathCandidate("file:///Users/wushuang/Desktop/out.png", "/Users/wushuang")).toBe(
-      "/Users/wushuang/Desktop/out.png",
-    )
-    expect(normalizeLocalPathCandidate("~/Desktop/out.png", "/Users/wushuang")).toBe("/Users/wushuang/Desktop/out.png")
+    const home = path.resolve("test-fixtures", "home")
+    const output = path.join(home, "Desktop", "out.png")
+    expect(normalizeLocalPathCandidate(pathToFileURL(output).href, home)).toBe(output)
+    expect(normalizeLocalPathCandidate("~/Desktop/out.png", home)).toBe(output)
   })
 
   it("rejects non-local paths", () => {
@@ -15,11 +17,12 @@ describe("normalizeLocalPathCandidate", () => {
   })
 
   it("rejects filesystem roots", () => {
-    expect(normalizeLocalPathCandidate("/", "/Users/wushuang")).toBeNull()
-    expect(normalizeLocalPathCandidate("~", "/Users/wushuang")).toBeNull()
-    expect(normalizeLocalPathCandidate("~/", "/Users/wushuang")).toBeNull()
-    expect(normalizeLocalPathCandidate("file:///", "/Users/wushuang")).toBeNull()
-    expect(normalizeLocalPathCandidate("C:\\", "/Users/wushuang")).toBeNull()
+    const home = path.resolve("test-fixtures", "home")
+    const root = path.parse(home).root
+    expect(normalizeLocalPathCandidate(root, home)).toBeNull()
+    expect(normalizeLocalPathCandidate("~", home)).toBeNull()
+    expect(normalizeLocalPathCandidate("~/", home)).toBeNull()
+    expect(normalizeLocalPathCandidate(pathToFileURL(root).href, home)).toBeNull()
   })
 })
 

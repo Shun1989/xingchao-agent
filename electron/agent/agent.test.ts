@@ -537,11 +537,12 @@ test("system prompt treats Link as a contextual capability, not the default path
 })
 
 test("buildAgentLinkEnv injects the required OOMOL OO_* control vars (R3)", () => {
+  const storeDir = path.resolve("/tmp/store")
   const env = buildAgentLinkEnv({
     linkRuntime: { kind: "oomol", sessionToken: "api-x" },
     teamName: "acme-corp",
     teamScopePath: "/tmp/scope.json",
-    storeDir: "/tmp/store",
+    storeDir,
     ooBinPath: "/usr/bin/oo",
   })
   assert.equal(env.OO_API_KEY, "api-x")
@@ -550,9 +551,9 @@ test("buildAgentLinkEnv injects the required OOMOL OO_* control vars (R3)", () =
   assert.equal(env.OO_NO_SELF_UPDATE, "1")
   assert.equal(env.OO_TELEMETRY_DISABLED, "1")
   assert.equal(env.OO_LOG_LEVEL, "warn")
-  assert.ok(env.OO_CONFIG_DIR.endsWith("/store/config"))
-  assert.ok(env.OO_DATA_DIR.endsWith("/store/data"))
-  assert.ok(env.OO_LOG_DIR.endsWith("/store/log"))
+  assert.equal(env.OO_CONFIG_DIR, path.join(storeDir, "config"))
+  assert.equal(env.OO_DATA_DIR, path.join(storeDir, "data"))
+  assert.equal(env.OO_LOG_DIR, path.join(storeDir, "log"))
   assert.equal(env.WANTA_CONSOLE_URL, `https://console.${ooEndpoint}`)
   assert.equal(env.WANTA_OO_BIN, "/usr/bin/oo")
   assert.equal(env.WANTA_TEAM_NAME, "acme-corp")

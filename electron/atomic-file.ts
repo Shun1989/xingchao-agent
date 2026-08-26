@@ -6,12 +6,29 @@ export interface AtomicWriteTextOptions {
   mode?: number
 }
 
+// Windows does not guarantee that concurrent rename-over-existing operations
+// to the same path can all succeed. Serialize only identical target paths;
+// unrelated stores continue writing in parallel.
+const writeQueues = new Map<string, Promise<void>>()
+
 /** 统一异步文本文件的同目录临时写入、原子替换和失败清理。 */
-export async function atomicWriteText(
+export function atomicWriteText(
   filePath: string,
   content: string,
   options: AtomicWriteTextOptions = {},
 ): Promise<void> {
+  const queueKey = path.resolve(filePath)
+  const previous = writeQueues.get(queueKey) ?? Promise.resolve()
+  const current = previous.catch(() => undefined).then(() => writeTextAtomically(filePath, content, options))
+  writeQueues.set(queueKey, current)
+  return current.finally(() => {
+    if (writeQueues.get(queueKey) === current) {
+      writeQueues.delete(queueKey)
+    }
+  })
+}
+
+async function writeTextAtomically(filePath: string, content: string, options: AtomicWriteTextOptions): Promise<void> {
   await mkdir(path.dirname(filePath), { recursive: true })
   const temporaryPath = `${filePath}.tmp-${process.pid}-${randomUUID()}`
   try {

@@ -288,8 +288,9 @@ test("ModelsStore persists credential metadata while public catalog and models.j
     supportsImages: false,
     supportsToolCalls: true,
   })
-  assert.equal(statSync(path.join(dir, "models.json")).mode & 0o777, 0o600)
-  assert.equal(statSync(path.join(dir, "model-credentials.json")).mode & 0o777, 0o600)
+  const privateFileMode = process.platform === "win32" ? 0o666 : 0o600
+  assert.equal(statSync(path.join(dir, "models.json")).mode & 0o777, privateFileMode)
+  assert.equal(statSync(path.join(dir, "model-credentials.json")).mode & 0o777, privateFileMode)
   assert.equal(readFileSync(path.join(dir, "models.json"), "utf8").includes("sk-secret"), false)
   assert.equal(readFileSync(path.join(dir, "models.json"), "utf8").includes("must-never-be-written"), false)
   assert.equal(readFileSync(path.join(dir, "model-credentials.json"), "utf8").includes("sk-secret"), false)

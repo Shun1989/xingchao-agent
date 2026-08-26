@@ -5,7 +5,7 @@ import path from "node:path"
 import { test } from "vitest"
 import { isProjectReadOnlyCommandRequest } from "./project-read-command.ts"
 
-const root = "/Users/example/code/wanta"
+const root = path.resolve("test-fixtures", "wanta").replace(/\\/g, "/")
 
 function permission(command: string): ChatPermissionRequest {
   return {
@@ -19,9 +19,12 @@ function permission(command: string): ChatPermissionRequest {
 
 test("project read-only command allows common project inspection commands", () => {
   assert.equal(isProjectReadOnlyCommandRequest(permission(`ls -la ${root}`), root), true)
-  assert.equal(isProjectReadOnlyCommandRequest(permission(`rg "permissionMode" ${path.join(root, "src")}`), root), true)
   assert.equal(
-    isProjectReadOnlyCommandRequest(permission(`sed -n '1,80p' ${path.join(root, "package.json")}`), root),
+    isProjectReadOnlyCommandRequest(permission(`rg "permissionMode" ${path.posix.join(root, "src")}`), root),
+    true,
+  )
+  assert.equal(
+    isProjectReadOnlyCommandRequest(permission(`sed -n '1,80p' ${path.posix.join(root, "package.json")}`), root),
     true,
   )
   assert.equal(isProjectReadOnlyCommandRequest(permission(`find ${root} -maxdepth 2 -type f`), root), true)
@@ -37,26 +40,29 @@ test("project read-only command rejects paths outside the trusted project", () =
 })
 
 test("project read-only command rejects sensitive files inside the trusted project", () => {
-  assert.equal(isProjectReadOnlyCommandRequest(permission(`cat ${path.join(root, ".env")}`), root), false)
-  assert.equal(isProjectReadOnlyCommandRequest(permission(`cat ${path.join(root, ".envrc")}`), root), false)
-  assert.equal(isProjectReadOnlyCommandRequest(permission(`cat ${path.join(root, ".npmrc")}`), root), false)
-  assert.equal(isProjectReadOnlyCommandRequest(permission(`cat ${path.join(root, "credentials.json")}`), root), false)
+  assert.equal(isProjectReadOnlyCommandRequest(permission(`cat ${path.posix.join(root, ".env")}`), root), false)
+  assert.equal(isProjectReadOnlyCommandRequest(permission(`cat ${path.posix.join(root, ".envrc")}`), root), false)
+  assert.equal(isProjectReadOnlyCommandRequest(permission(`cat ${path.posix.join(root, ".npmrc")}`), root), false)
   assert.equal(
-    isProjectReadOnlyCommandRequest(permission(`cat ${path.join(root, "service-account.json")}`), root),
+    isProjectReadOnlyCommandRequest(permission(`cat ${path.posix.join(root, "credentials.json")}`), root),
     false,
   )
-  assert.equal(isProjectReadOnlyCommandRequest(permission(`ls ${path.join(root, ".ssh")}`), root), false)
+  assert.equal(
+    isProjectReadOnlyCommandRequest(permission(`cat ${path.posix.join(root, "service-account.json")}`), root),
+    false,
+  )
+  assert.equal(isProjectReadOnlyCommandRequest(permission(`ls ${path.posix.join(root, ".ssh")}`), root), false)
 })
 
 test("project read-only command rejects shell composition and write-capable forms", () => {
   assert.equal(
-    isProjectReadOnlyCommandRequest(permission(`cat ${path.join(root, "package.json")} > /tmp/out`), root),
+    isProjectReadOnlyCommandRequest(permission(`cat ${path.posix.join(root, "package.json")} > /tmp/out`), root),
     false,
   )
   assert.equal(isProjectReadOnlyCommandRequest(permission(`rg todo ${root} && rm -rf /tmp/x`), root), false)
   assert.equal(isProjectReadOnlyCommandRequest(permission(`find ${root} -delete`), root), false)
   assert.equal(
-    isProjectReadOnlyCommandRequest(permission(`sed -i 's/a/b/' ${path.join(root, "package.json")}`), root),
+    isProjectReadOnlyCommandRequest(permission(`sed -i 's/a/b/' ${path.posix.join(root, "package.json")}`), root),
     false,
   )
   assert.equal(isProjectReadOnlyCommandRequest(permission(`git -C ${root} branch new-branch`), root), false)

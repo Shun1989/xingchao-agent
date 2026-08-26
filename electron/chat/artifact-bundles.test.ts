@@ -765,14 +765,20 @@ test("artifact session recovery ignores symlinks and roots outside the captured 
     const sessionRoot = path.join(root, "session-1")
     const oldTurn = path.join(sessionRoot, "old-turn")
     const currentTurn = path.join(sessionRoot, "current-turn")
-    const outside = path.join(root, "outside.pdf")
+    const outsideDirectory = path.join(root, "outside")
+    const outside = path.join(outsideDirectory, "outside.pdf")
     await mkdir(oldTurn, { recursive: true })
     await mkdir(currentTurn)
+    await mkdir(outsideDirectory)
     await writeFile(outside, "outside")
 
     const baseline = await captureArtifactSessionBaseline(sessionRoot, currentTurn)
     assert.ok(baseline)
-    await symlink(outside, path.join(oldTurn, "linked.pdf"))
+    if (process.platform === "win32") {
+      await symlink(outsideDirectory, path.join(oldTurn, "linked"), "junction")
+    } else {
+      await symlink(outside, path.join(oldTurn, "linked.pdf"))
+    }
 
     const origins = await recoverMisplacedTurnArtifacts(baseline, currentTurn)
 

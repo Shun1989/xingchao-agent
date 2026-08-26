@@ -11,7 +11,7 @@ import {
   requestMatchesProjectDevCommandSessionGrant,
 } from "./project-dev-command.ts"
 
-const root = "/Users/example/code/wanta"
+const root = path.resolve("test-fixtures", "wanta").replace(/\\/g, "/")
 
 function permission(command: string): ChatPermissionRequest {
   return {
@@ -55,7 +55,10 @@ test("project dev command rejects unrelated, mutating, or unsafe commands", () =
   assert.equal(isProjectDevCommandRequest(permission(`npm --prefix /tmp run lint`), root), false)
   assert.equal(isProjectDevCommandRequest(permission("pytest /tmp/tests"), root), false)
   assert.equal(isProjectDevCommandRequest(permission("pytest --env-file .env"), root), false)
-  assert.equal(isProjectDevCommandRequest(permission(`npm run lint -- ${path.join(root, ".npmrc")}`), root), false)
+  assert.equal(
+    isProjectDevCommandRequest(permission(`npm run lint -- ${path.posix.join(root, ".npmrc")}`), root),
+    false,
+  )
 })
 
 test("project dev command grants match related project dev commands in the same chat", () => {

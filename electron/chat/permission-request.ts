@@ -422,7 +422,11 @@ export function managedPythonDependencyInstall(
   processRoot?: string,
 ): ManagedPythonDependencyInstall | null {
   const allowedExecutables = processRoot
-    ? new Set(managedPythonExecutables(processRoot).map(normalizedExecutable))
+    ? new Set(
+        (["win32", "linux"] as const)
+          .flatMap((platform) => managedPythonExecutables(processRoot, platform))
+          .map(normalizedExecutable),
+      )
     : undefined
   return scopedPythonDependencyInstall(
     request,
@@ -449,7 +453,14 @@ export function isProjectScopedPythonDependencyInstallRequest(
   request: ChatPermissionRequest,
   projectRoot: string,
 ): boolean {
-  const allowedExecutables = new Set(projectPythonExecutables(projectRoot).map(normalizedExecutable))
+  // Agent commands may be emitted for PowerShell/cmd or Git Bash/MSYS on the
+  // same Windows host. Accept both conventional venv layouts, while keeping
+  // every executable bounded to the selected project's .venv/venv directory.
+  const allowedExecutables = new Set(
+    (["win32", "linux"] as const)
+      .flatMap((platform) => projectPythonExecutables(projectRoot, platform))
+      .map(normalizedExecutable),
+  )
   return Boolean(
     scopedPythonDependencyInstall(
       request,

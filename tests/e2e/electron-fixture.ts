@@ -43,6 +43,10 @@ export interface FleetElectronApp {
   page(): Page
   bridge(): Promise<FleetE2EBridgeSnapshot>
   diagnostics(): FleetE2EDiagnostics
+  resize(contentSize: { readonly height: number; readonly width: number }): Promise<{
+    readonly height: number
+    readonly width: number
+  }>
   restart(options?: Omit<AcceptancePageOptions, "clearStorage">): Promise<Page>
 }
 
@@ -305,9 +309,14 @@ export const test = base.extend<FleetFixtures, FleetWorkerFixtures>({
     }
 
     const launch = async (options: Required<AcceptancePageOptions>): Promise<Page> => {
+      // Windows CI/automation sessions on this host cannot initialize Chromium's sandboxed
+      // child processes (the GPU process exits with STATUS_DLL_NOT_FOUND, then Electron aborts
+      // with 0x80000003). Keep the production entry point unchanged and scope the fallback to
+      // this isolated acceptance harness; macOS/Linux continue exercising the sandboxed launch.
+      const launchArgs = process.platform === "win32" ? ["--no-sandbox", mainScript] : [mainScript]
       electronApp = await electron.launch({
         executablePath: path.join(repositoryRoot, ".electron-dist/electron.exe"),
-        args: [mainScript],
+        args: launchArgs,
         cwd: repositoryRoot,
         env: {
           ...process.env,
@@ -398,6 +407,19 @@ export const test = base.extend<FleetFixtures, FleetWorkerFixtures>({
         remoteRequests: [...diagnostics.remoteRequests],
         rendererCrashes: [...diagnostics.rendererCrashes],
       }),
+      resize: async (contentSize) => {
+        await electronApp.evaluate(({ BrowserWindow }, size) => {
+          const [window] = BrowserWindow.getAllWindows()
+          if (!window) throw new Error("Fleet E2E window is missing")
+          window.setContentSize(size.width, size.height)
+        }, contentSize)
+        if (activePage === undefined) throw new Error("Fleet E2E page is not active")
+        await activePage.waitForFunction(
+          (size) => window.innerWidth === size.width && window.innerHeight === size.height,
+          contentSize,
+        )
+        return activePage.evaluate(() => ({ height: window.innerHeight, width: window.innerWidth }))
+      },
       restart: async (options = {}) => {
         await closeActiveApp()
         return launch(defaults({ ...options, clearStorage: false }))

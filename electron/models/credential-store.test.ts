@@ -23,7 +23,7 @@ test("ModelCredentialStore persists only encrypted API keys with owner-only perm
   assert.equal(await store.get("model-1"), "sk-secret")
   const file = path.join(dir, "model-credentials.json")
   assert.equal((await readFile(file, "utf8")).includes("sk-secret"), false)
-  assert.equal((await stat(file)).mode & 0o777, 0o600)
+  assert.equal((await stat(file)).mode & 0o777, process.platform === "win32" ? 0o666 : 0o600)
 })
 
 test("ModelCredentialStore deletes only the requested credential", async () => {

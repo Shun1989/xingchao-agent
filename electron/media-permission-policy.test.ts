@@ -1,3 +1,5 @@
+import path from "node:path"
+import { pathToFileURL } from "node:url"
 import { describe, expect, it } from "vitest"
 import { isAudioOnlyMediaRequest, isTrustedRendererUrl } from "./media-permission-policy.ts"
 
@@ -22,12 +24,25 @@ describe("isTrustedRendererUrl", () => {
   })
 
   it("allows only files inside the packaged renderer directory", () => {
-    expect(isTrustedRendererUrl("file:///app/dist/index.html", undefined, "file:///app/dist/")).toBe(true)
-    expect(isTrustedRendererUrl("file:///app/dist/assets/app.js", undefined, "file:///app/dist/")).toBe(true)
-    expect(isTrustedRendererUrl("file:///tmp/untrusted.html", undefined, "file:///app/dist/")).toBe(false)
-    expect(isTrustedRendererUrl("file:///app/dist/../untrusted.html", undefined, "file:///app/dist/")).toBe(false)
-    expect(isTrustedRendererUrl("file:///app/dist/%2e%2e/untrusted.html", undefined, "file:///app/dist/")).toBe(false)
-    expect(isTrustedRendererUrl("https://example.test/index.html", undefined, "file:///app/dist/")).toBe(false)
-    expect(isTrustedRendererUrl(undefined, undefined, "file:///app/dist/")).toBe(false)
+    const rendererDirectory = path.resolve("app", "dist")
+    const rendererBaseUrl = pathToFileURL(`${rendererDirectory}${path.sep}`).href
+    expect(
+      isTrustedRendererUrl(pathToFileURL(path.join(rendererDirectory, "index.html")).href, undefined, rendererBaseUrl),
+    ).toBe(true)
+    expect(
+      isTrustedRendererUrl(
+        pathToFileURL(path.join(rendererDirectory, "assets", "app.js")).href,
+        undefined,
+        rendererBaseUrl,
+      ),
+    ).toBe(true)
+    expect(
+      isTrustedRendererUrl(pathToFileURL(path.resolve("tmp", "untrusted.html")).href, undefined, rendererBaseUrl),
+    ).toBe(false)
+    expect(isTrustedRendererUrl(new URL("../untrusted.html", rendererBaseUrl).href, undefined, rendererBaseUrl)).toBe(
+      false,
+    )
+    expect(isTrustedRendererUrl("https://example.test/index.html", undefined, rendererBaseUrl)).toBe(false)
+    expect(isTrustedRendererUrl(undefined, undefined, rendererBaseUrl)).toBe(false)
   })
 })

@@ -21,13 +21,13 @@ test("mergePathValues preserves priority while removing empty and duplicate entr
 
 test("resolveUserCommandPath puts Wanta binaries before the login shell and fallback paths", async () => {
   const result = await resolveUserCommandPath({
-    env: { HOME: "/Users/test", PATH: ["/usr/bin", "/bin"].join(path.delimiter), SHELL: "/bin/zsh" },
+    env: { HOME: "/Users/test", PATH: ["/usr/bin", "/bin"].join(":"), SHELL: "/bin/zsh" },
     platform: "darwin",
     preferredDirectories: ["/Applications/Wanta.app/Contents/Resources/bin"],
-    shellPathReader: async () => ["/opt/homebrew/bin", "/usr/bin"].join(path.delimiter),
+    shellPathReader: async () => ["/opt/homebrew/bin", "/usr/bin"].join(":"),
   })
 
-  assert.deepEqual(result.split(path.delimiter), [
+  assert.deepEqual(result.split(":"), [
     "/Applications/Wanta.app/Contents/Resources/bin",
     "/opt/homebrew/bin",
     "/usr/bin",
@@ -45,7 +45,7 @@ test("resolveUserCommandPath falls back without blocking when login shell PATH i
     shellPathReader: async () => undefined,
   })
 
-  assert.deepEqual(result.split(path.delimiter), [
+  assert.deepEqual(result.split(":"), [
     "/wanta/bin",
     "/usr/bin",
     "/opt/homebrew/bin",

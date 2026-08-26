@@ -61,9 +61,14 @@ const test = base.extend<VisualFixtures, VisualWorkerFixtures>({
   electronApp: [
     // eslint-disable-next-line no-empty-pattern -- Playwright fixture factories require object destructuring.
     async ({}, fixtureUse) => {
+      const mainScript = path.join(visualTestDirectory, "electron-main.cjs")
+      // Windows automation sessions on this host cannot initialize Chromium's
+      // sandboxed child processes and Electron aborts with 0x80000003. This is
+      // isolated to the local visual harness; production launch stays unchanged.
+      const launchArgs = process.platform === "win32" ? ["--no-sandbox", mainScript] : [mainScript]
       const electronApp = await electron.launch({
         executablePath: path.join(repositoryRoot, ".electron-dist/electron.exe"),
-        args: [path.join(visualTestDirectory, "electron-main.cjs")],
+        args: launchArgs,
         cwd: repositoryRoot,
         env: {
           ...process.env,

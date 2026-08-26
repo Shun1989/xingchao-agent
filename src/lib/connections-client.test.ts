@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
+import { branding } from "../../electron/branding.ts"
 import {
   clearConnectorCache,
   connectProvider,
@@ -229,7 +230,7 @@ describe("connections-client", () => {
     await startOAuthConnect({ authType: "oauth2", service: "figma" }, { teamName: "team-name" })
 
     const body = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))
-    expect(body.returnUri).toBe(`${consoleBaseUrl}/app-connections/callback?protocol=wanta-local`)
+    expect(body.returnUri).toBe(`${consoleBaseUrl}/app-connections/callback?protocol=${branding.devProtocolScheme}`)
   })
 
   it("passes OAuth connect-only fields to the connector", async () => {

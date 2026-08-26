@@ -32,6 +32,6 @@ test("allowed skill roots and documents resolve to canonical paths", async () =>
 test("symlinks cannot escape an allowed skill root", async () => {
   const { allowed, outside } = await fixture()
   const link = path.join(allowed, "escape")
-  await symlink(outside, link)
+  await symlink(outside, link, process.platform === "win32" ? "junction" : undefined)
   await assert.rejects(resolveAllowedSkillPath(path.join(link, "secret.txt"), [allowed]), /not allowed/u)
 })

@@ -3526,13 +3526,14 @@ test("always permission replies propagate grants to active task subagents", asyn
 test("direct managed Python dependencies are approved automatically in the active turn environment", async () => {
   const bridge = createBridgeAgent()
   const processRoot = path.join(os.tmpdir(), "wanta-python-task-1")
+  const shellProcessRoot = processRoot.replace(/\\/g, "/")
   bridge.createProcessDir.mockResolvedValue(processRoot)
   const service = new ChatServiceImpl(bridge.agent)
   const events = captureServiceEvents(service)
   service.startEventBridge()
   await service.sendMessage({ scope: testTeamScope, sessionId: "session-1", text: "Create a spreadsheet" })
 
-  const command = `${processRoot}/.wanta-python/bin/python -m pip install --upgrade 'pandas>=2' openpyxl`
+  const command = `${shellProcessRoot}/.wanta-python/bin/python -m pip install --upgrade 'pandas>=2' openpyxl`
   bridge.emit({
     type: "permission.v2.asked",
     properties: {
@@ -3552,6 +3553,7 @@ test("direct managed Python dependencies are approved automatically in the activ
 test("task Python environment bootstrap and dependency install are approved as one bounded operation", async () => {
   const bridge = createBridgeAgent()
   const processRoot = path.join(os.tmpdir(), "wanta-python-bootstrap-task")
+  const shellProcessRoot = processRoot.replace(/\\/g, "/")
   bridge.createProcessDir.mockResolvedValue(processRoot)
   const service = new ChatServiceImpl(bridge.agent)
   const events = captureServiceEvents(service)
@@ -3559,8 +3561,8 @@ test("task Python environment bootstrap and dependency install are approved as o
   await service.sendMessage({ scope: testTeamScope, sessionId: "session-1", text: "Create a Word document" })
 
   const command =
-    `python3 -m venv "${processRoot}/.wanta-python" && ` +
-    `"${processRoot}/.wanta-python/bin/python" -m pip install python-docx 2>&1`
+    `python3 -m venv "${shellProcessRoot}/.wanta-python" && ` +
+    `"${shellProcessRoot}/.wanta-python/bin/python" -m pip install python-docx 2>&1`
   bridge.emit({
     type: "permission.v2.asked",
     properties: {
@@ -3580,6 +3582,7 @@ test("task Python environment bootstrap and dependency install are approved as o
 test("task-scoped dependencies inherit the parent process boundary in task subagents", async () => {
   const bridge = createBridgeAgent()
   const processRoot = path.join(os.tmpdir(), "wanta-python-parent-task")
+  const shellProcessRoot = processRoot.replace(/\\/g, "/")
   bridge.createProcessDir.mockResolvedValue(processRoot)
   const service = new ChatServiceImpl(bridge.agent)
   const events = captureServiceEvents(service)
@@ -3604,7 +3607,7 @@ test("task-scoped dependencies inherit the parent process boundary in task subag
     },
   })
 
-  const command = `${processRoot}/.wanta-python/bin/python -m pip install pypdf reportlab`
+  const command = `${shellProcessRoot}/.wanta-python/bin/python -m pip install pypdf reportlab`
   bridge.emit({
     type: "permission.v2.asked",
     properties: {
@@ -3624,13 +3627,14 @@ test("task-scoped dependencies inherit the parent process boundary in task subag
 test("managed Python dependency approval does not depend on package popularity", async () => {
   const bridge = createBridgeAgent()
   const processRoot = path.join(os.tmpdir(), "wanta-python-task-1")
+  const shellProcessRoot = processRoot.replace(/\\/g, "/")
   bridge.createProcessDir.mockResolvedValue(processRoot)
   const service = new ChatServiceImpl(bridge.agent)
   const events = captureServiceEvents(service)
   service.startEventBridge()
   await service.sendMessage({ scope: testTeamScope, sessionId: "session-1", text: "Create a spreadsheet" })
 
-  const command = `${processRoot}/.wanta-python/bin/python -m pip install pendulum`
+  const command = `${shellProcessRoot}/.wanta-python/bin/python -m pip install pendulum`
   bridge.emit({
     type: "permission.v2.asked",
     properties: {
@@ -3805,6 +3809,7 @@ test("bounded Python dependencies are approved automatically in the selected pro
 test("browser libraries are approved automatically in the active PDF task directory", async () => {
   const bridge = createBridgeAgent()
   const processRoot = path.join(os.tmpdir(), "Wanta PDF Task", "process-1")
+  const shellProcessRoot = processRoot.replace(/\\/g, "/")
   bridge.createProcessDir.mockResolvedValue(processRoot)
   const service = new ChatServiceImpl(bridge.agent)
   const events = captureServiceEvents(service)
@@ -3812,8 +3817,8 @@ test("browser libraries are approved automatically in the active PDF task direct
   await service.sendMessage({ scope: testTeamScope, sessionId: "session-1", text: "Create a PDF report" })
 
   const commands = [
-    `cd "${processRoot}" && npm install puppeteer-core 2>&1 | tail -5`,
-    `cd "${processRoot}" && npm install playwright puppeteer canvas --unknown-option 2>&1 | tail -5`,
+    `cd "${shellProcessRoot}" && npm install puppeteer-core 2>&1 | tail -5`,
+    `cd "${shellProcessRoot}" && npm install playwright puppeteer canvas --unknown-option 2>&1 | tail -5`,
   ]
   for (const [index, command] of commands.entries()) {
     bridge.emit({
