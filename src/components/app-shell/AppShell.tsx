@@ -57,6 +57,8 @@ import { AppShellMainTitlebar } from "./AppShellMainTitlebar.tsx"
 import { AppShellNavigationSidebar } from "./AppShellNavigationSidebar.tsx"
 import { AppShellRightPanel } from "./AppShellRightPanel.tsx"
 import { AppShellSessionProjectDialogs } from "./AppShellSessionProjectDialogs.tsx"
+import { CaptainAppShellRouteContinuity } from "./CaptainAppShellRouteContinuity.tsx"
+import { CaptainAppShellSurface } from "./CaptainAppShellSurface.tsx"
 import {
   DEFAULT_COMPOSER_AGENT_KIND,
   readStoredAgentComposerPrefs,
@@ -78,8 +80,6 @@ import { useArtifactsPanelState } from "./use-artifacts-panel-state.ts"
 import { useBrowserDownloadNotifications } from "./use-browser-download-notifications.ts"
 import { useBrowserPanelState } from "./use-browser-panel-state.ts"
 import { useChatConnectionRetry } from "./use-chat-connection-retry.ts"
-import { CaptainAppShellSurface } from "./CaptainAppShellSurface.tsx"
-import { createCaptainLifecycleSource } from "./useCaptainAppEvents.ts"
 import { useChatQueueState } from "./use-chat-queue-state.ts"
 import { useComposerNavigation } from "./use-composer-navigation.ts"
 import { useComposerSubmission } from "./use-composer-submission.ts"
@@ -90,6 +90,7 @@ import { useSessionTitleGeneration } from "./use-session-title-generation.ts"
 import { useSidebarChromeState } from "./use-sidebar-chrome-state.ts"
 import { useUpdateReadyToast } from "./use-update-ready-toast.ts"
 import { useWorkspaceActivation } from "./use-workspace-activation.ts"
+import { createCaptainLifecycleSource } from "./useCaptainAppEvents.ts"
 import { ProjectContextBar } from "@/components/app-shell/ProjectContextBar"
 import { useAttentionService, useBrowserService, useChatService } from "@/components/AppContext"
 import { useSkillInventoryResource } from "@/components/AppDataHooks"
@@ -2050,48 +2051,35 @@ export function AppShell({ auth }: { auth: UseAuth }) {
   )
   const captainModalOpen = Boolean(
     tasksDialogOpen ||
-      searchOpen ||
-      sessionActions.archiveTarget ||
-      sessionActions.renameTarget ||
-      projectActions.archiveTarget ||
-      projectActions.removeTarget ||
-      projectActions.renameTarget,
+    searchOpen ||
+    sessionActions.archiveTarget ||
+    sessionActions.renameTarget ||
+    projectActions.archiveTarget ||
+    projectActions.removeTarget ||
+    projectActions.renameTarget,
   )
-  const renderCaptainSurface = (children: React.ReactNode) => (
-    <CaptainAppShellSurface
-      activeProject={activeProject !== undefined}
-      activeSessionId={activeChatSessionId}
-      activeTask={captainActiveTask}
-      chatIsEmpty={captainChatIsEmpty}
-      eventInput={{
-        route,
-        activeSessionId: activeChatSessionId,
-        displayedStatus,
-        agentStatus,
-        pendingPermissions,
-        activity,
-        error,
-      }}
-      lifecycleSource={captainLifecycleSource}
-      modalOpen={captainModalOpen}
-      route={route}
-    >
-      {children}
-    </CaptainAppShellSurface>
-  )
-
-  if (route === "settings") {
-    return renderCaptainSurface(
-      <React.Suspense fallback={<RouteLoadingFallback />}>
-        <SettingsRoute
-          linkRuntime={linkRuntime}
-          update={appUpdate}
-          titlebarActions={<AppUpdateTitlebarEntry update={appUpdate} />}
-          onBack={() => setRoute("chat")}
-        />
-      </React.Suspense>,
-    )
+  const captainEventInput = {
+    route,
+    activeSessionId: activeChatSessionId,
+    displayedStatus,
+    agentStatus,
+    pendingPermissions,
+    activity,
+    error,
   }
+  const captainSurfaceProps = {
+    activeProject: activeProject !== undefined,
+    activeSessionId: activeChatSessionId,
+    activeTask: captainActiveTask,
+    chatIsEmpty: captainChatIsEmpty,
+    eventInput: captainEventInput,
+    lifecycleSource: captainLifecycleSource,
+    modalOpen: captainModalOpen,
+    route,
+  }
+  const renderCaptainSurface = (children: React.ReactNode) => (
+    <CaptainAppShellSurface {...captainSurfaceProps}>{children}</CaptainAppShellSurface>
+  )
 
   if (route === "billing" && oomolEnabled) {
     return renderCaptainSurface(
@@ -2125,359 +2113,374 @@ export function AppShell({ auth }: { auth: UseAuth }) {
     )
   }
 
-  return renderCaptainSurface(
-    <div
-      ref={appChromeRef}
-      data-captain-content
-      data-fleet-skin={globalThis.document?.documentElement.dataset.fleetSkin}
-      className={cn(
-        "oo-app-chrome grid h-full text-foreground",
-        sidebarCollapsed && "oo-sidebar-collapsed",
-        isSidebarRestoring && "oo-sidebar-restoring",
-        isSidebarResizing && "oo-sidebar-resizing",
-        isArtifactsPanelResizing && "oo-artifacts-panel-resizing",
-      )}
-      style={{ "--sidebar-width": `${sidebarWidth}px` } as React.CSSProperties}
-    >
-      <div className="oo-fleet-scene" aria-hidden="true">
-        <div className="oo-fleet-scene-backdrop" />
-        <div className="oo-fleet-scene-scrim" />
-        <div className="oo-fleet-scene-foreground" />
-      </div>
-
-      <AppShellNavigationSidebar
-        account={auth.state?.account}
-        authenticated={authenticated}
-        activeRoute={route}
-        selectedSessionId={selectedSessionId}
-        cloudEnabled={oomolEnabled}
-        collapsed={sidebarCollapsed}
-        collapsedProjectIds={collapsedProjectIds}
-        hasUnreadSession={hasUnreadSession}
-        hasUnreadTeam={hasUnreadTeam}
-        hasUnreadTeams={hasUnreadTeams}
-        isSessionRunning={isSessionRunning}
-        loggingOut={auth.loggingOut}
-        loggingIn={auth.loggingIn}
-        newChatLabel={newChatLabel}
-        projectPinnedGroups={projectPinnedGroups}
-        projectPinnedSessions={projectPinnedSessions}
-        projectRegularGroups={projectRegularGroups}
-        projectSessions={visibleProjectSessions}
-        projectSidebarGroups={projectSidebarGroups}
-        restoring={isSidebarRestoring}
-        sessionsError={sessionsError}
-        showKnowledge={knowledgeBaseBetaEnabled}
-        sidebarSegment={sidebarSegment}
-        sidebarSessionGroups={sidebarSessionGroups}
-        taskSessions={visibleTaskSessions}
-        width={sidebarWidth}
-        workspace={teamWorkspace}
-        workspaceSwitching={workspaceNavigationSwitching}
-        onArchiveProjectRequest={projectActions.requestArchive}
-        onArchiveSessionRequest={sessionActions.requestArchive}
-        onLogout={auth.logout}
-        onLogin={() => void auth.login()}
-        onManageTasks={() => setTasksDialogOpen(true)}
-        onNavigate={setRoute}
-        onNewSession={handleNewSessionWithKnowledgeReset}
-        onOpenConnections={handleOpenConnectionsCommand}
-        onOpenSearch={handleOpenSearch}
-        onPinProject={projectActions.handlePin}
-        onPinSession={sessionActions.handlePin}
-        onProjectExpandedChange={handleProjectSidebarExpandedChange}
-        onRemoveProjectRequest={projectActions.requestRemove}
-        onRenameProjectRequest={projectActions.requestRename}
-        onWorkspaceSwitchStart={handleWorkspaceSwitchStart}
-        onRenameSessionRequest={sessionActions.requestRename}
-        onSelectProjectDraft={handleOpenProjectDraft}
-        onSelectProjectFolder={handleSelectProjectFolder}
-        onSelectSession={handleSelectSession}
-        onSetSidebarSegment={setSidebarSegment}
-        onSetTaskSortMode={setTaskSortMode}
-        onShowProjectInFolder={projectActions.handleShowInFolder}
-        onSidebarResizeKeyDown={handleSidebarResizeKeyDown}
-        onSidebarResizeStart={handleSidebarResizeStart}
-        onToggleSidebar={handleToggleSidebar}
-        taskSortMode={taskSortMode}
-      />
-
-      {/* 右：主区（顶部工具条 + 内容） */}
-      <div className="oo-app-workspace flex min-h-0 min-w-0 overflow-hidden">
+  return (
+    <CaptainAppShellRouteContinuity
+      {...captainSurfaceProps}
+      settingsChildren={
+        <React.Suspense fallback={<RouteLoadingFallback />}>
+          <SettingsRoute
+            linkRuntime={linkRuntime}
+            update={appUpdate}
+            titlebarActions={<AppUpdateTitlebarEntry update={appUpdate} />}
+            onBack={() => setRoute("chat")}
+          />
+        </React.Suspense>
+      }
+      workspaceChildren={
         <div
+          ref={appChromeRef}
+          data-captain-content
+          data-fleet-skin={globalThis.document?.documentElement.dataset.fleetSkin}
           className={cn(
-            "grid min-w-0 flex-1 grid-rows-[var(--app-titlebar-height)_minmax(0,1fr)] overflow-hidden",
-            artifactsPanelIsMaximized && "hidden",
+            "oo-app-chrome grid h-full text-foreground",
+            sidebarCollapsed && "oo-sidebar-collapsed",
+            isSidebarRestoring && "oo-sidebar-restoring",
+            isSidebarResizing && "oo-sidebar-resizing",
+            isArtifactsPanelResizing && "oo-artifacts-panel-resizing",
           )}
+          style={{ "--sidebar-width": `${sidebarWidth}px` } as React.CSSProperties}
         >
-          <AppShellMainTitlebar
-            activeSession={activeSession ?? null}
-            appUpdate={appUpdate}
-            artifactsPanelOpen={artifactsPanelOpen}
-            artifactsToggleIcon={ArtifactsToggleIcon}
-            artifactsToggleLabel={artifactsToggleLabel}
-            billingCacheScope={billingCacheScope}
-            browserPanelOpen={browserPanelVisible}
-            browserToggleLabel={browserToggleLabel}
-            isSidebarRestoring={isSidebarRestoring}
-            sharedConnectorCount={sharedConnectorCount}
-            showArtifactsToggle={showArtifactsToggle}
-            showBrowserToggle={showBrowserToggle}
-            sidebarCollapsed={sidebarCollapsed}
-            titlebarEditable={titlebarEditable}
-            titlebarBreadcrumbs={titlebarBreadcrumbs}
-            titlebarTitle={titlebarTitle}
-            workspace={teamWorkspace.activeWorkspace}
-            onArtifactsToggle={handleArtifactsToggle}
-            onBrowserToggle={handleBrowserToggle}
+          <div className="oo-fleet-scene" aria-hidden="true">
+            <div className="oo-fleet-scene-backdrop" />
+            <div className="oo-fleet-scene-scrim" />
+            <div className="oo-fleet-scene-foreground" />
+          </div>
+
+          <AppShellNavigationSidebar
+            account={auth.state?.account}
+            authenticated={authenticated}
+            activeRoute={route}
+            selectedSessionId={selectedSessionId}
+            cloudEnabled={oomolEnabled}
+            collapsed={sidebarCollapsed}
+            collapsedProjectIds={collapsedProjectIds}
+            hasUnreadSession={hasUnreadSession}
+            hasUnreadTeam={hasUnreadTeam}
+            hasUnreadTeams={hasUnreadTeams}
+            isSessionRunning={isSessionRunning}
+            loggingOut={auth.loggingOut}
+            loggingIn={auth.loggingIn}
+            newChatLabel={newChatLabel}
+            projectPinnedGroups={projectPinnedGroups}
+            projectPinnedSessions={projectPinnedSessions}
+            projectRegularGroups={projectRegularGroups}
+            projectSessions={visibleProjectSessions}
+            projectSidebarGroups={projectSidebarGroups}
+            restoring={isSidebarRestoring}
+            sessionsError={sessionsError}
+            showKnowledge={knowledgeBaseBetaEnabled}
+            sidebarSegment={sidebarSegment}
+            sidebarSessionGroups={sidebarSessionGroups}
+            taskSessions={visibleTaskSessions}
+            width={sidebarWidth}
+            workspace={teamWorkspace}
+            workspaceSwitching={workspaceNavigationSwitching}
+            onArchiveProjectRequest={projectActions.requestArchive}
+            onArchiveSessionRequest={sessionActions.requestArchive}
+            onLogout={auth.logout}
+            onLogin={() => void auth.login()}
+            onManageTasks={() => setTasksDialogOpen(true)}
+            onNavigate={setRoute}
+            onNewSession={handleNewSessionWithKnowledgeReset}
+            onOpenConnections={handleOpenConnectionsCommand}
             onOpenSearch={handleOpenSearch}
-            onRenameSession={sessionActions.handleRename}
-            onTitlebarBreadcrumbNavigate={(path) => {
-              setKnowledgeDirectory(normalizeKnowledgePath(path))
-              setKnowledgeTitlebarNavigationVersion((version) => version + 1)
-            }}
+            onPinProject={projectActions.handlePin}
+            onPinSession={sessionActions.handlePin}
+            onProjectExpandedChange={handleProjectSidebarExpandedChange}
+            onRemoveProjectRequest={projectActions.requestRemove}
+            onRenameProjectRequest={projectActions.requestRename}
+            onWorkspaceSwitchStart={handleWorkspaceSwitchStart}
+            onRenameSessionRequest={sessionActions.requestRename}
+            onSelectProjectDraft={handleOpenProjectDraft}
+            onSelectProjectFolder={handleSelectProjectFolder}
+            onSelectSession={handleSelectSession}
+            onSetSidebarSegment={setSidebarSegment}
+            onSetTaskSortMode={setTaskSortMode}
+            onShowProjectInFolder={projectActions.handleShowInFolder}
+            onSidebarResizeKeyDown={handleSidebarResizeKeyDown}
+            onSidebarResizeStart={handleSidebarResizeStart}
             onToggleSidebar={handleToggleSidebar}
-            onViewBilling={oomolEnabled ? handleViewBilling : undefined}
+            taskSortMode={taskSortMode}
           />
 
-          <main className="oo-content-surface min-h-0 min-w-0 overflow-hidden">
-            <React.Suspense fallback={<RouteLoadingFallback />}>
-              {route === "fleet" ? (
-                <FleetHarborRoute onOpenVoyage={() => setRoute("voyage")} />
-              ) : route === "voyage" ? (
-                <VoyageRoute onLaunch={handleMissionLaunch} />
-              ) : route === "connections" ? (
-                linkRuntime.state?.active === "openconnector" ? (
-                  <OpenConnectorConnectionsPanel runtime={linkRuntime} onOpenSettings={handleOpenSettingsCommand} />
-                ) : oomolLinkActive ? (
-                  <div className="h-full min-h-0 p-0">
-                    <ConnectionsPanel
-                      canManageConnections={canManageWorkspaceConnections}
-                      connections={connections}
-                      requestedFilter={connectionCatalogFilter}
-                      selectedService={selectedService}
-                    />
-                  </div>
-                ) : (
-                  <SelfHostedConnectionsPlaceholder onOpenSettings={() => setRoute("settings")} />
-                )
-              ) : route === "skills" ? (
-                <SkillsRoute
-                  cloudEnabled={oomolEnabled}
-                  connectedProvidersLoading={activeProvidersLoading}
-                  teamSkills={teamSkills}
-                  providerSkillRecommendationsState={providerSkillRecommendations}
-                  workspace={teamWorkspace}
-                />
-              ) : route === "supply" ? (
-                <SupplyDepotRoute />
-              ) : route === "knowledge" && knowledgeBaseBetaEnabled ? (
-                <KnowledgeRoute
-                  currentDirectory={knowledgeDirectory}
-                  knowledge={knowledgeLibrary}
-                  titlebarNavigationVersion={knowledgeTitlebarNavigationVersion}
-                  onCurrentDirectoryChange={setKnowledgeDirectory}
-                  onStartChat={handleStartKnowledgeChat}
-                />
-              ) : route === "teams" && oomolEnabled ? (
-                <TeamManagementRoute
-                  connectedProvidersLoading={activeProvidersLoading}
-                  teamSkills={teamSkills}
-                  providerOptions={activeTeamProviderOptions}
-                  providerSkillRecommendationsState={providerSkillRecommendations}
-                  workspace={teamWorkspace}
-                />
-              ) : (
-                <div className="flex h-full min-h-0 overflow-hidden">
-                  <div className="min-w-0 flex-1 overflow-hidden">
-                    <ChatArea
-                      activeSessionId={activeChatSessionId}
-                      agentKind={displayedAgentKind}
-                      agentModesEnabled={agentModesEnabled}
-                      attachmentsEnabled={attachmentsEnabled}
-                      modelRoutingEnabled={modelRoutingEnabled}
-                      agentModelId={activeAgentSelection?.modelId}
-                      agentEffortId={activeAgentSelection?.effortId}
-                      onSelectAgentModel={handleSelectAgentModel}
-                      onSelectAgentEffort={handleSelectAgentEffort}
-                      onSelectAgentKind={handleSelectAgentKind}
-                      billingCacheScope={billingCacheScope}
-                      billingRequestScope={billingRequestScope}
-                      composerDraftKey={activeComposerDraftKey}
-                      messages={bridgeInitialSendPending ? [] : messages}
-                      knowledgeBaseIds={activeKnowledgeBaseIds}
-                      knowledgeEnabled={knowledgeBaseBetaEnabled}
-                      knowledgeError={
-                        knowledgeLibrary.error ? userFacingErrorDescription(knowledgeLibrary.error, t) : null
-                      }
-                      knowledgeItems={knowledgeLibrary.items}
-                      knowledgeLoading={knowledgeLibrary.loading}
-                      modelRequired={modelRequired}
-                      permissionMode={displayedPermissionMode}
-                      pendingPermissions={bridgeInitialSendPending ? [] : pendingPermissions}
-                      pendingQuestions={bridgeInitialSendPending ? [] : pendingQuestions}
-                      status={displayedStatus}
-                      activity={bridgeInitialSendPending ? null : activity}
-                      showEmptyState={showChatEmptyState}
-                      bootstrapping={chatBootstrapping}
-                      startupError={startupError}
-                      onStartupRetry={
-                        workspaceStartupError
-                          ? retryWorkspaceActivation
-                          : sessionSnapshotError
-                            ? retrySessionSnapshot
-                            : undefined
-                      }
-                      error={error}
-                      emptyTitle={chatEmptyTitle}
-                      generatedArtifacts={latestArtifactSelection}
-                      historyScope={billingCacheScope}
-                      submitDisabled={chatSubmitDisabled}
-                      willQueueMessage={Boolean(
-                        activeChatSessionId && (!chatTurnAllowsDirectSend(activeChatTurnState) || isSendInFlight()),
-                      )}
-                      initialComposerState={initialComposerState}
-                      initialSendPending={initialSendPending}
-                      composerFocusRequest={composerFocusRequest}
-                      cloudModelsEnabled={runtimeCapabilities?.oomolCloudModels === true}
-                      voiceEnabled={runtimeCapabilities?.voice === true}
-                      canManageWorkspaceConnections={oomolLinkActive && canManageWorkspaceConnections}
-                      emptyStateConnectionSummary={oomolLinkActive ? emptyStateConnectionSummary : null}
-                      teamSkillEntryVisible={oomolEnabled && teamSkillEntryVisible}
-                      teamSkillShowcaseItems={oomolEnabled ? teamSkillShowcaseItems : []}
-                      teamSkillPendingInstallCount={oomolEnabled ? recommendedSkillPendingInstallCount : 0}
-                      teamSkills={oomolEnabled ? teamSkills.chatContextSkills : []}
-                      selfManagedSetup={
-                        appSettings.settings.operatingMode === "self-managed" &&
-                        !appSettings.settings.selfManagedSetupDismissed
-                          ? {
-                              onConfigureOpenConnector: handleOpenSettingsCommand,
-                              onDismiss: () => {
-                                void appSettings.setSelfManagedSetupDismissed(true).catch((error: unknown) => {
-                                  reportRendererHandledError(
-                                    "settings",
-                                    "dismiss self-managed setup reminder failed",
-                                    error,
-                                  )
-                                })
-                              },
-                            }
-                          : undefined
-                      }
-                      providers={oomolLinkActive ? activeProviders : []}
-                      queueHeld={activeQueueHeld}
-                      queuedMessages={activeQueuedMessages}
-                      contextBar={composerProjectContext}
-                      pinnedContextBar={pinnedKnowledgeContextBar}
-                      placeholder={
-                        startupError
-                          ? t("error.agent.title")
-                          : modelRequired
-                            ? t("chat.modelRequiredPlaceholder")
-                            : chatReady
-                              ? t(linksEnabled ? "chat.inputPlaceholder" : "chat.inputPlaceholderLocal")
-                              : t("chat.agentStarting")
-                      }
-                      onComposerStateChange={handleComposerStateChange}
-                      onSend={handleSend}
-                      onAnswerQuestion={handleAnswerQuestion}
-                      onAnswerPermission={handleAnswerPermission}
-                      onPermissionModeChange={handlePermissionModeChange}
-                      onRejectQuestion={handleRejectQuestion}
-                      questionDrafts={questionDrafts}
-                      onStop={handleChatStop}
-                      onQueuedMessageMove={handleQueuedMessageMove}
-                      onQueuedMessageRemove={handleQueuedMessageRemove}
-                      onQueuedMessageResume={handleQueuedMessageResume}
-                      onAuthorize={handleAuthorize}
-                      onRecover={handleChatErrorRecovery}
-                      onRetryFresh={handleRetryFresh}
-                      onArtifactsOpen={handleArtifactsOpenWithBrowserClose}
-                      onArtifactsAvailable={handleArtifactsAvailable}
-                      onTurnOutputOpen={handleTurnOutputOpenWithBrowserClose}
-                      onTurnOutputAvailable={handleTurnOutputAvailable}
-                      onOpenConnections={linksEnabled ? handleOpenConnectionsCommand : undefined}
-                      onOpenConnectionProvider={oomolLinkActive ? handleOpenChatConnectionProvider : undefined}
-                      onOpenKnowledgeLibrary={handleOpenKnowledgeLibrary}
-                      onOpenTeams={oomolEnabled ? handleOpenTeams : undefined}
-                      onSelectKnowledgeBase={handleAddKnowledgeBaseReference}
-                      onViewBilling={oomolEnabled ? handleViewBilling : undefined}
-                    />
-                  </div>
-                  <AppShellConnectionDrawer
-                    authIntent={chatConnectionAuthIntent}
-                    canManageConnections={oomolLinkActive && canManageWorkspaceConnections}
-                    connections={connections}
-                    onConnectionReady={handleChatConnectionReady}
-                    selectedService={chatConnectionSelectedService}
-                    visible={oomolLinkActive && chatConnectionDrawerVisible}
-                    onClose={handleCloseChatConnectionDrawer}
-                  />
-                </div>
+          {/* 右：主区（顶部工具条 + 内容） */}
+          <div className="oo-app-workspace flex min-h-0 min-w-0 overflow-hidden">
+            <div
+              className={cn(
+                "grid min-w-0 flex-1 grid-rows-[var(--app-titlebar-height)_minmax(0,1fr)] overflow-hidden",
+                artifactsPanelIsMaximized && "hidden",
               )}
-            </React.Suspense>
-          </main>
+            >
+              <AppShellMainTitlebar
+                activeSession={activeSession ?? null}
+                appUpdate={appUpdate}
+                artifactsPanelOpen={artifactsPanelOpen}
+                artifactsToggleIcon={ArtifactsToggleIcon}
+                artifactsToggleLabel={artifactsToggleLabel}
+                billingCacheScope={billingCacheScope}
+                browserPanelOpen={browserPanelVisible}
+                browserToggleLabel={browserToggleLabel}
+                isSidebarRestoring={isSidebarRestoring}
+                sharedConnectorCount={sharedConnectorCount}
+                showArtifactsToggle={showArtifactsToggle}
+                showBrowserToggle={showBrowserToggle}
+                sidebarCollapsed={sidebarCollapsed}
+                titlebarEditable={titlebarEditable}
+                titlebarBreadcrumbs={titlebarBreadcrumbs}
+                titlebarTitle={titlebarTitle}
+                workspace={teamWorkspace.activeWorkspace}
+                onArtifactsToggle={handleArtifactsToggle}
+                onBrowserToggle={handleBrowserToggle}
+                onOpenSearch={handleOpenSearch}
+                onRenameSession={sessionActions.handleRename}
+                onTitlebarBreadcrumbNavigate={(path) => {
+                  setKnowledgeDirectory(normalizeKnowledgePath(path))
+                  setKnowledgeTitlebarNavigationVersion((version) => version + 1)
+                }}
+                onToggleSidebar={handleToggleSidebar}
+                onViewBilling={oomolEnabled ? handleViewBilling : undefined}
+              />
+
+              <main className="oo-content-surface min-h-0 min-w-0 overflow-hidden">
+                <React.Suspense fallback={<RouteLoadingFallback />}>
+                  {route === "fleet" ? (
+                    <FleetHarborRoute onOpenVoyage={() => setRoute("voyage")} />
+                  ) : route === "voyage" ? (
+                    <VoyageRoute onLaunch={handleMissionLaunch} />
+                  ) : route === "connections" ? (
+                    linkRuntime.state?.active === "openconnector" ? (
+                      <OpenConnectorConnectionsPanel runtime={linkRuntime} onOpenSettings={handleOpenSettingsCommand} />
+                    ) : oomolLinkActive ? (
+                      <div className="h-full min-h-0 p-0">
+                        <ConnectionsPanel
+                          canManageConnections={canManageWorkspaceConnections}
+                          connections={connections}
+                          requestedFilter={connectionCatalogFilter}
+                          selectedService={selectedService}
+                        />
+                      </div>
+                    ) : (
+                      <SelfHostedConnectionsPlaceholder onOpenSettings={() => setRoute("settings")} />
+                    )
+                  ) : route === "skills" ? (
+                    <SkillsRoute
+                      cloudEnabled={oomolEnabled}
+                      connectedProvidersLoading={activeProvidersLoading}
+                      teamSkills={teamSkills}
+                      providerSkillRecommendationsState={providerSkillRecommendations}
+                      workspace={teamWorkspace}
+                    />
+                  ) : route === "supply" ? (
+                    <SupplyDepotRoute />
+                  ) : route === "knowledge" && knowledgeBaseBetaEnabled ? (
+                    <KnowledgeRoute
+                      currentDirectory={knowledgeDirectory}
+                      knowledge={knowledgeLibrary}
+                      titlebarNavigationVersion={knowledgeTitlebarNavigationVersion}
+                      onCurrentDirectoryChange={setKnowledgeDirectory}
+                      onStartChat={handleStartKnowledgeChat}
+                    />
+                  ) : route === "teams" && oomolEnabled ? (
+                    <TeamManagementRoute
+                      connectedProvidersLoading={activeProvidersLoading}
+                      teamSkills={teamSkills}
+                      providerOptions={activeTeamProviderOptions}
+                      providerSkillRecommendationsState={providerSkillRecommendations}
+                      workspace={teamWorkspace}
+                    />
+                  ) : (
+                    <div className="flex h-full min-h-0 overflow-hidden">
+                      <div className="min-w-0 flex-1 overflow-hidden">
+                        <ChatArea
+                          activeSessionId={activeChatSessionId}
+                          agentKind={displayedAgentKind}
+                          agentModesEnabled={agentModesEnabled}
+                          attachmentsEnabled={attachmentsEnabled}
+                          modelRoutingEnabled={modelRoutingEnabled}
+                          agentModelId={activeAgentSelection?.modelId}
+                          agentEffortId={activeAgentSelection?.effortId}
+                          onSelectAgentModel={handleSelectAgentModel}
+                          onSelectAgentEffort={handleSelectAgentEffort}
+                          onSelectAgentKind={handleSelectAgentKind}
+                          billingCacheScope={billingCacheScope}
+                          billingRequestScope={billingRequestScope}
+                          composerDraftKey={activeComposerDraftKey}
+                          messages={bridgeInitialSendPending ? [] : messages}
+                          knowledgeBaseIds={activeKnowledgeBaseIds}
+                          knowledgeEnabled={knowledgeBaseBetaEnabled}
+                          knowledgeError={
+                            knowledgeLibrary.error ? userFacingErrorDescription(knowledgeLibrary.error, t) : null
+                          }
+                          knowledgeItems={knowledgeLibrary.items}
+                          knowledgeLoading={knowledgeLibrary.loading}
+                          modelRequired={modelRequired}
+                          permissionMode={displayedPermissionMode}
+                          pendingPermissions={bridgeInitialSendPending ? [] : pendingPermissions}
+                          pendingQuestions={bridgeInitialSendPending ? [] : pendingQuestions}
+                          status={displayedStatus}
+                          activity={bridgeInitialSendPending ? null : activity}
+                          showEmptyState={showChatEmptyState}
+                          bootstrapping={chatBootstrapping}
+                          startupError={startupError}
+                          onStartupRetry={
+                            workspaceStartupError
+                              ? retryWorkspaceActivation
+                              : sessionSnapshotError
+                                ? retrySessionSnapshot
+                                : undefined
+                          }
+                          error={error}
+                          emptyTitle={chatEmptyTitle}
+                          generatedArtifacts={latestArtifactSelection}
+                          historyScope={billingCacheScope}
+                          submitDisabled={chatSubmitDisabled}
+                          willQueueMessage={Boolean(
+                            activeChatSessionId && (!chatTurnAllowsDirectSend(activeChatTurnState) || isSendInFlight()),
+                          )}
+                          initialComposerState={initialComposerState}
+                          initialSendPending={initialSendPending}
+                          composerFocusRequest={composerFocusRequest}
+                          cloudModelsEnabled={runtimeCapabilities?.oomolCloudModels === true}
+                          voiceEnabled={runtimeCapabilities?.voice === true}
+                          canManageWorkspaceConnections={oomolLinkActive && canManageWorkspaceConnections}
+                          emptyStateConnectionSummary={oomolLinkActive ? emptyStateConnectionSummary : null}
+                          teamSkillEntryVisible={oomolEnabled && teamSkillEntryVisible}
+                          teamSkillShowcaseItems={oomolEnabled ? teamSkillShowcaseItems : []}
+                          teamSkillPendingInstallCount={oomolEnabled ? recommendedSkillPendingInstallCount : 0}
+                          teamSkills={oomolEnabled ? teamSkills.chatContextSkills : []}
+                          selfManagedSetup={
+                            appSettings.settings.operatingMode === "self-managed" &&
+                            !appSettings.settings.selfManagedSetupDismissed
+                              ? {
+                                  onConfigureOpenConnector: handleOpenSettingsCommand,
+                                  onDismiss: () => {
+                                    void appSettings.setSelfManagedSetupDismissed(true).catch((error: unknown) => {
+                                      reportRendererHandledError(
+                                        "settings",
+                                        "dismiss self-managed setup reminder failed",
+                                        error,
+                                      )
+                                    })
+                                  },
+                                }
+                              : undefined
+                          }
+                          providers={oomolLinkActive ? activeProviders : []}
+                          queueHeld={activeQueueHeld}
+                          queuedMessages={activeQueuedMessages}
+                          contextBar={composerProjectContext}
+                          pinnedContextBar={pinnedKnowledgeContextBar}
+                          placeholder={
+                            startupError
+                              ? t("error.agent.title")
+                              : modelRequired
+                                ? t("chat.modelRequiredPlaceholder")
+                                : chatReady
+                                  ? t(linksEnabled ? "chat.inputPlaceholder" : "chat.inputPlaceholderLocal")
+                                  : t("chat.agentStarting")
+                          }
+                          onComposerStateChange={handleComposerStateChange}
+                          onSend={handleSend}
+                          onAnswerQuestion={handleAnswerQuestion}
+                          onAnswerPermission={handleAnswerPermission}
+                          onPermissionModeChange={handlePermissionModeChange}
+                          onRejectQuestion={handleRejectQuestion}
+                          questionDrafts={questionDrafts}
+                          onStop={handleChatStop}
+                          onQueuedMessageMove={handleQueuedMessageMove}
+                          onQueuedMessageRemove={handleQueuedMessageRemove}
+                          onQueuedMessageResume={handleQueuedMessageResume}
+                          onAuthorize={handleAuthorize}
+                          onRecover={handleChatErrorRecovery}
+                          onRetryFresh={handleRetryFresh}
+                          onArtifactsOpen={handleArtifactsOpenWithBrowserClose}
+                          onArtifactsAvailable={handleArtifactsAvailable}
+                          onTurnOutputOpen={handleTurnOutputOpenWithBrowserClose}
+                          onTurnOutputAvailable={handleTurnOutputAvailable}
+                          onOpenConnections={linksEnabled ? handleOpenConnectionsCommand : undefined}
+                          onOpenConnectionProvider={oomolLinkActive ? handleOpenChatConnectionProvider : undefined}
+                          onOpenKnowledgeLibrary={handleOpenKnowledgeLibrary}
+                          onOpenTeams={oomolEnabled ? handleOpenTeams : undefined}
+                          onSelectKnowledgeBase={handleAddKnowledgeBaseReference}
+                          onViewBilling={oomolEnabled ? handleViewBilling : undefined}
+                        />
+                      </div>
+                      <AppShellConnectionDrawer
+                        authIntent={chatConnectionAuthIntent}
+                        canManageConnections={oomolLinkActive && canManageWorkspaceConnections}
+                        connections={connections}
+                        onConnectionReady={handleChatConnectionReady}
+                        selectedService={chatConnectionSelectedService}
+                        visible={oomolLinkActive && chatConnectionDrawerVisible}
+                        onClose={handleCloseChatConnectionDrawer}
+                      />
+                    </div>
+                  )}
+                </React.Suspense>
+              </main>
+            </div>
+
+            <AppShellRightPanel
+              artifactSelection={artifactSelection}
+              artifactsPanelContentRef={artifactsPanelContentRef}
+              artifactsPanelIsMaximized={artifactsPanelIsMaximized}
+              artifactsPanelMaxWidthState={artifactsPanelMaxWidthState}
+              artifactsPanelShellRef={artifactsPanelShellRef}
+              artifactsPanelVisible={artifactsPanelVisible}
+              browserPanelVisible={browserPanelVisible}
+              browserService={browserService}
+              browserState={browserState}
+              handleArtifactsPanelResizeKeyDown={handleArtifactsPanelResizeKeyDown}
+              handleArtifactsPanelResizeStart={handleArtifactsPanelResizeStart}
+              isArtifactsPanelResizing={isArtifactsPanelResizing}
+              isArtifactsPanelDragCollapsed={isArtifactsPanelDragCollapsed}
+              onCloseBrowser={closeBrowserPanel}
+              rightPanelVisible={rightPanelVisible}
+              setArtifactsPanelMaximizedState={setArtifactsPanelMaximizedState}
+              setArtifactsPanelOpen={setArtifactsPanelOpen}
+              turnOutputSelection={turnOutputSelection}
+              visibleRightPanelWidth={visibleRightPanelWidth}
+            />
+          </div>
+
+          <AppShellSessionProjectDialogs
+            archiveConfirming={sessionActions.archiveConfirming}
+            archiveProjectConfirming={projectActions.archiveConfirming}
+            archiveProjectTarget={projectActions.archiveTarget}
+            archiveSession={sessionActions.archiveTarget}
+            openSearch={searchOpen}
+            removeProjectConfirming={projectActions.removeConfirming}
+            removeProjectTarget={projectActions.removeTarget}
+            renameProjectTarget={projectActions.renameTarget}
+            renameSession={sessionActions.renameTarget}
+            sessions={visibleSessions}
+            onArchiveProject={handleArchiveProjectDialog}
+            onArchiveSession={handleArchiveSessionDialog}
+            onCloseArchiveProject={projectActions.closeArchive}
+            onCloseArchiveSession={sessionActions.closeArchive}
+            onCloseRemoveProject={projectActions.closeRemove}
+            onCloseRenameProject={projectActions.closeRename}
+            onCloseRenameSession={sessionActions.closeRename}
+            onCloseSearch={handleCloseSearch}
+            onRemoveProject={handleRemoveProjectDialog}
+            onRenameProject={handleRenameProjectDialog}
+            onRenameSession={sessionActions.handleRename}
+            onSearchSelect={handleSearchSelect}
+          />
+          <React.Suspense fallback={null}>
+            <TasksDialog
+              archiveSessions={archiveSessionsWithRuntimeCleanup}
+              isSessionRunning={isSessionRunning}
+              open={tasksDialogOpen}
+              removeSessions={removeSessionsWithRuntimeCleanup}
+              sessions={visibleTaskSessions}
+              sortMode={taskSortMode}
+              onClose={() => setTasksDialogOpen(false)}
+              onSortModeChange={setTaskSortMode}
+            />
+          </React.Suspense>
         </div>
-
-        <AppShellRightPanel
-          artifactSelection={artifactSelection}
-          artifactsPanelContentRef={artifactsPanelContentRef}
-          artifactsPanelIsMaximized={artifactsPanelIsMaximized}
-          artifactsPanelMaxWidthState={artifactsPanelMaxWidthState}
-          artifactsPanelShellRef={artifactsPanelShellRef}
-          artifactsPanelVisible={artifactsPanelVisible}
-          browserPanelVisible={browserPanelVisible}
-          browserService={browserService}
-          browserState={browserState}
-          handleArtifactsPanelResizeKeyDown={handleArtifactsPanelResizeKeyDown}
-          handleArtifactsPanelResizeStart={handleArtifactsPanelResizeStart}
-          isArtifactsPanelResizing={isArtifactsPanelResizing}
-          isArtifactsPanelDragCollapsed={isArtifactsPanelDragCollapsed}
-          onCloseBrowser={closeBrowserPanel}
-          rightPanelVisible={rightPanelVisible}
-          setArtifactsPanelMaximizedState={setArtifactsPanelMaximizedState}
-          setArtifactsPanelOpen={setArtifactsPanelOpen}
-          turnOutputSelection={turnOutputSelection}
-          visibleRightPanelWidth={visibleRightPanelWidth}
-        />
-      </div>
-
-      <AppShellSessionProjectDialogs
-        archiveConfirming={sessionActions.archiveConfirming}
-        archiveProjectConfirming={projectActions.archiveConfirming}
-        archiveProjectTarget={projectActions.archiveTarget}
-        archiveSession={sessionActions.archiveTarget}
-        openSearch={searchOpen}
-        removeProjectConfirming={projectActions.removeConfirming}
-        removeProjectTarget={projectActions.removeTarget}
-        renameProjectTarget={projectActions.renameTarget}
-        renameSession={sessionActions.renameTarget}
-        sessions={visibleSessions}
-        onArchiveProject={handleArchiveProjectDialog}
-        onArchiveSession={handleArchiveSessionDialog}
-        onCloseArchiveProject={projectActions.closeArchive}
-        onCloseArchiveSession={sessionActions.closeArchive}
-        onCloseRemoveProject={projectActions.closeRemove}
-        onCloseRenameProject={projectActions.closeRename}
-        onCloseRenameSession={sessionActions.closeRename}
-        onCloseSearch={handleCloseSearch}
-        onRemoveProject={handleRemoveProjectDialog}
-        onRenameProject={handleRenameProjectDialog}
-        onRenameSession={sessionActions.handleRename}
-        onSearchSelect={handleSearchSelect}
-      />
-      <React.Suspense fallback={null}>
-        <TasksDialog
-          archiveSessions={archiveSessionsWithRuntimeCleanup}
-          isSessionRunning={isSessionRunning}
-          open={tasksDialogOpen}
-          removeSessions={removeSessionsWithRuntimeCleanup}
-          sessions={visibleTaskSessions}
-          sortMode={taskSortMode}
-          onClose={() => setTasksDialogOpen(false)}
-          onSortModeChange={setTaskSortMode}
-        />
-      </React.Suspense>
-    </div>,
+      }
+    />
   )
 }

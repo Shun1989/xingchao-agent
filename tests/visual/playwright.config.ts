@@ -1,8 +1,6 @@
 import { defineConfig } from "@playwright/test"
 
 export default defineConfig({
-  testDir: ".",
-  testMatch: "fleet-skins.visual.spec.ts",
   outputDir: "test-results",
   workers: 1,
   fullyParallel: false,
@@ -18,4 +16,16 @@ export default defineConfig({
       maxDiffPixels: 0,
     },
   },
+  projects: [
+    {
+      name: "fleet-visual",
+      testDir: ".",
+      testMatch: "fleet-skins.visual.spec.ts",
+    },
+    {
+      name: "fleet-e2e",
+      testDir: "../e2e",
+      testMatch: "fleet-skins.electron.spec.ts",
+    },
+  ],
 })

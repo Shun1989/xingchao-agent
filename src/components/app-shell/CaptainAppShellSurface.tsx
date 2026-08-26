@@ -18,6 +18,26 @@ export interface CaptainAppShellSurfaceProps {
   readonly viewportWidth?: number
 }
 
+const fleetContrastMediaQueries = ["(prefers-contrast: more)", "(forced-colors: active)"] as const
+
+function useFleetContrastPreference(): void {
+  React.useEffect(() => {
+    const root = document.documentElement
+    const previous = root.dataset.fleetContrast
+    const preferences = fleetContrastMediaQueries.map((query) => window.matchMedia(query))
+    const apply = () => {
+      root.dataset.fleetContrast = preferences.some((preference) => preference.matches) ? "high" : "standard"
+    }
+    apply()
+    for (const preference of preferences) preference.addEventListener("change", apply)
+    return () => {
+      for (const preference of preferences) preference.removeEventListener("change", apply)
+      if (previous === undefined) delete root.dataset.fleetContrast
+      else root.dataset.fleetContrast = previous
+    }
+  }, [])
+}
+
 /** The single production seam joining AppShell route content to the global Captain owner. */
 export function CaptainAppShellSurface({
   activeProject,
@@ -31,6 +51,7 @@ export function CaptainAppShellSurface({
   route,
   viewportWidth,
 }: CaptainAppShellSurfaceProps) {
+  useFleetContrastPreference()
   return (
     <>
       <CaptainAppEventBridge input={eventInput} lifecycleSource={lifecycleSource} />

@@ -8,7 +8,7 @@ import * as React from "react"
 import { act } from "react"
 import { createRoot } from "react-dom/client"
 import { afterEach, describe, expect, it, vi } from "vitest"
-import { CaptainAppShellSurface } from "./CaptainAppShellSurface.tsx"
+import { CaptainAppShellRouteContinuity } from "./CaptainAppShellRouteContinuity.tsx"
 import { useCaptain } from "@/components/captain/captain-context.ts"
 import { CaptainOrchestrator } from "@/components/captain/CaptainOrchestrator.tsx"
 import { FleetSkinContext } from "@/components/fleet-skin-context.ts"
@@ -126,7 +126,7 @@ function renderSurface(source: TypedLifecycleSource, initial: Partial<ViewState>
       <I18nProvider>
         <FleetSkinContext.Provider value={fleetSkin}>
           <CaptainOrchestrator>
-            <CaptainAppShellSurface
+            <CaptainAppShellRouteContinuity
               key={state.surfaceKey}
               activeProject={false}
               activeSessionId={state.activeSessionId}
@@ -135,14 +135,20 @@ function renderSurface(source: TypedLifecycleSource, initial: Partial<ViewState>
               eventInput={input}
               lifecycleSource={source}
               modalOpen={false}
+              persistentChildren={<Probe />}
               route={state.route}
+              settingsChildren={
+                <main data-captain-content data-route-child="settings">
+                  {layoutEmitter}
+                </main>
+              }
               viewportWidth={1440}
-            >
-              <main data-captain-content data-route-child={state.child}>
-                {layoutEmitter}
-              </main>
-              <Probe />
-            </CaptainAppShellSurface>
+              workspaceChildren={
+                <main data-captain-content data-route-child={state.child}>
+                  {layoutEmitter}
+                </main>
+              }
+            />
           </CaptainOrchestrator>
         </FleetSkinContext.Provider>
       </I18nProvider>
@@ -596,5 +602,50 @@ describe("CaptainAppShellSurface production seam", () => {
     await vi.waitFor(() => expect(host.dataset.captainMode).toBe("compact"))
     expect(host.dataset.captainMaxWidth).toBe("72")
     expect(host.style.width).toBe("")
+  })
+
+  it("drives the fleet contrast dataset from the system accessibility preference", async () => {
+    let matches = true
+    const listeners = new Set<(event: MediaQueryListEvent) => void>()
+    vi.stubGlobal(
+      "matchMedia",
+      vi.fn(() => ({
+        addEventListener: (_type: "change", listener: (event: MediaQueryListEvent) => void) => listeners.add(listener),
+        dispatchEvent: () => true,
+        get matches() {
+          return matches
+        },
+        media: "(prefers-contrast: more)",
+        onchange: null,
+        removeEventListener: (_type: "change", listener: (event: MediaQueryListEvent) => void) =>
+          listeners.delete(listener),
+      })),
+    )
+
+    renderSurface(new TypedLifecycleSource())
+    expect(document.documentElement.dataset.fleetContrast).toBe("high")
+
+    matches = false
+    act(() => {
+      for (const listener of listeners) listener({ matches } as MediaQueryListEvent)
+    })
+    expect(document.documentElement.dataset.fleetContrast).toBe("standard")
+  })
+
+  it("treats Windows forced colors as high contrast when prefers-contrast is unavailable", () => {
+    vi.stubGlobal(
+      "matchMedia",
+      vi.fn((query: string) => ({
+        addEventListener: () => undefined,
+        dispatchEvent: () => true,
+        matches: query === "(forced-colors: active)",
+        media: query,
+        onchange: null,
+        removeEventListener: () => undefined,
+      })),
+    )
+
+    renderSurface(new TypedLifecycleSource())
+    expect(document.documentElement.dataset.fleetContrast).toBe("high")
   })
 })
