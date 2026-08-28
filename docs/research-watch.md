@@ -151,3 +151,37 @@ durability regression that requires a user message to reach disk before an ackno
 Apache-2.0 permits compatible reuse when its terms and notices are preserved, but MkAgent itself carries attributed Craft
 lineage. Xingchao will therefore absorb the design principles above and keep its implementation original unless a future
 change has a specific, reviewed reason to import code with complete Apache/NOTICE attribution.
+
+## 2026-08-28 weekly scan
+
+Snapshot date: 2026-08-28. Metadata, README, latest release, and latest commit evidence came from each first-party GitHub
+repository and API. No source code was copied into Xingchao Navigation.
+
+| Repository                                                          |  Stars | License    | Activity evidence                                            | Relevant design                                                                                                                               | Do not copy                                                                          | Xingchao decision                                                                                                       |
+| ------------------------------------------------------------------- | -----: | ---------- | ------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------- |
+| [OpenHands/OpenHands](https://github.com/OpenHands/OpenHands)       | 85,331 | MIT        | v1.16.0 and commit `b50c60c` on 2026-08-27                   | One control surface can use local, container, VM, and remote Agent backends, but the README explicitly distinguishes unsandboxed host access. | Its cloud/enterprise topology and provider-specific automation integrations.         | Keep runtime location and authority explicit; external Skills must cross a fail-closed local filesystem boundary.       |
+| [aaif-goose/goose](https://github.com/aaif-goose/goose)             | 53,586 | Apache-2.0 | v1.48.0 on 2026-08-27; latest commit `caf5951` on 2026-08-27 | Desktop, CLI, API, providers, MCP extensions, and custom distributions remain separately configurable surfaces.                               | Rust implementation, provider catalog, and distribution-specific extension behavior. | Preserve Xingchao's narrow Skill mirror adapter instead of coupling external Skill layout to the Agent runtime.         |
+| [modelstudioai/openwork](https://github.com/modelstudioai/openwork) |     24 | Apache-2.0 | v0.2.1 and commit `27d65b7` on 2026-08-18                    | The desktop owns permission, workspace, preview, and session interaction while the Agent runtime owns execution progress.                     | ModelStudio/Qwen product coupling and its cloud-console path.                        | Retain the Electron main-process authority for filesystem mirroring and expose only diagnostics/status to the renderer. |
+
+This week's implementation is original. The shared lesson adopted is architectural: extension content must be copied
+through a bounded host-owned adapter, not trusted to reproduce arbitrary filesystem objects inside the runtime. Xingchao
+materializes only in-root links, rejects escaping links and cycles, and publishes through a retry-bounded rollback path.
+
+## Star benchmark refresh on 2026-08-28
+
+| Compared object   | Confirmed official public main repository                                 |   Stars | Status                                                                                                                                            |
+| ----------------- | ------------------------------------------------------------------------- | ------: | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| WorkBuddy         | N/A                                                                       |     N/A | Search found Tencent's benchmark plus third-party guides, mirrors, skins, and integrations, but no official open-source product main repository.  |
+| Hermes Agent      | [NousResearch/hermes-agent](https://github.com/NousResearch/hermes-agent) | 237,379 | Official Nous Research repository; MIT; pushed on 2026-08-28.                                                                                     |
+| Deepseek Hareness | N/A                                                                       |     N/A | The only exact-name result is an unverified personal zero-Star repository; the supplied name remains likely misspelled.                           |
+| Alice Agent       | N/A                                                                       |     N/A | Search returned unrelated same-name personal and organization projects with no evidence identifying the named product's official main repository. |
+
+The effective stop threshold is **237,379 Stars**. GitHub reports
+[Shun1989/xingchao-agent](https://github.com/Shun1989/xingchao-agent) at **0 Stars** on 2026-08-28, so the weekly
+iteration continues.
+
+## Publication prerequisite status on 2026-08-28
+
+- Windows keyring authentication succeeds for `Shun1989`; GitHub reports `viewerPermission: ADMIN` for the origin.
+- `origin` is `https://github.com/Shun1989/xingchao-agent.git`; `upstream` remains fetch-only with push set to `DISABLED`.
+- A fresh fetch reported the current branch 0 commits behind and 36 commits ahead before this weekly change.

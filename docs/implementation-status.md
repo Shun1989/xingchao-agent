@@ -37,8 +37,6 @@ This document separates implemented behavior from planned release work. A passin
 - Sixty-agent live-model evaluation. The profiles each carry three executable evaluation cases, but no paid-provider evaluation run was performed.
 - Full rebrand of all upstream localized copy and every internal compatibility identifier. IPC, storage, diagnostics, and several update-safe identifiers intentionally remain `wanta` for migration safety.
 - Windows signing, macOS Developer ID signing/notarization, updater infrastructure, release server, and public distribution approval.
-- Windows external-Skill mirroring is not yet reliable on this machine. The app records `EPERM` when replacing some
-  mirrored directories and when a source Skill requires an unprivileged symbolic link; the built-in fleet remains usable.
 
 ## Verified on 2026-08-13
 
@@ -137,6 +135,18 @@ This document separates implemented behavior from planned release work. A passin
 - The Windows crash was isolated to Chromium's sandboxed GPU child in the Playwright Electron harness. Only the Windows
   visual/end-to-end launchers use `--no-sandbox`; the production desktop entry is unchanged. The harness still denies
   unexpected network navigation, uses temporary profile data, and performs no paid or external calls.
-- Remaining work is explicitly outside this first-version acceptance: production Live2D/Cubism assets, external Skill
-  mirror `EPERM` reliability, migration of older `safeStorage` profile data, signed installers, release audit, push, and
+- Remaining work is explicitly outside this first-version acceptance: production Live2D/Cubism assets, migration of
+  older `safeStorage` profile data, signed installers, release audit, push, and
   public distribution. No paid model call, download, push, release, or publication was performed.
+
+## Windows external-Skill mirror reliability on 2026-08-28
+
+- External Skill mirroring no longer asks Windows to recreate source symbolic links. Links that resolve within the Skill
+  root are materialized as ordinary files and directories; links that escape the source root, directory cycles, and
+  unsupported filesystem entries fail closed.
+- Every copied entry is identity-checked after traversal, and directory inventories are compared before publication, so
+  a concurrently replaced file, directory, symlink, or junction aborts the staged mirror instead of crossing the root.
+- Managed-directory publication retains its staging, backup, and rollback boundary. Transient Windows `EPERM`, `EACCES`,
+  and `EBUSY` rename failures receive three bounded retries; a failed staged publish restores the prior managed mirror.
+- Focused filesystem tests exercise a real Windows junction, out-of-root rejection, transient rename recovery, and
+  rollback preservation without requiring Developer Mode or administrator symlink privileges.

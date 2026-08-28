@@ -1,6 +1,7 @@
 import type { ManagedSkillGroup } from "./common.ts"
+import type { FileHandle } from "node:fs/promises"
 
-import { access, cp, lstat, mkdir, readFile, readdir, realpath, rename, rm, rmdir } from "node:fs/promises"
+import { access, lstat, mkdir, open, readFile, readdir, realpath, rename, rm, rmdir, stat } from "node:fs/promises"
 import path from "node:path"
 import { logDiagnostic } from "../diagnostics-log.ts"
 import { metadataFileName } from "./constants.ts"
@@ -280,7 +281,26 @@ export async function assertCanReplaceSharedSkillTarget(
   throw new Error("A local Skill with the same name already exists in the shared Agent Skills directory.")
 }
 
-export async function replaceDirectory(sourcePath: string, targetPath: string): Promise<void> {
+interface ReplaceDirectoryDependencies {
+  openSourceFile: (sourcePath: string) => Promise<FileHandle>
+  readdir: (directoryPath: string) => Promise<string[]>
+  rename: (sourcePath: string, targetPath: string) => Promise<void>
+  wait: (milliseconds: number) => Promise<void>
+}
+
+const defaultReplaceDirectoryDependencies: ReplaceDirectoryDependencies = {
+  openSourceFile: (sourcePath) => open(sourcePath, "r"),
+  readdir,
+  rename,
+  wait: (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds)),
+}
+
+export async function replaceDirectory(
+  sourcePath: string,
+  targetPath: string,
+  dependencyOverrides: Partial<ReplaceDirectoryDependencies> = {},
+): Promise<void> {
+  const dependencies = { ...defaultReplaceDirectoryDependencies, ...dependencyOverrides }
   const parentPath = path.dirname(targetPath)
   const targetName = path.basename(targetPath)
   const operationId = `${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2)}`
@@ -294,19 +314,19 @@ export async function replaceDirectory(sourcePath: string, targetPath: string): 
   await rm(backupPath, { force: true, recursive: true })
 
   try {
-    await cp(sourcePath, tempPath, { recursive: true })
+    await copyDirectoryMaterialized(sourcePath, tempPath, dependencies)
 
     if (await localPathExists(targetPath)) {
-      await rename(targetPath, backupPath)
+      await renameWithTransientRetry(targetPath, backupPath, dependencies)
       hasBackup = true
     }
 
     try {
-      await rename(tempPath, targetPath)
+      await renameWithTransientRetry(tempPath, targetPath, dependencies)
     } catch (cause) {
       if (hasBackup) {
         try {
-          await rename(backupPath, targetPath)
+          await renameWithTransientRetry(backupPath, targetPath, dependencies)
           hasBackup = false
         } catch (rollbackError) {
           preserveBackup = true
@@ -314,6 +334,12 @@ export async function replaceDirectory(sourcePath: string, targetPath: string): 
             backupPath,
             error: rollbackError instanceof Error ? rollbackError.message : String(rollbackError),
           })
+          logDiagnostic(
+            "skills",
+            "replaceDirectory rollback failed; backup preserved",
+            { backupPath, error: rollbackError },
+            "error",
+          )
         }
       }
       throw cause
@@ -329,6 +355,166 @@ export async function replaceDirectory(sourcePath: string, targetPath: string): 
       await cleanupDirectory(backupPath, "skill backup directory")
     }
   }
+}
+
+async function renameWithTransientRetry(
+  sourcePath: string,
+  targetPath: string,
+  dependencies: ReplaceDirectoryDependencies,
+): Promise<void> {
+  const retryDelays = [25, 50, 100]
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      await dependencies.rename(sourcePath, targetPath)
+      return
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code
+      const delay = retryDelays[attempt]
+      if (delay === undefined || (code !== "EPERM" && code !== "EACCES" && code !== "EBUSY")) {
+        throw error
+      }
+      await dependencies.wait(delay)
+    }
+  }
+}
+
+async function copyDirectoryMaterialized(
+  sourcePath: string,
+  targetPath: string,
+  dependencies: ReplaceDirectoryDependencies,
+): Promise<void> {
+  const sourceRoot = await realpath(sourcePath)
+  await copyMaterializedEntry(sourcePath, targetPath, sourceRoot, new Set<string>(), dependencies)
+}
+
+async function copyMaterializedEntry(
+  sourcePath: string,
+  targetPath: string,
+  sourceRoot: string,
+  activeDirectories: Set<string>,
+  dependencies: ReplaceDirectoryDependencies,
+): Promise<void> {
+  const sourceStat = await lstat(sourcePath)
+  const resolvedSourcePath = sourceStat.isSymbolicLink() ? await realpath(sourcePath) : sourcePath
+  const resolvedStat = sourceStat.isSymbolicLink() ? await stat(sourcePath) : sourceStat
+  const resolvedRealPath = await realpath(resolvedSourcePath)
+  const snapshot = {
+    resolvedRealPath,
+    resolvedStat,
+    sourceStat,
+  }
+
+  if (resolvedRealPath !== sourceRoot && !isPathInside(sourceRoot, resolvedRealPath)) {
+    throw new Error(`External Skill link escapes its source directory: ${sourcePath}`)
+  }
+
+  if (resolvedStat.isDirectory()) {
+    if (activeDirectories.has(resolvedRealPath)) {
+      throw new Error(`External Skill link creates a directory cycle: ${sourcePath}`)
+    }
+    activeDirectories.add(resolvedRealPath)
+    try {
+      await mkdir(targetPath, { recursive: true })
+      const entries = await dependencies.readdir(resolvedSourcePath)
+      for (const entry of entries) {
+        await copyMaterializedEntry(
+          path.join(resolvedSourcePath, entry),
+          path.join(targetPath, entry),
+          sourceRoot,
+          activeDirectories,
+          dependencies,
+        )
+      }
+      await assertSourceEntryUnchanged(sourcePath, snapshot)
+      const currentEntries = await dependencies.readdir(resolvedSourcePath)
+      if (!sameDirectoryEntries(entries, currentEntries)) {
+        throw new Error(`External Skill directory changed during mirroring: ${sourcePath}`)
+      }
+    } finally {
+      activeDirectories.delete(resolvedRealPath)
+    }
+    return
+  }
+
+  if (!resolvedStat.isFile()) {
+    throw new Error(`External Skill contains an unsupported filesystem entry: ${sourcePath}`)
+  }
+  await copyFromStableSourceHandle(resolvedSourcePath, targetPath, snapshot.resolvedStat, dependencies)
+  await assertSourceEntryUnchanged(sourcePath, snapshot)
+}
+
+async function copyFromStableSourceHandle(
+  sourcePath: string,
+  targetPath: string,
+  expectedStat: { dev: number; ino: number; mode: number },
+  dependencies: ReplaceDirectoryDependencies,
+): Promise<void> {
+  const sourceHandle = await dependencies.openSourceFile(sourcePath)
+  try {
+    if (!isSameFile(await sourceHandle.stat(), expectedStat)) {
+      throw new Error(`External Skill entry changed during mirroring: ${sourcePath}`)
+    }
+    const targetHandle = await open(targetPath, "wx", expectedStat.mode & 0o777)
+    try {
+      await targetHandle.chmod(expectedStat.mode & 0o777)
+      const buffer = Buffer.allocUnsafe(64 * 1024)
+      for (;;) {
+        const { bytesRead } = await sourceHandle.read(buffer, 0, buffer.length, null)
+        if (bytesRead === 0) {
+          break
+        }
+        let written = 0
+        while (written < bytesRead) {
+          const result = await targetHandle.write(buffer, written, bytesRead - written)
+          if (result.bytesWritten === 0) {
+            throw new Error(`External Skill staging write made no progress: ${targetPath}`)
+          }
+          written += result.bytesWritten
+        }
+      }
+    } finally {
+      await targetHandle.close()
+    }
+  } finally {
+    await sourceHandle.close()
+  }
+}
+
+async function assertSourceEntryUnchanged(
+  sourcePath: string,
+  snapshot: {
+    resolvedRealPath: string
+    resolvedStat: { dev: number; ino: number }
+    sourceStat: { dev: number; ino: number; isSymbolicLink(): boolean }
+  },
+): Promise<void> {
+  try {
+    const currentSourceStat = await lstat(sourcePath)
+    const currentResolvedRealPath = await realpath(sourcePath)
+    const currentResolvedStat = await stat(sourcePath)
+    if (
+      currentSourceStat.isSymbolicLink() !== snapshot.sourceStat.isSymbolicLink() ||
+      !isSameFile(currentSourceStat, snapshot.sourceStat) ||
+      currentResolvedRealPath !== snapshot.resolvedRealPath ||
+      !isSameFile(currentResolvedStat, snapshot.resolvedStat)
+    ) {
+      throw new Error(`External Skill entry changed during mirroring: ${sourcePath}`)
+    }
+  } catch (error) {
+    if (error instanceof Error && error.message.startsWith("External Skill entry changed")) {
+      throw error
+    }
+    throw new Error(`External Skill entry changed during mirroring: ${sourcePath}`, { cause: error })
+  }
+}
+
+function sameDirectoryEntries(left: string[], right: string[]): boolean {
+  if (left.length !== right.length) {
+    return false
+  }
+  const sortedLeft = [...left].sort()
+  const sortedRight = [...right].sort()
+  return sortedLeft.every((entry, index) => entry === sortedRight[index])
 }
 
 async function cleanupDirectory(targetPath: string, scope: string): Promise<void> {
