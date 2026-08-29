@@ -32,6 +32,7 @@ node_modules/
 dist
 dist-electron
 dist-visual
+.superpowers/
 release
 
 # Locally downloaded Electron (dev) — produced by scripts/download-electron.ts
