@@ -33,6 +33,7 @@ dist
 dist-electron
 dist-visual
 .superpowers/
+.worktrees/
 release
 
 # Locally downloaded Electron (dev) — produced by scripts/download-electron.ts
