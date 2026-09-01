@@ -46,11 +46,6 @@ export function FleetHarborRoute({ onOpenVoyage }: { onOpenVoyage: () => void })
               </span>
             </div>
           </div>
-          <div
-            aria-hidden="true"
-            className="relative min-h-80 overflow-hidden border-l border-border max-[900px]:min-h-56 max-[900px]:border-t max-[900px]:border-l-0"
-            data-captain-host-slot
-          />
         </section>
 
         <section>

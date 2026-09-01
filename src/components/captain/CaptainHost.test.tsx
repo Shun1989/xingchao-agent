@@ -143,7 +143,7 @@ describe("CaptainHost adaptive layout", () => {
     expect(content.style.getPropertyValue("--captain-reserved-width")).toContain("clamp(240px")
 
     view.rerender({ activeSessionId: "active", chatIsEmpty: false, route: "settings", viewportWidth: 1440 })
-    expect(content.hasAttribute("data-captain-reserved")).toBe(false)
+    expect(content.getAttribute("data-captain-reserved")).toBe("false")
   })
 
   it("sizes stage to 35% of available content within bounds", () => {

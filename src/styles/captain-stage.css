@@ -1,0 +1,23 @@
+.captain-stage-layout {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+}
+
+.captain-stage-layout__content {
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+}
+
+.captain-stage-layout__slot {
+  pointer-events: none;
+}
+
+.captain-stage-layout[data-workspace-mode="stage"] .captain-stage-layout__slot {
+  position: absolute;
+  inset-block: var(--app-titlebar-height, 2.5rem) 0;
+  inset-inline-end: 0;
+  width: clamp(360px, var(--fleet-captain-stage-width, 35%), 560px);
+}

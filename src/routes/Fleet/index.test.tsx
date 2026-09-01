@@ -154,7 +154,7 @@ describe("FleetHarborRoute", () => {
     expect(host.querySelectorAll("[data-crew-id]")).toHaveLength(10)
   })
 
-  it("preloads built-in cards on hover and focus, requests selection, and reserves the global captain stage", async () => {
+  it("preloads built-in cards on hover and focus without owning the global captain stage", async () => {
     const { host, actions } = await renderFleet(builtinRuntimeFleetContext)
     const inkCard = host.querySelector('[data-crew-id="ink-sail"]') as HTMLButtonElement
 
@@ -166,7 +166,7 @@ describe("FleetHarborRoute", () => {
 
     expect(actions.preloadCrew).toHaveBeenCalledWith("ink-sail")
     expect(actions.requestCrew).toHaveBeenCalledWith("ink-sail")
-    expect(host.querySelector("[data-captain-host-slot]")).not.toBeNull()
+    expect(host.querySelector("[data-captain-host-slot]")).toBeNull()
     expect(host.querySelector("[data-lanxi-state]")).toBeNull()
   })
 

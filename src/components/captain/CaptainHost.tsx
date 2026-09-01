@@ -225,11 +225,11 @@ export function CaptainHost({ decision }: CaptainHostProps) {
       content.setAttribute("data-captain-reserved", "true")
       content.style.setProperty("--captain-reserved-width", "clamp(240px, 19vw, 300px)")
     } else {
-      content.removeAttribute("data-captain-reserved")
+      content.setAttribute("data-captain-reserved", "false")
       content.style.removeProperty("--captain-reserved-width")
     }
     return () => {
-      content.removeAttribute("data-captain-reserved")
+      content.setAttribute("data-captain-reserved", "false")
       content.style.removeProperty("--captain-reserved-width")
     }
   }, [mode])

@@ -5,6 +5,7 @@ import * as React from "react"
 import { CaptainAppEventBridge } from "./useCaptainAppEvents.ts"
 import { resolveCaptainWorkspaceLayout } from "@/captain/captain-layout.ts"
 import { CaptainHost } from "@/components/captain/CaptainHost.tsx"
+import { CaptainStageLayout } from "@/components/captain/CaptainStageLayout.tsx"
 
 export interface CaptainAppShellSurfaceProps {
   readonly activeProject: boolean
@@ -81,8 +82,9 @@ export function CaptainAppShellSurface({
   return (
     <>
       <CaptainAppEventBridge input={eventInput} lifecycleSource={lifecycleSource} />
-      <CaptainHost decision={decision} />
-      {children}
+      <CaptainStageLayout captain={<CaptainHost decision={decision} />} decision={decision}>
+        {children}
+      </CaptainStageLayout>
     </>
   )
 }

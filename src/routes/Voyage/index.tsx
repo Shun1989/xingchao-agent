@@ -77,11 +77,6 @@ export function VoyageRoute({ onLaunch }: { onLaunch: (mission: Mission) => Prom
             <h1 className="mt-1 text-3xl font-semibold">航海图</h1>
             <p className="mt-2 text-muted-foreground">澜汐先推荐团队；你确认或修改后，主团主题才会生效并进入执行。</p>
           </header>
-          <div
-            aria-hidden="true"
-            className="relative min-h-72 overflow-hidden border-l border-border max-[900px]:min-h-52 max-[900px]:border-t max-[900px]:border-l-0"
-            data-captain-host-slot
-          />
         </section>
         <section className="fleet-panel grid gap-4 p-5">
           <label className="text-sm font-medium" htmlFor="mission-goal">

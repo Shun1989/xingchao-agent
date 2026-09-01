@@ -4,6 +4,7 @@
 @import "./styles/theme.css";
 @import "./styles/fleet-skins.css";
 @import "./styles/captain.css";
+@import "./styles/captain-stage.css";
 @import "./styles/base.css";
 @import "./styles/platform.css";
 @import "./styles/login.css";
