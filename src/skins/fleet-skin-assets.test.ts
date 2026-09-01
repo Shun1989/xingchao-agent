@@ -17,6 +17,8 @@ const roleFiles = {
   crest: "crest.svg",
 } as const satisfies Record<FleetSkinAssetRole, string>
 
+const addedSceneFiles = ["scene-midground.webp", "scene-light.webp"] as const
+
 const expectedRasterDimensions = {
   "scene.backdrop": { width: 1920, height: 1080, alpha: false },
   "scene.foreground": { width: 1920, height: 1080, alpha: true },
@@ -35,6 +37,7 @@ const expectedSourceInventory: SourceInventory = {
   files: [
     "PROVENANCE.md",
     ...BUILTIN_CREW_IDS.flatMap((crewId) => FLEET_SKIN_ASSET_ROLES.map((role) => `${crewId}/${roleFiles[role]}`)),
+    ...BUILTIN_CREW_IDS.flatMap((crewId) => addedSceneFiles.map((file) => `${crewId}/${file}`)),
   ].sort(),
 }
 
@@ -286,6 +289,36 @@ describe("fleet skin asset registry", () => {
     expect(new Set(inventory).size).toBe(60)
     expect(uniqueBackdrops.size).toBe(10)
     expect(uniqueCaptainBases.size).toBe(10)
+  })
+
+  it("accepts ten distinct 1920x1080 midgrounds and ten transparent light layers", async () => {
+    const uniqueMidgrounds = new Set<string>()
+    const uniqueLights = new Set<string>()
+
+    for (const crewId of BUILTIN_CREW_IDS) {
+      for (const fileName of addedSceneFiles) {
+        const assetId = `${crewId}/${fileName}`
+        const file = new URL(`../../resources/xingchao/skins/${assetId}`, import.meta.url)
+        const bytes = await readFile(file)
+        expect(bytes.byteLength, assetId).toBeGreaterThan(0)
+
+        const inspection = inspectWebP(bytes)
+        expect(inspection.width, assetId).toBe(1920)
+        expect(inspection.height, assetId).toBe(1080)
+        expect(Math.max(inspection.width, inspection.height), assetId).toBeLessThanOrEqual(4096)
+
+        const digest = createHash("sha256").update(bytes).digest("hex")
+        if (fileName === "scene-light.webp") {
+          expect(inspection.alpha, assetId).toBe(true)
+          uniqueLights.add(digest)
+        } else {
+          uniqueMidgrounds.add(digest)
+        }
+      }
+    }
+
+    expect(uniqueMidgrounds.size).toBe(10)
+    expect(uniqueLights.size).toBe(10)
   })
 
   it("rejects extra, hidden, and inspection source entries", () => {
