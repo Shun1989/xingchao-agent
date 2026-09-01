@@ -1,5 +1,5 @@
+import type { CaptainLayoutDecision } from "@/captain/captain-layout.ts"
 import type { CaptainDisplayMode, CaptainRendererEvent } from "@/captain/captain-types.ts"
-import type { AppShellRoute } from "@/components/app-shell/app-shell-types.ts"
 import type { MessageKey } from "@/i18n"
 import type { CSSProperties } from "react"
 
@@ -14,24 +14,7 @@ import { useT } from "@/i18n"
 /* oxlint-disable react/only-export-components -- Task 10 keeps the tested adaptive layout contracts beside their sole DOM consumer. */
 
 export interface CaptainHostProps {
-  readonly route: AppShellRoute
-  readonly activeSessionId: string | null
-  readonly chatIsEmpty?: boolean
-  readonly activeProject?: boolean
-  readonly activeTask?: boolean
-  readonly modalOpen?: boolean
-  /** Deterministic integration-test override; production follows window.innerWidth. */
-  readonly viewportWidth?: number
-}
-
-export interface CaptainLayout {
-  readonly mode: CaptainDisplayMode
-  readonly minWidth: number
-  readonly maxWidth: number
-}
-
-interface CaptainLayoutInput extends CaptainHostProps {
-  readonly viewportWidth: number
+  readonly decision: CaptainLayoutDecision
 }
 
 interface RectEdges {
@@ -41,10 +24,8 @@ interface RectEdges {
   readonly left: number
 }
 
-const stageRoutes = new Set<AppShellRoute>(["fleet", "voyage"])
-const companionRoutes = new Set<AppShellRoute>(["connections", "skills"])
-const compactLayout = Object.freeze({ mode: "compact", minWidth: 0, maxWidth: 72 } satisfies CaptainLayout)
-const companionLayout = Object.freeze({ mode: "companion", minWidth: 240, maxWidth: 300 } satisfies CaptainLayout)
+const compactLayout = Object.freeze({ displayMode: "compact", minWidth: 0, maxWidth: 72 })
+const companionLayout = Object.freeze({ displayMode: "companion", minWidth: 240, maxWidth: 300 })
 const safeControlSelector = [
   ".oo-composer",
   ".oo-main-titlebar",
@@ -56,26 +37,6 @@ const safeControlSelector = [
   "textarea",
   '[role="button"]',
 ].join(",")
-
-export function resolveCaptainLayout({
-  activeProject = false,
-  activeSessionId,
-  activeTask = false,
-  chatIsEmpty = activeSessionId === null,
-  modalOpen = false,
-  route,
-  viewportWidth,
-}: CaptainLayoutInput): CaptainLayout {
-  if (modalOpen || route === "settings") return Object.freeze({ mode: "compact", minWidth: 0, maxWidth: 72 })
-  const activeChatContext = route === "chat" && (activeProject || activeTask || !chatIsEmpty)
-  const stage = stageRoutes.has(route) || (route === "chat" && chatIsEmpty && !activeProject && !activeTask)
-  if (stage && viewportWidth >= 1280) return Object.freeze({ mode: "stage", minWidth: 360, maxWidth: 520 })
-  const companion = companionRoutes.has(route) || activeChatContext
-  if (companion && viewportWidth >= 1180) {
-    return Object.freeze({ mode: "companion", minWidth: 240, maxWidth: 300 })
-  }
-  return Object.freeze({ mode: "compact", minWidth: 0, maxWidth: 72 })
-}
 
 function horizontalOverlap(left: RectEdges, right: RectEdges): boolean {
   return left.left < right.right && left.right > right.left
@@ -112,21 +73,6 @@ export function safeCaptainPlacement(
   return Object.freeze({ possible, shift: possible ? boundedShift : 0 })
 }
 
-function useViewportWidth(override: number | undefined): number {
-  const [width, setWidth] = React.useState(() => override ?? globalThis.window?.innerWidth ?? 1024)
-  React.useEffect(() => {
-    if (override !== undefined) {
-      setWidth(override)
-      return
-    }
-    const update = () => setWidth(window.innerWidth)
-    update()
-    window.addEventListener("resize", update)
-    return () => window.removeEventListener("resize", update)
-  }, [override])
-  return width
-}
-
 function translatedParams(params: Readonly<Record<string, number | boolean>>): Record<string, number> {
   const safe: Record<string, number> = Object.create(null) as Record<string, number>
   for (const [key, value] of Object.entries(params)) safe[key] = typeof value === "boolean" ? Number(value) : value
@@ -139,7 +85,7 @@ function stageSlotStyle(mode: CaptainDisplayMode): CSSProperties | undefined {
   if (!slot) return undefined
   const rect = slot.getBoundingClientRect()
   if (rect.width <= 0 || rect.height <= 0) return undefined
-  const boundedWidth = Math.min(520, Math.max(360, rect.width))
+  const boundedWidth = Math.min(560, Math.max(360, rect.width))
   return { left: rect.right - boundedWidth, top: rect.top, width: boundedWidth, height: rect.height }
 }
 
@@ -149,34 +95,16 @@ function stageContentStyle(mode: CaptainDisplayMode): CSSProperties | undefined 
   if (!content) return undefined
   const rect = content.getBoundingClientRect()
   if (rect.width <= 0) return undefined
-  const boundedWidth = Math.min(520, Math.max(360, rect.width * 0.35))
+  const boundedWidth = Math.min(560, Math.max(360, rect.width * 0.35))
   return { width: boundedWidth }
 }
 
-export function CaptainHost({
-  activeProject = false,
-  activeSessionId,
-  activeTask = false,
-  chatIsEmpty = activeSessionId === null,
-  modalOpen = false,
-  route,
-  viewportWidth,
-}: CaptainHostProps) {
+export function CaptainHost({ decision }: CaptainHostProps) {
   const captain = useCaptain()
   const fleetSkin = useFleetSkin()
   const t = useT()
-  const width = useViewportWidth(viewportWidth)
   const [detectedModalOpen, setDetectedModalOpen] = React.useState(false)
-  const effectiveModalOpen = modalOpen || detectedModalOpen
-  const layout = resolveCaptainLayout({
-    activeProject,
-    activeSessionId,
-    activeTask,
-    chatIsEmpty,
-    modalOpen: effectiveModalOpen,
-    route,
-    viewportWidth: width,
-  })
+  const layout = detectedModalOpen ? compactLayout : decision
   const [expanded, setExpanded] = React.useState(false)
   const [rendererFailed, setRendererFailed] = React.useState(false)
   const [recoveryKey, setRecoveryKey] = React.useState(0)
@@ -185,13 +113,16 @@ export function CaptainHost({
   const [collisionCompact, setCollisionCompact] = React.useState(false)
   const collisionCompactRef = React.useRef(false)
   const desiredRectRef = React.useRef<RectEdges | null>(null)
-  const [slotStyle, setSlotStyle] = React.useState<CSSProperties | undefined>(() => stageSlotStyle(layout.mode))
+  const [slotStyle, setSlotStyle] = React.useState<CSSProperties | undefined>(() =>
+    stageSlotStyle(layout.displayMode),
+  )
   const manualSequence = React.useRef(0)
   const hostRef = React.useRef<HTMLDivElement | null>(null)
   const desiredLayout =
-    expanded && layout.mode === "compact" && !effectiveModalOpen && width >= 1180 ? companionLayout : layout
-  const effectiveLayout = collisionCompact && desiredLayout.mode !== "compact" ? compactLayout : desiredLayout
-  const mode = effectiveLayout.mode
+    expanded && layout.displayMode === "compact" && !detectedModalOpen ? companionLayout : layout
+  const effectiveLayout =
+    collisionCompact && desiredLayout.displayMode !== "compact" ? compactLayout : desiredLayout
+  const mode = effectiveLayout.displayMode
 
   const updatePlacement = React.useCallback(() => {
     const host = hostRef.current
@@ -209,16 +140,18 @@ export function CaptainHost({
       .filter((control) => !host.contains(control))
       .map((control) => control.getBoundingClientRect())
     const placement = safeCaptainPlacement(hostRect, controls, window.innerHeight)
-    const mustCompact = desiredLayout.mode !== "compact" && !placement.possible
+    const mustCompact = desiredLayout.displayMode !== "compact" && !placement.possible
     collisionCompactRef.current = mustCompact
     setCollisionCompact(mustCompact)
     const nextShift = mustCompact ? 0 : placement.shift
     safeShiftRef.current = nextShift
     setSafeShift(nextShift)
     setSlotStyle(
-      mustCompact ? undefined : (stageSlotStyle(desiredLayout.mode) ?? stageContentStyle(desiredLayout.mode)),
+      mustCompact
+        ? undefined
+        : (stageSlotStyle(desiredLayout.displayMode) ?? stageContentStyle(desiredLayout.displayMode)),
     )
-  }, [desiredLayout.mode])
+  }, [desiredLayout.displayMode])
 
   React.useLayoutEffect(() => {
     collisionCompactRef.current = false
@@ -226,8 +159,8 @@ export function CaptainHost({
     safeShiftRef.current = 0
     setCollisionCompact(false)
     setSafeShift(0)
-    setSlotStyle(stageSlotStyle(desiredLayout.mode) ?? stageContentStyle(desiredLayout.mode))
-  }, [desiredLayout.maxWidth, desiredLayout.minWidth, desiredLayout.mode, effectiveModalOpen, route, width])
+    setSlotStyle(stageSlotStyle(desiredLayout.displayMode) ?? stageContentStyle(desiredLayout.displayMode))
+  }, [desiredLayout.displayMode, desiredLayout.maxWidth, desiredLayout.minWidth])
 
   React.useLayoutEffect(() => {
     const host = hostRef.current

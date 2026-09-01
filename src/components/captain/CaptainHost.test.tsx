@@ -6,8 +6,10 @@ import * as React from "react"
 import { act } from "react"
 import { createRoot } from "react-dom/client"
 import { afterEach, describe, expect, it, vi } from "vitest"
-import { CaptainHost, resolveCaptainLayout, safeCaptainPlacement } from "./CaptainHost.tsx"
+import { CaptainHost, safeCaptainPlacement } from "./CaptainHost.tsx"
 import { CaptainOrchestrator } from "./CaptainOrchestrator.tsx"
+import { resolveCaptainWorkspaceLayout } from "@/captain/captain-layout.ts"
+import type { AppShellRoute } from "@/components/app-shell/app-shell-types.ts"
 import { FleetSkinContext } from "@/components/fleet-skin-context.ts"
 import { I18nProvider } from "@/i18n/I18nProvider.tsx"
 import { resolveFleetSkin } from "@/skins/fleet-skins.ts"
@@ -26,6 +28,16 @@ const fleetSkin: FleetSkinContextValue = {
   preloadCrew: () => undefined,
 }
 
+interface CaptainTestProps {
+  readonly activeProject?: boolean
+  readonly activeSessionId: string | null
+  readonly activeTask?: boolean
+  readonly chatIsEmpty?: boolean
+  readonly modalOpen?: boolean
+  readonly route: AppShellRoute
+  readonly viewportWidth: number
+}
+
 function TestTree({
   activeSessionId,
   activeProject,
@@ -34,27 +46,28 @@ function TestTree({
   modalOpen = false,
   route,
   viewportWidth,
-}: React.ComponentProps<typeof CaptainHost>) {
+}: CaptainTestProps) {
+  const decision = resolveCaptainWorkspaceLayout({
+    activeProject: activeProject ?? false,
+    activeSessionId,
+    activeTask: activeTask ?? false,
+    chatIsEmpty: chatIsEmpty ?? activeSessionId === null,
+    modalOpen: modalOpen ?? false,
+    route,
+    viewportWidth,
+  })
   return (
     <I18nProvider>
       <FleetSkinContext.Provider value={fleetSkin}>
         <CaptainOrchestrator>
-          <CaptainHost
-            activeSessionId={activeSessionId}
-            activeProject={activeProject}
-            activeTask={activeTask}
-            chatIsEmpty={chatIsEmpty}
-            modalOpen={modalOpen}
-            route={route}
-            viewportWidth={viewportWidth}
-          />
+          <CaptainHost decision={decision} />
         </CaptainOrchestrator>
       </FleetSkinContext.Provider>
     </I18nProvider>
   )
 }
 
-function renderCaptain(props: React.ComponentProps<typeof CaptainHost>) {
+function renderCaptain(props: CaptainTestProps) {
   const container = document.createElement("div")
   document.body.append(container)
   const root = createRoot(container)
@@ -62,7 +75,7 @@ function renderCaptain(props: React.ComponentProps<typeof CaptainHost>) {
   act(() => root.render(<TestTree {...props} />))
   return {
     container,
-    rerender(next: React.ComponentProps<typeof CaptainHost>) {
+    rerender(next: CaptainTestProps) {
       act(() => root.render(<TestTree {...next} />))
     },
   }
@@ -77,61 +90,13 @@ afterEach(() => {
 })
 
 describe("CaptainHost adaptive layout", () => {
-  it.each([
-    ["fleet", null, false, false, false, 1280, false, "stage", 360, 520],
-    ["voyage", null, false, false, false, 1600, false, "stage", 360, 520],
-    ["chat", null, true, false, false, 1280, false, "stage", 360, 520],
-    ["chat", "loaded-empty", true, false, false, 1280, false, "stage", 360, 520],
-    ["chat", "active", false, false, false, 1180, false, "companion", 240, 300],
-    ["chat", "project", true, true, false, 1280, false, "companion", 240, 300],
-    ["chat", "task", false, false, true, 1280, false, "companion", 240, 300],
-    ["skills", null, false, false, false, 1180, false, "companion", 240, 300],
-    ["connections", null, false, false, false, 1440, false, "companion", 240, 300],
-    ["archived", null, false, false, false, 1600, false, "compact", 0, 72],
-    ["knowledge", null, false, false, false, 1600, false, "compact", 0, 72],
-    ["settings", null, false, false, false, 1600, false, "compact", 0, 72],
-    ["fleet", null, false, false, false, 1279, false, "compact", 0, 72],
-    ["chat", "active", false, false, false, 1179, false, "compact", 0, 72],
-    ["chat", "active", false, false, false, 1440, true, "compact", 0, 72],
-  ] as const)(
-    "maps %s at %i px to exact %s bounds",
-    (
-      route,
-      activeSessionId,
-      chatIsEmpty,
-      activeProject,
-      activeTask,
-      viewportWidth,
-      modalOpen,
-      mode,
-      minWidth,
-      maxWidth,
-    ) => {
-      expect(
-        resolveCaptainLayout({
-          activeProject,
-          activeSessionId,
-          activeTask,
-          chatIsEmpty,
-          modalOpen,
-          route,
-          viewportWidth,
-        }),
-      ).toEqual({
-        mode,
-        minWidth,
-        maxWidth,
-      })
-    },
-  )
-
   it("keeps one host instance across route changes and limits pointer events to safe controls", () => {
     const view = renderCaptain({ activeSessionId: null, route: "fleet", viewportWidth: 1440 })
     const initialHost = view.container.querySelector("[data-captain-host]")
 
     expect(initialHost?.getAttribute("data-captain-mode")).toBe("stage")
     expect(initialHost?.getAttribute("data-captain-min-width")).toBe("360")
-    expect(initialHost?.getAttribute("data-captain-max-width")).toBe("520")
+    expect(initialHost?.getAttribute("data-captain-max-width")).toBe("560")
     expect(initialHost?.querySelector("[data-captain-decorative]")?.className).toContain("pointer-events-none")
     expect(initialHost?.querySelector("[data-captain-controls]")?.className).toContain("pointer-events-auto")
     expect(initialHost?.querySelectorAll("[data-captain-safe-control]").length).toBeGreaterThanOrEqual(4)
