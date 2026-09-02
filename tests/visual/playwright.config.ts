@@ -13,7 +13,11 @@ export default defineConfig({
     toHaveScreenshot: {
       animations: "disabled",
       caret: "hide",
-      maxDiffPixels: 0,
+      // Electron's GPU/WebP rasterization can vary by a few edge pixels between
+      // otherwise identical captures on Windows. Keep the allowance below the
+      // smallest visually meaningful change while avoiding a non-repeatable
+      // zero-pixel gate (observed local variance: at most 51 pixels).
+      maxDiffPixels: 64,
     },
   },
   projects: [

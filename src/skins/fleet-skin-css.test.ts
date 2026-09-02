@@ -33,7 +33,9 @@ const requiredSemanticVariables = [
   "--oo-surface",
   "--oo-overlay-shadow",
   "--fleet-scene-backdrop",
+  "--fleet-scene-midground",
   "--fleet-scene-scrim",
+  "--fleet-scene-light",
   "--fleet-scene-foreground",
   "--fleet-type-heading-family",
   "--fleet-type-heading-weight",
@@ -153,11 +155,13 @@ describe("fleet skin semantic CSS contract", () => {
     },
   )
 
-  it("omits only a degraded optional scene foreground", () => {
+  it("omits degraded optional light and foreground while retaining required scene planes", () => {
     const manifest = builtinFleetSkins.watchtide
-    const variables = manifestMapper()(manifest, [manifest.scene.foreground])
+    const variables = manifestMapper()(manifest, [manifest.scene.light, manifest.scene.foreground])
 
     expect(variables["--fleet-scene-backdrop"]).toContain("scene-backdrop.webp")
+    expect(variables["--fleet-scene-midground"]).toContain("scene-midground.webp")
+    expect(variables["--fleet-scene-light"]).toBeUndefined()
     expect(variables["--fleet-scene-foreground"]).toBeUndefined()
   })
 

@@ -10,6 +10,8 @@ import { FLEET_SKIN_ASSET_IDS, FLEET_SKIN_ASSET_ROLES } from "./fleet-skin-schem
 
 const roleFiles = {
   "scene.backdrop": "scene-backdrop.webp",
+  "scene.midground": "scene-midground.webp",
+  "scene.light": "scene-light.webp",
   "scene.foreground": "scene-foreground.webp",
   "captain.base": "captain-base.webp",
   "captain.uniform": "captain-uniform.webp",
@@ -17,10 +19,10 @@ const roleFiles = {
   crest: "crest.svg",
 } as const satisfies Record<FleetSkinAssetRole, string>
 
-const addedSceneFiles = ["scene-midground.webp", "scene-light.webp"] as const
-
 const expectedRasterDimensions = {
   "scene.backdrop": { width: 1920, height: 1080, alpha: false },
+  "scene.midground": { width: 1920, height: 1080, alpha: false },
+  "scene.light": { width: 1920, height: 1080, alpha: true },
   "scene.foreground": { width: 1920, height: 1080, alpha: true },
   "captain.base": { width: 1600, height: 2200, alpha: true },
   "captain.uniform": { width: 1600, height: 2200, alpha: true },
@@ -37,7 +39,6 @@ const expectedSourceInventory: SourceInventory = {
   files: [
     "PROVENANCE.md",
     ...BUILTIN_CREW_IDS.flatMap((crewId) => FLEET_SKIN_ASSET_ROLES.map((role) => `${crewId}/${roleFiles[role]}`)),
-    ...BUILTIN_CREW_IDS.flatMap((crewId) => addedSceneFiles.map((file) => `${crewId}/${file}`)),
   ].sort(),
 }
 
@@ -255,7 +256,7 @@ describe("fleet skin asset registry", () => {
     }
   })
 
-  it("contains the exact 60-file source inventory with valid binaries", async () => {
+  it("contains the exact 80-file source inventory with valid binaries", async () => {
     const inventory: string[] = []
     const uniqueBackdrops = new Set<string>()
     const uniqueCaptainBases = new Set<string>()
@@ -285,8 +286,8 @@ describe("fleet skin asset registry", () => {
       }
     }
 
-    expect(inventory).toHaveLength(60)
-    expect(new Set(inventory).size).toBe(60)
+    expect(inventory).toHaveLength(80)
+    expect(new Set(inventory).size).toBe(80)
     expect(uniqueBackdrops.size).toBe(10)
     expect(uniqueCaptainBases.size).toBe(10)
   })
@@ -296,7 +297,7 @@ describe("fleet skin asset registry", () => {
     const uniqueLights = new Set<string>()
 
     for (const crewId of BUILTIN_CREW_IDS) {
-      for (const fileName of addedSceneFiles) {
+      for (const fileName of ["scene-midground.webp", "scene-light.webp"] as const) {
         const assetId = `${crewId}/${fileName}`
         const file = new URL(`../../resources/xingchao/skins/${assetId}`, import.meta.url)
         const bytes = await readFile(file)

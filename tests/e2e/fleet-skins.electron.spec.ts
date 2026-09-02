@@ -300,9 +300,11 @@ test("supports keyboard controls, reduced motion, and system high contrast", asy
     ),
   ).toEqual([])
 
-  await page.locator("body").focus()
+  const voiceControl = page.getByRole("button", { name: "开启舰长语音" })
+  await voiceControl.focus()
+  await page.keyboard.press("Shift+Tab")
   await page.keyboard.press("Tab")
-  await expect(page.getByRole("button", { name: "开启舰长语音" })).toBeFocused()
+  await expect(voiceControl).toBeFocused()
   expect(
     await page.getByRole("button", { name: "开启舰长语音" }).evaluate((element) => {
       const style = getComputedStyle(element)

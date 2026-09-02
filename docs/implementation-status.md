@@ -139,6 +139,27 @@ This document separates implemented behavior from planned release work. A passin
   older `safeStorage` profile data, signed installers, release audit, push, and
   public distribution. No paid model call, download, push, release, or publication was performed.
 
+## Four-plane fleet scene integration on 2026-09-02
+
+- Promoted `scene.midground` and `scene.light` into the closed fleet-skin asset contract. The built-in registry now
+  contains exactly 80 assets across ten crews and eight roles; every manifest binds same-crew backdrop, midground,
+  light, foreground, captain, and crest resources.
+- Atomic switching treats backdrop and midground as required resources. Light and foreground remain optional
+  decoration: either may degrade without exposing a partially switched required scene.
+- The shared application scene and layered captain renderer now compose backdrop, midground, scrim, captain,
+  transparent light, and foreground planes. Reduced-motion mode removes decorative light/foreground motion through the
+  existing accessibility contract.
+- Repaired visual-Harness drift left by the captain-layout extraction: the Harness now resolves a
+  `CaptainLayoutDecision` through the same layout function used by the application instead of passing removed legacy
+  props to `CaptainHost`.
+- Regenerated and reviewed all 50 tracked 1440 × 852 visual baselines after inspecting the ten standard stage
+  compositions for face/figure integrity, control and text readability, clear work areas, transparent-edge intensity,
+  and fleet distinction. The update run passed all 54 visual scenarios with zero test failures.
+- The immutable screenshot gate permits at most 64 differing pixels per capture. Repeated Windows/Electron runs showed
+  5-51 GPU/WebP edge pixels of variance with identical layout, so a zero-pixel threshold was not reproducible; 64
+  remains below a visible composition change.
+- No paid model call, network download, push, release, installer publication, or public distribution was performed.
+
 ## Windows external-Skill mirror reliability on 2026-08-28
 
 - External Skill mirroring no longer asks Windows to recreate source symbolic links. Links that resolve within the Skill

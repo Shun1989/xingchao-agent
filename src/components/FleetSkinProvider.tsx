@@ -193,6 +193,7 @@ export function manifestToFleetSkinVariables(
     "--oo-radius-panel": `${cardSurface.radius}px`,
     "--oo-radius-control": `${inputSurface.radius}px`,
     "--fleet-scene-backdrop": cssUrl(fleetSkinAssetUrl(manifest.scene.backdrop)),
+    "--fleet-scene-midground": cssUrl(fleetSkinAssetUrl(manifest.scene.midground)),
     "--fleet-scene-scrim": manifest.scene.scrim,
     "--fleet-scene-focal-point": manifest.scene.focalPoint,
     "--fleet-crest": cssUrl(fleetSkinAssetUrl(manifest.identity.crest)),
@@ -217,6 +218,9 @@ export function manifestToFleetSkinVariables(
     "--fleet-a11y-reduced-switch-ms": `${manifest.accessibility.reducedMotion.switchMs}ms`,
     "--fleet-a11y-reduced-parallax-px": `${manifest.accessibility.reducedMotion.parallaxPx}px`,
     "--fleet-a11y-reduced-particle-density": String(manifest.accessibility.reducedMotion.particleDensity),
+  }
+  if (!degradedOptional.includes(manifest.scene.light)) {
+    variables["--fleet-scene-light"] = cssUrl(fleetSkinAssetUrl(manifest.scene.light))
   }
   if (!degradedOptional.includes(manifest.scene.foreground)) {
     variables["--fleet-scene-foreground"] = cssUrl(fleetSkinAssetUrl(manifest.scene.foreground))

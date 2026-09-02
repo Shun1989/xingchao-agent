@@ -75,6 +75,8 @@ const validManifest = {
   },
   scene: {
     backdrop: "watchtide.scene.backdrop",
+    midground: "watchtide.scene.midground",
+    light: "watchtide.scene.light",
     foreground: "watchtide.scene.foreground",
     scrim: "color-mix(in oklab, #000000 40%, #FFFFFF 60%)",
     focalPoint: "50% 50%",
@@ -263,9 +265,9 @@ describe("fleet skin closed contract", () => {
     expect(() => validateFleetSkinManifest(wrongRole)).toThrow(/role|layer|uniform/i)
   })
 
-  it("builds exactly the closed ten-crew by six-role asset set", () => {
-    expect(FLEET_SKIN_ASSET_IDS).toHaveLength(60)
-    expect(new Set(FLEET_SKIN_ASSET_IDS).size).toBe(60)
+  it("builds exactly the closed ten-crew by eight-role asset set", () => {
+    expect(FLEET_SKIN_ASSET_IDS).toHaveLength(80)
+    expect(new Set(FLEET_SKIN_ASSET_IDS).size).toBe(80)
     expect(FLEET_SKIN_ASSET_IDS).toContain("watchtide.scene.backdrop")
     expect(FLEET_SKIN_ASSET_IDS).toContain("rest-harbor.crest")
     expect(FLEET_SKIN_ASSET_IDS).not.toContain("pack--crew.scene.backdrop")

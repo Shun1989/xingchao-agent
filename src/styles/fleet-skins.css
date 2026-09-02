@@ -97,11 +97,24 @@
   }
 
   .oo-fleet-scene-backdrop,
+  .oo-fleet-scene-midground,
   .oo-fleet-scene-scrim,
+  .oo-fleet-scene-light,
   .oo-fleet-scene-foreground {
     position: absolute;
     inset: 0;
     pointer-events: none;
+  }
+
+  .oo-fleet-scene-midground {
+    background-image: var(--fleet-scene-midground);
+    background-position: var(--fleet-scene-focal-point, 50% 50%);
+    background-size: cover;
+    opacity: 0.68;
+    transform: translate3d(calc(var(--fleet-motion-parallax-px, 0px) * 0.12), 0, 0) scale(1.01);
+    transition:
+      background-image var(--fleet-motion-switch-ms, 320ms) ease,
+      transform var(--fleet-motion-feedback-ms, 180ms) ease;
   }
 
   .oo-fleet-scene-backdrop {
@@ -117,6 +130,19 @@
 
   .oo-fleet-scene-scrim {
     background: var(--fleet-scene-scrim, transparent);
+  }
+
+  .oo-fleet-scene-light {
+    background-image: var(--fleet-scene-light);
+    background-position: var(--fleet-scene-focal-point, 50% 50%);
+    background-size: cover;
+    mix-blend-mode: screen;
+    opacity: 0.52;
+    transform: translate3d(calc(var(--fleet-motion-parallax-px, 0px) * -0.18), 0, 0) scale(1.015);
+    transition:
+      background-image var(--fleet-motion-switch-ms, 320ms) ease,
+      opacity var(--fleet-motion-feedback-ms, 180ms) ease,
+      transform var(--fleet-motion-feedback-ms, 180ms) ease;
   }
 
   .oo-fleet-scene-foreground {
@@ -275,6 +301,8 @@
   }
 
   .oo-fleet-scene-backdrop,
+  .oo-fleet-scene-midground,
+  .oo-fleet-scene-light,
   .oo-fleet-scene-foreground,
   .oo-fleet-particles,
   .oo-captain-breathing,
@@ -286,6 +314,7 @@
   }
 
   .oo-fleet-scene-foreground,
+  .oo-fleet-scene-light,
   .oo-fleet-particles {
     display: none;
   }

@@ -5,6 +5,7 @@ import type { RuntimeFleetContextValue } from "@/components/runtime-fleet-contex
 import type { UseCaptainSpeechResult } from "@/hooks/useCaptainSpeech.ts"
 
 import * as React from "react"
+import { resolveCaptainWorkspaceLayout } from "@/captain/captain-layout.ts"
 import { DEFAULT_CAPTAIN_VOICE_SETTINGS } from "@/captain/captain-voice.ts"
 import { CaptainContext } from "@/components/captain/captain-context.ts"
 import { CaptainHost } from "@/components/captain/CaptainHost.tsx"
@@ -189,7 +190,9 @@ function Scene() {
   return (
     <div className="oo-fleet-scene" aria-hidden="true">
       <div className="oo-fleet-scene-backdrop" />
+      <div className="oo-fleet-scene-midground" />
       <div className="oo-fleet-scene-scrim" />
+      <div className="oo-fleet-scene-light" />
       <div className="oo-fleet-scene-foreground" />
     </div>
   )
@@ -307,15 +310,16 @@ function Content({ visualCase }: { readonly visualCase: VisualCase }) {
 
 function Captain({ mode }: { readonly mode: CaptainDisplayMode }) {
   const route = MODE_COPY[mode].route
-  return (
-    <CaptainHost
-      route={route}
-      activeSessionId={mode === "companion" ? "visual-session" : null}
-      chatIsEmpty={mode !== "companion"}
-      activeTask={mode === "companion"}
-      viewportWidth={mode === "compact" ? 1024 : 1440}
-    />
-  )
+  const decision = resolveCaptainWorkspaceLayout({
+    route,
+    activeSessionId: mode === "companion" ? "visual-session" : null,
+    chatIsEmpty: mode !== "companion",
+    activeProject: false,
+    activeTask: mode === "companion",
+    modalOpen: false,
+    viewportWidth: mode === "compact" ? 1024 : 1440,
+  })
+  return <CaptainHost decision={decision} />
 }
 
 function DeferredCaptain({ mode }: { readonly mode: CaptainDisplayMode }) {

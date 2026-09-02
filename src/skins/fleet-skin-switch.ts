@@ -82,6 +82,7 @@ function localFontResourceId(family: FleetSkinFontFamily): FleetSkinFontResource
 function canonicalRequiredResources(manifest: ReadonlyFleetSkinManifest): readonly FleetSkinResourceId[] {
   const assets = [
     manifest.scene.backdrop,
+    manifest.scene.midground,
     ...manifest.captain.layers,
     manifest.captain.staticFallback,
     manifest.identity.crest,
@@ -96,7 +97,7 @@ function canonicalRequiredResources(manifest: ReadonlyFleetSkinManifest): readon
 }
 
 function canonicalOptionalResources(manifest: ReadonlyFleetSkinManifest): readonly FleetSkinAssetId[] {
-  return [manifest.scene.foreground]
+  return [manifest.scene.light, manifest.scene.foreground]
 }
 
 function hasExactUniqueMembers<T extends string>(actual: readonly T[], expected: readonly T[]): boolean {

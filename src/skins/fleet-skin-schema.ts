@@ -7,6 +7,8 @@ export const FLEET_SKIN_SCHEMA_VERSION = "1.0.0" as const
 
 export const FLEET_SKIN_ASSET_ROLES = [
   "scene.backdrop",
+  "scene.midground",
+  "scene.light",
   "scene.foreground",
   "captain.base",
   "captain.uniform",
@@ -133,6 +135,8 @@ export interface FleetSkinManifest {
   }
   scene: {
     backdrop: FleetSkinAssetId
+    midground: FleetSkinAssetId
+    light: FleetSkinAssetId
     foreground: FleetSkinAssetId
     scrim: string
     focalPoint: string
@@ -338,6 +342,8 @@ const manifestSchema = z
     }),
     scene: z.strictObject({
       backdrop: assetIdSchema,
+      midground: assetIdSchema,
+      light: assetIdSchema,
       foreground: assetIdSchema,
       scrim: colorTokenSchema,
       focalPoint: focalPointSchema,
@@ -430,6 +436,8 @@ function assertManifestBindings(manifest: FleetSkinManifest): void {
   const crewId = manifest.identity.crewId
   assertAssetBinding("identity.crest", manifest.identity.crest, crewId, "crest")
   assertAssetBinding("scene.backdrop", manifest.scene.backdrop, crewId, "scene.backdrop")
+  assertAssetBinding("scene.midground", manifest.scene.midground, crewId, "scene.midground")
+  assertAssetBinding("scene.light", manifest.scene.light, crewId, "scene.light")
   assertAssetBinding("scene.foreground", manifest.scene.foreground, crewId, "scene.foreground")
   assertAssetBinding("captain.staticFallback", manifest.captain.staticFallback, crewId, "captain.static")
 
@@ -461,6 +469,7 @@ export function validateFleetSkinManifest(input: unknown): FleetSkinManifest {
 export function requiredAssetIds(manifest: FleetSkinManifest): FleetSkinAssetId[] {
   const required = [
     manifest.scene.backdrop,
+    manifest.scene.midground,
     ...manifest.captain.layers,
     manifest.captain.staticFallback,
     manifest.identity.crest,

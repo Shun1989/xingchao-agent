@@ -171,20 +171,33 @@
   inset: calc(0px - var(--captain-parallax-px));
 }
 
-.captain-layer--base {
+.captain-layer--midground {
   z-index: 1;
+  inset: calc(0px - var(--captain-parallax-px));
+  opacity: 0.72;
 }
 
-.captain-layer--uniform {
+.captain-layer--base {
   z-index: 2;
 }
 
-.captain-layer--expression {
+.captain-layer--uniform {
   z-index: 3;
 }
 
-.captain-layer--foreground {
+.captain-layer--expression {
   z-index: 4;
+}
+
+.captain-layer--scene-light {
+  z-index: 5;
+  inset: calc(0px - var(--captain-parallax-px));
+  opacity: 0.52;
+  mix-blend-mode: screen;
+}
+
+.captain-layer--foreground {
+  z-index: 6;
   inset: calc(0px - var(--captain-parallax-px));
 }
 
@@ -205,6 +218,14 @@
 
 .captain-layer__image--person {
   object-fit: contain;
+}
+
+.captain-layer__image--midground {
+  opacity: 0.78;
+}
+
+.captain-layer__image--light {
+  mix-blend-mode: screen;
 }
 
 .captain-expression-light {

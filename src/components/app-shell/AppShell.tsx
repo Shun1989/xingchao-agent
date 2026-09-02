@@ -2142,7 +2142,9 @@ export function AppShell({ auth }: { auth: UseAuth }) {
         >
           <div className="oo-fleet-scene" aria-hidden="true">
             <div className="oo-fleet-scene-backdrop" />
+            <div className="oo-fleet-scene-midground" />
             <div className="oo-fleet-scene-scrim" />
+            <div className="oo-fleet-scene-light" />
             <div className="oo-fleet-scene-foreground" />
           </div>
 

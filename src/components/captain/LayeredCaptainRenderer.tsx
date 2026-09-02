@@ -110,6 +110,24 @@ export function LayeredCaptainRenderer({ snapshot, skin, mode, reducedMotion, on
       </motion.div>
 
       <motion.div
+        className="captain-layer captain-layer--midground"
+        data-captain-layer="midground"
+        data-motion-enabled={String(!effectiveReducedMotion)}
+        aria-hidden="true"
+        {...(!effectiveReducedMotion
+          ? {
+              animate: { x: [-parallax / 4, parallax / 4, -parallax / 4] },
+              transition: { duration: 14, ease: "easeInOut" as const, repeat: Number.POSITIVE_INFINITY },
+            }
+          : {})}
+      >
+        {decorativeImage(
+          fleetSkinAssetUrl(skin.scene.midground),
+          "captain-layer__image captain-layer__image--midground",
+        )}
+      </motion.div>
+
+      <motion.div
         className="captain-layer captain-layer--presentation captain-layer--base"
         data-captain-layer="base"
         data-captain-presentation="base"
@@ -163,6 +181,21 @@ export function LayeredCaptainRenderer({ snapshot, skin, mode, reducedMotion, on
           data-mouth-cadence={snapshot.state === "reporting" && !effectiveReducedMotion ? "clock" : "off"}
           style={{ "--captain-mouth-level": String(mouthLevel) } as CSSProperties}
         />
+      </motion.div>
+
+      <motion.div
+        className="captain-layer captain-layer--scene-light"
+        data-captain-layer="scene-light"
+        data-motion-enabled={String(!effectiveReducedMotion)}
+        aria-hidden="true"
+        {...(!effectiveReducedMotion
+          ? {
+              animate: { opacity: [0.44, 0.62, 0.44], x: [parallax / 4, -parallax / 4, parallax / 4] },
+              transition: { duration: 10, ease: "easeInOut" as const, repeat: Number.POSITIVE_INFINITY },
+            }
+          : {})}
+      >
+        {decorativeImage(fleetSkinAssetUrl(skin.scene.light), "captain-layer__image captain-layer__image--light")}
       </motion.div>
 
       <motion.div

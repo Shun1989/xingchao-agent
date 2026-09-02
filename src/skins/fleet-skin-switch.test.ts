@@ -70,7 +70,7 @@ describe("fleet skin atomic switch reducer", () => {
     expect(state.committedManifest.identity.crewId).toBe("ink-sail")
     expect(state.pending).toBeNull()
     expect(state.phase).toBe("committed")
-    expect(state.degradedOptional).toEqual(["ink-sail.scene.foreground"])
+    expect(state.degradedOptional).toEqual(["ink-sail.scene.light", "ink-sail.scene.foreground"])
     expect(state.effect).toEqual({ type: "persist-crew", crewId: "ink-sail" })
 
     const committed = state
@@ -129,7 +129,7 @@ describe("fleet skin atomic switch reducer", () => {
     expect(afterStaleEvents.committedCrewId).toBe("watchtide")
   })
 
-  it("commits when the optional foreground fails and records the degradation", () => {
+  it("commits when optional light and foreground fail and records both degradations", () => {
     const event = request("ink-sail", 5)
     let state = reduce(createFleetSkinSwitchState("watchtide"), event)
     state = reduce(state, {
@@ -142,7 +142,7 @@ describe("fleet skin atomic switch reducer", () => {
 
     expect(state.committedCrewId).toBe("ink-sail")
     expect(state.phase).toBe("committed")
-    expect(state.degradedOptional).toEqual(["ink-sail.scene.foreground"])
+    expect(state.degradedOptional).toEqual(["ink-sail.scene.light", "ink-sail.scene.foreground"])
     expect(state.effect).toEqual({ type: "persist-crew", crewId: "ink-sail" })
   })
 
@@ -190,11 +190,12 @@ describe("fleet skin atomic switch reducer", () => {
     expect(fontResources.length).toBeGreaterThan(0)
     expect(new Set(event.required).size).toBe(event.required.length)
     expect(event.required).toContain("forge-vessel.scene.backdrop")
+    expect(event.required).toContain("forge-vessel.scene.midground")
     expect(event.required).toContain("forge-vessel.captain.base")
     expect(event.required).toContain("forge-vessel.captain.uniform")
     expect(event.required).toContain("forge-vessel.captain.static")
     expect(event.required).toContain("forge-vessel.crest")
-    expect(event.optional).toEqual(["forge-vessel.scene.foreground"])
+    expect(event.optional).toEqual(["forge-vessel.scene.light", "forge-vessel.scene.foreground"])
   })
 
   it("treats repeated resource events as idempotent and rejects unknown or misclassified events", () => {

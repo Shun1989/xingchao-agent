@@ -69,6 +69,8 @@ const builtinFleetSkinEntries = {
     },
     scene: {
       backdrop: "watchtide.scene.backdrop",
+      midground: "watchtide.scene.midground",
+      light: "watchtide.scene.light",
       foreground: "watchtide.scene.foreground",
       scrim: "color-mix(in oklab, #07111F 72%, #000000 28%)",
       focalPoint: "62% 46%",
@@ -161,6 +163,8 @@ const builtinFleetSkinEntries = {
     },
     scene: {
       backdrop: "ink-sail.scene.backdrop",
+      midground: "ink-sail.scene.midground",
+      light: "ink-sail.scene.light",
       foreground: "ink-sail.scene.foreground",
       scrim: "color-mix(in oklab, #1A1012 78%, #000000 22%)",
       focalPoint: "38% 44%",
@@ -249,6 +253,8 @@ const builtinFleetSkinEntries = {
     },
     scene: {
       backdrop: "brocade-harbor.scene.backdrop",
+      midground: "brocade-harbor.scene.midground",
+      light: "brocade-harbor.scene.light",
       foreground: "brocade-harbor.scene.foreground",
       scrim: "color-mix(in oklab, #081A1C 65%, #000000 35%)",
       focalPoint: "54% 48%",
@@ -353,6 +359,8 @@ const builtinFleetSkinEntries = {
     },
     scene: {
       backdrop: "forge-vessel.scene.backdrop",
+      midground: "forge-vessel.scene.midground",
+      light: "forge-vessel.scene.light",
       foreground: "forge-vessel.scene.foreground",
       scrim: "color-mix(in srgb, #0B1016 76%, #000000 24%)",
       focalPoint: "68% 52%",
@@ -449,6 +457,8 @@ const builtinFleetSkinEntries = {
     },
     scene: {
       backdrop: "golden-scale.scene.backdrop",
+      midground: "golden-scale.scene.midground",
+      light: "golden-scale.scene.light",
       foreground: "golden-scale.scene.foreground",
       scrim: "color-mix(in oklab, #0C110E 74%, #000000 26%)",
       focalPoint: "64% 48%",
@@ -549,6 +559,8 @@ const builtinFleetSkinEntries = {
     },
     scene: {
       backdrop: "helm-order.scene.backdrop",
+      midground: "helm-order.scene.midground",
+      light: "helm-order.scene.light",
       foreground: "helm-order.scene.foreground",
       scrim: "color-mix(in srgb, #F1EEE7 84%, #FFFFFF 16%)",
       focalPoint: "46% 48%",
@@ -641,6 +653,8 @@ const builtinFleetSkinEntries = {
     },
     scene: {
       backdrop: "iron-code.scene.backdrop",
+      midground: "iron-code.scene.midground",
+      light: "iron-code.scene.light",
       foreground: "iron-code.scene.foreground",
       scrim: "color-mix(in oklab, #160D10 82%, #000000 18%)",
       focalPoint: "51% 43%",
@@ -733,6 +747,8 @@ const builtinFleetSkinEntries = {
     },
     scene: {
       backdrop: "lighthouse.scene.backdrop",
+      midground: "lighthouse.scene.midground",
+      light: "lighthouse.scene.light",
       foreground: "lighthouse.scene.foreground",
       scrim: "color-mix(in oklab, #10152A 70%, #000000 30%)",
       focalPoint: "43% 40%",
@@ -825,6 +841,8 @@ const builtinFleetSkinEntries = {
     },
     scene: {
       backdrop: "phantom-wave.scene.backdrop",
+      midground: "phantom-wave.scene.midground",
+      light: "phantom-wave.scene.light",
       foreground: "phantom-wave.scene.foreground",
       scrim: "color-mix(in oklab, #090A18 62%, #000000 38%)",
       focalPoint: "58% 52%",
@@ -913,6 +931,8 @@ const builtinFleetSkinEntries = {
     },
     scene: {
       backdrop: "rest-harbor.scene.backdrop",
+      midground: "rest-harbor.scene.midground",
+      light: "rest-harbor.scene.light",
       foreground: "rest-harbor.scene.foreground",
       scrim: "color-mix(in srgb, #F1F0E4 82%, #FFFFFF 18%)",
       focalPoint: "40% 46%",

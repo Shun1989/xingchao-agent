@@ -87,15 +87,19 @@ describe("LayeredCaptainRenderer", () => {
 
     expect(layers.map((layer) => layer.dataset.captainLayer)).toEqual([
       "scene",
+      "midground",
       "base",
       "uniform",
       "expression-light",
+      "scene-light",
       "foreground",
     ])
     expect(layers[0].querySelector("img")?.getAttribute("src")).toBe(fleetSkinAssetUrl(skin.scene.backdrop))
-    expect(layers[1].querySelector("img")?.getAttribute("src")).toBe(fleetSkinAssetUrl("watchtide.captain.base"))
-    expect(layers[2].querySelector("img")?.getAttribute("src")).toBe(fleetSkinAssetUrl("watchtide.captain.uniform"))
-    expect(layers[4].querySelector("img")?.getAttribute("src")).toBe(fleetSkinAssetUrl(skin.scene.foreground))
+    expect(layers[1].querySelector("img")?.getAttribute("src")).toBe(fleetSkinAssetUrl(skin.scene.midground))
+    expect(layers[2].querySelector("img")?.getAttribute("src")).toBe(fleetSkinAssetUrl("watchtide.captain.base"))
+    expect(layers[3].querySelector("img")?.getAttribute("src")).toBe(fleetSkinAssetUrl("watchtide.captain.uniform"))
+    expect(layers[5].querySelector("img")?.getAttribute("src")).toBe(fleetSkinAssetUrl(skin.scene.light))
+    expect(layers[6].querySelector("img")?.getAttribute("src")).toBe(fleetSkinAssetUrl(skin.scene.foreground))
     for (const layer of layers) {
       expect(layer.getAttribute("aria-hidden")).toBe("true")
       expect(layer.querySelector("img")?.getAttribute("alt") ?? "").toBe("")
