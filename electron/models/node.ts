@@ -43,7 +43,9 @@ export class ModelsServiceImpl extends ConnectionService<ModelsService> implemen
   public setSelectedModel(choice: ModelChoice): Promise<ModelCatalog> {
     return this.enqueueMutation(async () => {
       const models = await this.deps.store.read()
-      const selected = isKnownModelChoice(models, choice) ? choice : defaultModelChoice()
+      const credentialAvailable =
+        choice.kind !== "custom" || (await this.deps.store.credentialStore().status(choice.id)) === "configured"
+      const selected = isKnownModelChoice(models, choice) && credentialAvailable ? choice : defaultModelChoice()
       await this.deps.store.write({ ...models, selected })
       return this.emitCatalog()
     })
@@ -61,8 +63,8 @@ export class ModelsServiceImpl extends ConnectionService<ModelsService> implemen
       if (!modelName) throw new Error("Model name is required.")
       const id = existing?.id ?? randomUUID()
       const credentialStore = this.deps.store.credentialStore()
-      const existingApiKey = existing ? await credentialStore.get(id) : undefined
       const requestedApiKey = req.apiKey?.trim()
+      const existingApiKey = existing && !requestedApiKey ? await credentialStore.get(id) : undefined
       const apiKey = requestedApiKey || existingApiKey || ""
       if (!apiKey) throw new Error("API Key is required.")
       const contextWindow = resolveOptionalTokenLimit(
@@ -111,24 +113,14 @@ export class ModelsServiceImpl extends ConnectionService<ModelsService> implemen
       const customModels = existing
         ? current.map((model) => (model.id === existing.id ? next : model))
         : [...current, next]
-      const credentialChanged = Boolean(requestedApiKey && requestedApiKey !== existingApiKey)
-      if (credentialChanged) await credentialStore.set(id, apiKey)
-      try {
-        await this.deps.store.write({
+      const writeMetadata = () =>
+        this.deps.store.write({
           ...models,
           customModels,
           selected: { kind: "custom", id: next.id },
         })
-      } catch (error) {
-        if (!credentialChanged) throw error
-        try {
-          if (existingApiKey) await credentialStore.set(id, existingApiKey)
-          else await credentialStore.delete(id)
-        } catch (rollbackError) {
-          throw new AggregateError([error, rollbackError], "Failed to save and roll back the custom model")
-        }
-        throw error
-      }
+      if (requestedApiKey) await credentialStore.withCredentialUpdate(id, apiKey, writeMetadata)
+      else await writeMetadata()
       this.deps.onModelDefinitionsChanged?.()
       return this.emitCatalog()
     })
@@ -140,23 +132,12 @@ export class ModelsServiceImpl extends ConnectionService<ModelsService> implemen
       const existing = (models.customModels ?? []).find((model) => model.id === id)
       if (!existing) return this.emitCatalog()
       const credentialStore = this.deps.store.credentialStore()
-      const existingApiKey = await credentialStore.get(id)
       const customModels = (models.customModels ?? []).filter((model) => model.id !== id)
       const selected =
         models.selected?.kind === "custom" && models.selected.id === id ? defaultModelChoice() : models.selected
-      await credentialStore.delete(id)
-      try {
-        await this.deps.store.write({ ...models, customModels, selected })
-      } catch (error) {
-        if (existingApiKey) {
-          try {
-            await credentialStore.set(id, existingApiKey)
-          } catch (rollbackError) {
-            throw new AggregateError([error, rollbackError], "Failed to delete and roll back the custom model")
-          }
-        }
-        throw error
-      }
+      await credentialStore.withCredentialUpdate(id, undefined, () =>
+        this.deps.store.write({ ...models, customModels, selected }),
+      )
       this.deps.onModelDefinitionsChanged?.()
       return this.emitCatalog()
     })

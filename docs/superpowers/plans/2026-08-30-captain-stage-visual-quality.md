@@ -222,7 +222,11 @@ export interface CaptainStageLayoutProps {
 export function CaptainStageLayout({ captain, children, decision }: CaptainStageLayoutProps) {
   return (
     <div data-captain-stage-layout data-workspace-mode={decision.workspaceMode} className="captain-stage-layout">
-      <div className="captain-stage-layout__content" data-captain-content data-captain-reserved={decision.reservesContent}>
+      <div
+        className="captain-stage-layout__content"
+        data-captain-content
+        data-captain-reserved={decision.reservesContent}
+      >
         {children}
       </div>
       <div className="captain-stage-layout__slot" data-captain-host-slot>
@@ -242,10 +246,21 @@ Keep both children mounted in all modes. CSS changes layout; React conditionals 
 - [ ] **Step 5: Add minimal structural CSS**
 
 ```css
-.captain-stage-layout { position: relative; min-width: 0; min-height: 0; height: 100%; }
-.captain-stage-layout__content { min-width: 0; min-height: 0; height: 100%; }
+.captain-stage-layout {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+}
+.captain-stage-layout__content {
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+}
 .captain-stage-layout[data-workspace-mode="stage"] .captain-stage-layout__slot {
-  position: absolute; inset-block: var(--app-titlebar-height) 0; inset-inline-end: 0;
+  position: absolute;
+  inset-block: var(--app-titlebar-height) 0;
+  inset-inline-end: 0;
   width: clamp(360px, var(--fleet-captain-stage-width), 560px);
   pointer-events: none;
 }
@@ -496,7 +511,13 @@ Use a borderless transparent stage host, full-height person composition, fleet-s
   box-shadow: none;
   overflow: visible;
 }
-.captain-host--integrated { width: clamp(var(--fleet-captain-stage-min-width), var(--fleet-captain-stage-width), var(--fleet-captain-stage-max-width)); }
+.captain-host--integrated {
+  width: clamp(
+    var(--fleet-captain-stage-min-width),
+    var(--fleet-captain-stage-width),
+    var(--fleet-captain-stage-max-width)
+  );
+}
 ```
 
 - [ ] **Step 5: Preserve collision and accessibility downgrades**
@@ -602,10 +623,7 @@ it("restores executing after fleet activation reporting expires", () => {
   let state = createCaptainState(0)
   state = captainReducer(state, event("tool.started", { id: "tool", expiresAt: 100 }))
   state = captainReducer(state, event("fleet.switching", { id: "fleet", source: "fleet", sequence: 1 }))
-  state = captainReducer(
-    state,
-    event("fleet.activated", { id: "fleet", source: "fleet", sequence: 2, expiresAt: 10 }),
-  )
+  state = captainReducer(state, event("fleet.activated", { id: "fleet", source: "fleet", sequence: 2, expiresAt: 10 }))
   expect(state.snapshot.state).toBe("reporting")
   expect(tickCaptainState(state, 11).snapshot.state).toBe("executing")
 })

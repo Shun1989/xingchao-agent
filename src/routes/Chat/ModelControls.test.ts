@@ -27,6 +27,7 @@ const catalog: ModelCatalog = {
       modelName: "custom-model",
       displayName: "Custom Model",
       apiKeyConfigured: true,
+      credentialStatus: "configured",
       supportsImages: false,
       supportsToolCalls: true,
       reasoningVariants: ["max", "low", "max"],

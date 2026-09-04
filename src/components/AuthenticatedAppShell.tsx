@@ -15,7 +15,7 @@ import { TooltipProvider } from "@/components/ui/tooltip"
 import { useAppSettings } from "@/hooks/useAppSettings"
 import { useLinkRuntime } from "@/hooks/useLinkRuntime"
 import { reportRendererHandledError } from "@/lib/renderer-diagnostics"
-import { useModelCatalog } from "@/routes/Chat/useModelCatalog"
+import { hasConfiguredCustomModel, useModelCatalog } from "@/routes/Chat/useModelCatalog"
 import { InitialSetupRoute } from "@/routes/Login/InitialSetupRoute"
 
 export function AuthenticatedAppShell({ auth }: { auth: UseAuth }) {
@@ -39,7 +39,7 @@ function OperatingModeGate({ auth }: { auth: UseAuth }) {
   const signedOutProfileResetStarted = React.useRef(false)
   const authenticated = auth.state?.status === "authenticated"
   const operatingMode = settings.settings.operatingMode
-  const hasCustomModel = Boolean(models.catalog?.customModels.length)
+  const hasCustomModel = hasConfiguredCustomModel(models.catalog)
 
   React.useEffect(() => {
     if (settings.loading || linkRuntime.loading || !models.catalog || operatingMode || migrationStarted.current) {

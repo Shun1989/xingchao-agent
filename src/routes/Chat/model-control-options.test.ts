@@ -34,6 +34,7 @@ const catalog: ModelCatalog = {
       modelName: "custom-model",
       displayName: "Custom Model",
       apiKeyConfigured: true,
+      credentialStatus: "configured",
       supportsImages: false,
       supportsToolCalls: true,
     },
@@ -97,6 +98,26 @@ describe("model control options", () => {
     expect(buildModelMenuItems(customCatalog, "Configure").find((item) => item.kind === "custom")).toMatchObject({
       kind: "custom",
       title: "Custom Model",
+    })
+  })
+
+  it("does not present an unavailable custom credential as the selected runtime", () => {
+    const unavailableCatalog: ModelCatalog = {
+      ...catalog,
+      selected: { kind: "custom", id: "custom-1" },
+      customModels: [
+        {
+          ...catalog.customModels[0],
+          apiKeyConfigured: false,
+          credentialStatus: "unavailable",
+        },
+      ],
+    }
+
+    expect(selectedModelSummary(unavailableCatalog)).toEqual({
+      kind: "builtin",
+      label: "Auto",
+      supportsImages: true,
     })
   })
 

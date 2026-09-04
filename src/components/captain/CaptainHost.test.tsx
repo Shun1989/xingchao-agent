@@ -1,5 +1,6 @@
 // @vitest-environment happy-dom
 
+import type { AppShellRoute } from "@/components/app-shell/app-shell-types.ts"
 import type { FleetSkinContextValue } from "@/components/fleet-skin-context.ts"
 
 import * as React from "react"
@@ -9,7 +10,6 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 import { CaptainHost, safeCaptainPlacement } from "./CaptainHost.tsx"
 import { CaptainOrchestrator } from "./CaptainOrchestrator.tsx"
 import { resolveCaptainWorkspaceLayout } from "@/captain/captain-layout.ts"
-import type { AppShellRoute } from "@/components/app-shell/app-shell-types.ts"
 import { FleetSkinContext } from "@/components/fleet-skin-context.ts"
 import { I18nProvider } from "@/i18n/I18nProvider.tsx"
 import { resolveFleetSkin } from "@/skins/fleet-skins.ts"

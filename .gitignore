@@ -15,6 +15,7 @@ coverage
 
 # Dependency directories
 node_modules/
+.pnpm-store/
 
 # TypeScript cache
 *.tsbuildinfo

@@ -285,6 +285,7 @@ test("ModelsStore persists credential metadata while public catalog and models.j
     modelName: "deepseek-chat",
     displayName: "deepseek-chat",
     apiKeyConfigured: true,
+    credentialStatus: "configured",
     supportsImages: false,
     supportsToolCalls: true,
   })
@@ -453,6 +454,10 @@ test("credential lookup failures preserve builtin catalog and omit unavailable c
     "darwin",
   )
   const store = new ModelsStore(dir, credentials)
+  writeFileSync(
+    path.join(dir, "model-credentials.json"),
+    JSON.stringify({ version: 1, credentials: { "locked-model": "opaque-ciphertext" } }),
+  )
   await store.write({
     selected: { kind: "custom", id: "locked-model" },
     customModels: [
@@ -472,8 +477,35 @@ test("credential lookup failures preserve builtin catalog and omit unavailable c
 
   assert.ok(catalog.builtins.length > 0)
   assert.equal(catalog.customModels[0]?.id, "locked-model")
+  assert.equal(catalog.customModels[0]?.apiKeyConfigured, false)
+  assert.equal(catalog.customModels[0]?.credentialStatus, "unavailable")
+  assert.deepEqual(catalog.selected, defaultModelChoice())
   assert.deepEqual(runtime.customModels, [])
-  assert.deepEqual(runtime.selected, { kind: "custom", id: "locked-model" })
+  assert.deepEqual(runtime.selected, defaultModelChoice())
+})
+
+test("ModelsStore reports missing ciphertext instead of trusting stale credential metadata", async () => {
+  const dir = mkdtempSync(path.join(tmpdir(), "wanta-models-"))
+  const { store } = createStore(dir)
+  await store.write({
+    selected: { kind: "custom", id: "missing-key" },
+    customModels: [
+      {
+        id: "missing-key",
+        providerId: "custom",
+        providerName: "Custom",
+        baseUrl: "https://models.example.test/v1",
+        apiKeyConfigured: true,
+        modelName: "missing-key-model",
+      },
+    ],
+  })
+
+  const model = (await store.catalog()).customModels[0]
+
+  assert.equal(model?.apiKeyConfigured, false)
+  assert.equal(model?.credentialStatus, "missing")
+  assert.deepEqual((await store.catalog()).selected, defaultModelChoice())
 })
 
 test("sanitizeBaseUrl trims trailing slash and rejects invalid protocols", () => {

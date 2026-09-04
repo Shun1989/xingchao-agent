@@ -178,6 +178,7 @@ export function AddCustomModelDialog({
   const contextWindowId = React.useId()
   const inputTokenLimitId = React.useId()
   const maxOutputTokensId = React.useId()
+  const apiKeyRecoveryId = React.useId()
   const provider = providers.find((item) => item.id === providerId)
   const modelOptions = provider?.modelOptions ?? []
   const apiPlans = provider?.apiPlans ?? []
@@ -401,9 +402,15 @@ export function AddCustomModelDialog({
             onChange={(event) => setApiKey(event.target.value)}
             type="password"
             placeholder={model?.apiKeyConfigured ? t("chat.modelApiKeyConfigured") : "sk-..."}
+            aria-describedby={model?.credentialStatus === "unavailable" ? apiKeyRecoveryId : undefined}
             autoComplete="off"
             className={modelDialogControlClass}
           />
+          {model?.credentialStatus === "unavailable" ? (
+            <p id={apiKeyRecoveryId} role="alert" className="oo-text-caption text-destructive">
+              {t("chat.modelApiKeyUnavailable")}
+            </p>
+          ) : null}
         </div>
 
         <div className="grid gap-1.5">

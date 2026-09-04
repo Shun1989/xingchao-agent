@@ -21,7 +21,7 @@
 - **完整换肤**：主团切换时，以一次原子提交同步切换颜色、材质、背景、前景、导航装饰、纹章和舰长舞台；失败会回滚到上一套完整皮肤，支援团只提供辅助色。
 - **自适应常驻舰长**：澜汐按窗口和页面自适应为舞台、伴随或紧凑模式；默认静音、显式启用语音、关键事件播报、一键静音且字幕常驻。当前为高品质分层动态效果，并保留 Live2D 渲染器接口。
 - **真实执行**：继承成熟的本地文件、终端、集成浏览器、审批、MCP/OpenConnector、Skills 和产物预览链路。
-- **自带模型**：支持用户配置 OpenAI-compatible 模型；API Key 由 Electron `safeStorage` 加密，渲染层无法读取。
+- **自带模型**：支持用户配置 OpenAI-compatible 模型；API Key 由 Electron `safeStorage` 加密，渲染层无法读取。无法由当前操作系统账户解锁的旧密文会明确标为不可用，用户可重新输入 Key 替换或删除该模型，不会被误报为已配置。
 - **补给仓**：导入、列出、选用和移除声明式内容包。主进程执行版本、路径、类型、大小、符号链接、冲突路径和 SHA-256 检查，使用暂存目录原子安装，并在系统确认后持久化每个包唯一的选用版本。通过运行时投影后，已选用包的团队、六人编制、路由信号、任务规划和调色板主题会进入舰队与航海图。
 
 ## 产品结构
@@ -86,12 +86,13 @@ corepack pnpm run ts-check
 corepack pnpm run lint
 corepack pnpm run format
 corepack pnpm test
+corepack pnpm run smoke:model-credentials
 corepack pnpm run visual:test
 corepack pnpm run e2e:fleet-skins
 corepack pnpm run build
 ```
 
-当前 Windows 工作区已通过完整测试、50 张视觉基线和 Electron 端到端门禁；边界测试使用 Windows 原生连接与文件模式语义，不要求管理员开发者模式。签名安装包和跨平台发布仍需独立验证。星潮航局测试不得依赖真实 API Key、付费模型或联网服务。
+当前 Windows 工作区已通过完整测试、50 张视觉基线和 Electron 端到端门禁；边界测试使用 Windows 原生连接与文件模式语义，不要求管理员开发者模式。`smoke:model-credentials` 会使用自动清理的临时用户目录和虚拟 Key 启动两次真实 Electron，验收不可解密密文的识别、替换与删除，不读取现有用户数据，也不发出模型请求。签名安装包和跨平台发布仍需独立验证。星潮航局测试不得依赖真实 API Key、付费模型或联网服务。
 
 ## 补给包格式
 

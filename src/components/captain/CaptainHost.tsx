@@ -113,15 +113,11 @@ export function CaptainHost({ decision }: CaptainHostProps) {
   const [collisionCompact, setCollisionCompact] = React.useState(false)
   const collisionCompactRef = React.useRef(false)
   const desiredRectRef = React.useRef<RectEdges | null>(null)
-  const [slotStyle, setSlotStyle] = React.useState<CSSProperties | undefined>(() =>
-    stageSlotStyle(layout.displayMode),
-  )
+  const [slotStyle, setSlotStyle] = React.useState<CSSProperties | undefined>(() => stageSlotStyle(layout.displayMode))
   const manualSequence = React.useRef(0)
   const hostRef = React.useRef<HTMLDivElement | null>(null)
-  const desiredLayout =
-    expanded && layout.displayMode === "compact" && !detectedModalOpen ? companionLayout : layout
-  const effectiveLayout =
-    collisionCompact && desiredLayout.displayMode !== "compact" ? compactLayout : desiredLayout
+  const desiredLayout = expanded && layout.displayMode === "compact" && !detectedModalOpen ? companionLayout : layout
+  const effectiveLayout = collisionCompact && desiredLayout.displayMode !== "compact" ? compactLayout : desiredLayout
   const mode = effectiveLayout.displayMode
 
   const updatePlacement = React.useCallback(() => {

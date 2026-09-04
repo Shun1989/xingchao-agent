@@ -30,6 +30,8 @@
     "release",
     ".electron-dist",
     ".wanta-dev",
+    ".worktrees",
+    ".pnpm-store",
     "CLAUDE.md"
   ]
 }

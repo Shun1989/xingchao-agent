@@ -187,3 +187,80 @@ iteration continues.
 - A fresh fetch reported the current branch 0 commits behind and 36 commits ahead before this weekly change.
 - After all quality gates passed, commit `81340ec280e084dff17f9c64122b0f2d7369b4e1` was ordinary-pushed to
   `origin/codex/xingchao-platform`; no force push, merge, Release, or upstream write was performed.
+
+## 2026-09-03 GitHub official API/repository snapshot
+
+Snapshot date: 2026-09-03 (Asia/Shanghai). This is a frozen, auditable snapshot: the Stars values below are the
+specified values for this date and must not be replaced by a later live API response. `HEAD` is the latest
+default-branch commit date in the snapshot; release dates are publication dates. The repository and release links are
+first-party GitHub sources. No source code was copied into Xingchao Navigation.
+
+| Repository                                                    |  Stars | License    | HEAD       | Release                                                                            | Relevant design to borrow                                                                                                    | Do not copy                                                                                               | Xingchao adoption decision                                                                                                     |
+| ------------------------------------------------------------- | -----: | ---------- | ---------- | ---------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| [oomol-lab/wanta](https://github.com/oomol-lab/wanta)         |     70 | Apache-2.0 | 2026-09-02 | [v0.1.181](https://github.com/oomol-lab/wanta/releases/tag/v0.1.181), 2026-09-02   | A desktop host can own workspace, Skills, permissions, artifacts, runtime lifecycle, and capability-driven adapters.         | OOMOL-specific model/catalog/Console routing, provider behavior, and branding.                            | Keep Wanta as the sole host/runtime baseline; retain Xingchao's original seams and do not add a second host/runtime.           |
+| [aaif-goose/goose](https://github.com/aaif-goose/goose)       | 53,854 | Apache-2.0 | 2026-09-02 | [v1.48.0](https://github.com/aaif-goose/goose/releases/tag/v1.48.0), 2026-08-27    | Extension governance: explicit MCP/extension surfaces, provider and distribution configuration, and capability ownership.    | Goose's Rust runtime, provider catalog, ACP/MCP implementation details, and custom-distribution behavior. | Borrow extension governance only; keep Xingchao's narrow main-process install/validation boundary and runtime adapter.         |
+| [OpenHands/OpenHands](https://github.com/OpenHands/OpenHands) | 85,989 | MIT        | 2026-09-02 | [v1.16.0](https://github.com/OpenHands/OpenHands/releases/tag/v1.16.0), 2026-08-27 | A control center can make backend selection, agent work, automation, events, and delegated outcomes explicit and recordable. | Agent Canvas/Agent Server code, cloud/enterprise topology, and provider-specific automation integrations. | Borrow structured delegation records only; keep Wanta as the sole host/runtime and preserve the current IPC/adapter contracts. |
+| [agno-agi/agno](https://github.com/agno-agi/agno)             | 42,018 | Apache-2.0 | 2026-09-02 | [v3.0.5](https://github.com/agno-agi/agno/releases/tag/v3.0.5), 2026-09-01         | AgentOS is a useful future control-plane reference for serving agents, teams/workflows, sessions, storage/traces, and RBAC.  | Agno's Python/AgentOS runtime, API/data model, deployment templates, and control-plane implementation.    | Future control-plane reference only; introduce no Agno runtime or dependency into the current Wanta baseline.                  |
+
+### Frozen-source audit trail
+
+The field mapping is `stargazers_count` → Stars, `license.spdx_id` → License, latest default-branch commit date →
+HEAD, and release `published_at` → release date. The official metadata and release API records are:
+
+- Wanta: [repository metadata API](https://api.github.com/repos/oomol-lab/wanta) and [v0.1.181 release API](https://api.github.com/repos/oomol-lab/wanta/releases/tags/v0.1.181).
+- Goose: [repository metadata API](https://api.github.com/repos/aaif-goose/goose) and [v1.48.0 release API](https://api.github.com/repos/aaif-goose/goose/releases/tags/v1.48.0).
+- OpenHands: [repository metadata API](https://api.github.com/repos/OpenHands/OpenHands) and [v1.16.0 release API](https://api.github.com/repos/OpenHands/OpenHands/releases/tags/v1.16.0).
+- Agno: [repository metadata API](https://api.github.com/repos/agno-agi/agno) and [v3.0.5 release API](https://api.github.com/repos/agno-agi/agno/releases/tags/v3.0.5).
+
+The confidence is high for the official repository identities, licenses, and release links. The 2026-09-03 Stars and
+HEAD values are intentionally preserved as the supplied snapshot, not re-derived from a later response.
+
+## Star benchmark refresh on 2026-09-03
+
+The benchmark uses only a confirmed official public product repository. `N/A` is a deliberate unresolved result, not a
+zero-star claim and not permission to substitute a similarly named project.
+
+| Compared object   | Confirmed official public main repository                                 |   Stars | License    | Status                                                                                                                                                          |
+| ----------------- | ------------------------------------------------------------------------- | ------: | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| origin            | [Shun1989/xingchao-agent](https://github.com/Shun1989/xingchao-agent)     |       0 | Apache-2.0 | Origin baseline for comparison.                                                                                                                                 |
+| WorkBuddy         | N/A                                                                       |     N/A | N/A        | Tencent's [workbuddy-bench](https://github.com/Tencent/workbuddy-bench) is a benchmark/evaluation framework, not the product's main repository; it is excluded. |
+| Hermes Agent      | [NousResearch/hermes-agent](https://github.com/NousResearch/hermes-agent) | 240,115 | MIT        | Confirmed official public main repository; highest confirmed value in this snapshot.                                                                            |
+| Deepseek Hareness | N/A                                                                       |     N/A | N/A        | The name cannot be confirmed. Do not replace it with `Harness` or any other similarly named project.                                                            |
+| Alice Agent       | N/A                                                                       |     N/A | N/A        | No official open-source product main repository was confirmed under this name.                                                                                  |
+
+The stop threshold is therefore **240,115 Stars**, the highest value among confirmed objects. The threshold is defined
+by confirmed identity only; unresolved names do not raise or replace it.
+
+## 2026-09-04 live API refresh
+
+This refresh preserves the frozen 2026-09-03 snapshot above and records the current values returned by the official
+GitHub repository and search APIs on 2026-09-04 (Asia/Shanghai). No watched-project source code was copied.
+
+| Repository                                                    |  Stars | License    | Latest push | Current decision                                                                                                                         |
+| ------------------------------------------------------------- | -----: | ---------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| [oomol-lab/wanta](https://github.com/oomol-lab/wanta)         |     69 | Apache-2.0 | 2026-09-02  | Continue using Wanta as the sole desktop host/runtime baseline.                                                                          |
+| [aaif-goose/goose](https://github.com/aaif-goose/goose)       | 53,901 | Apache-2.0 | 2026-09-04  | Retain only the extension-governance lesson; do not import its Rust runtime or provider implementation.                                  |
+| [OpenHands/OpenHands](https://github.com/OpenHands/OpenHands) | 86,152 | MIT        | 2026-09-04  | Retain structured delegation/event-record ideas; do not copy Agent Server, cloud topology, or provider-specific automation code.         |
+| [agno-agi/agno](https://github.com/agno-agi/agno)             | 42,046 | Apache-2.0 | 2026-09-04  | Keep as a future control-plane reference only; add no Python/AgentOS runtime or dependency to the current Electron/Wanta implementation. |
+
+### Star benchmark refresh on 2026-09-04
+
+| Compared object   | Confirmed official public main repository                                 |   Stars | Status                                                                                                                                                                   |
+| ----------------- | ------------------------------------------------------------------------- | ------: | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| origin            | [Shun1989/xingchao-agent](https://github.com/Shun1989/xingchao-agent)     |       0 | Public Apache-2.0 origin; authenticated account `Shun1989` has push and administrator permission.                                                                        |
+| WorkBuddy         | N/A                                                                       |     N/A | Exact-name search found guides, integrations, clones, and Tencent's unlicensed `workbuddy-bench`; the latter is an evaluation framework, not a public product main repo. |
+| Hermes Agent      | [NousResearch/hermes-agent](https://github.com/NousResearch/hermes-agent) | 241,212 | Official Nous Research repository; MIT; pushed on 2026-09-04. This is the highest confirmed comparison value.                                                            |
+| Deepseek Hareness | N/A                                                                       |     N/A | Exact-phrase search found only one unverified personal zero-Star repository. The supplied product identity remains unconfirmed and is not replaced with `Harness`.       |
+| Alice Agent       | N/A                                                                       |     N/A | Search found several unrelated one-to-three-Star repositories, with no first-party evidence identifying the named product's official public main repository.             |
+
+The effective stop threshold is therefore **241,212 Stars**. Origin remains at **0 Stars**, so the threshold has not
+been reached and the weekly iteration continues. `N/A` remains an unresolved identity, never a zero-Star value.
+
+### Publication prerequisite refresh on 2026-09-04
+
+- `gh auth status` succeeds for `Shun1989`; token scopes include `repo` and `workflow`.
+- `origin` is `https://github.com/Shun1989/xingchao-agent.git`; GitHub reports a public Apache-2.0 repository with
+  `push: true` and `admin: true`.
+- `upstream` fetches from `https://github.com/oomol-lab/wanta.git`, while its push URL remains `DISABLED`.
+- The checked-out publication branch is `codex/xingchao-platform`. An ordinary push remains contingent on the final
+  staged-diff audit and a fresh fetch/ahead-behind check; no Release or upstream write is authorized.

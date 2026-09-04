@@ -46,10 +46,7 @@ function renderLayout(initial: CaptainLayoutDecision) {
   const draw = (decision: CaptainLayoutDecision) =>
     act(() =>
       root.render(
-        <CaptainStageLayout
-          captain={<aside data-captain-host>captain</aside>}
-          decision={decision}
-        >
+        <CaptainStageLayout captain={<aside data-captain-host>captain</aside>} decision={decision}>
           <main>workspace</main>
         </CaptainStageLayout>,
       ),
@@ -85,13 +82,9 @@ describe("CaptainStageLayout", () => {
     expect(view.container.querySelector("[data-captain-stage-layout]")?.getAttribute("data-workspace-mode")).toBe(
       "stage",
     )
-    expect(view.container.querySelector("[data-captain-content]")?.getAttribute("data-captain-reserved")).toBe(
-      "false",
-    )
+    expect(view.container.querySelector("[data-captain-content]")?.getAttribute("data-captain-reserved")).toBe("false")
 
     view.update(decisions.deck)
-    expect(view.container.querySelector("[data-captain-content]")?.getAttribute("data-captain-reserved")).toBe(
-      "true",
-    )
+    expect(view.container.querySelector("[data-captain-content]")?.getAttribute("data-captain-reserved")).toBe("true")
   })
 })

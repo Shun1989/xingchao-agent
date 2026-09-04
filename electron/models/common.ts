@@ -56,6 +56,8 @@ export interface CustomModelProvider {
   requiresBaseUrl?: boolean
 }
 
+export type ModelCredentialStatus = "configured" | "missing" | "unavailable"
+
 export interface CustomModelSummary {
   id: string
   providerId: string
@@ -64,6 +66,7 @@ export interface CustomModelSummary {
   modelName: string
   displayName: string
   apiKeyConfigured: boolean
+  credentialStatus: ModelCredentialStatus
   supportsImages: boolean
   supportsToolCalls: boolean
   contextWindow?: number

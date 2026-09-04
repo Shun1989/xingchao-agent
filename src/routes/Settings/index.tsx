@@ -320,7 +320,7 @@ function ModelSettings({
   const selectedBuiltinId = catalog?.selected.kind === "builtin" ? catalog.selected.id : null
   const selectedModel =
     catalog?.selected.kind === "custom"
-      ? catalog.customModels.find((item) => item.id === catalog.selected.id)?.displayName
+      ? catalog.customModels.find((item) => item.id === catalog.selected.id && item.apiKeyConfigured)?.displayName
       : connectorsEnabled
         ? catalog?.builtins.find((item) => item.id === catalog.selected.id)?.displayName
         : undefined

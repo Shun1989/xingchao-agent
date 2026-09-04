@@ -1,3 +1,5 @@
+import type { ModelCredentialStatus } from "./common.ts"
+
 import { readFile } from "node:fs/promises"
 import path from "node:path"
 import { atomicWriteText } from "../atomic-file.ts"
@@ -43,6 +45,15 @@ export class ModelCredentialStore {
     return this.encryption.decryptString(Buffer.from(encoded, "base64"))
   }
 
+  public async status(modelId: string): Promise<ModelCredentialStatus> {
+    try {
+      const apiKey = await this.get(modelId)
+      return apiKey ? "configured" : "missing"
+    } catch {
+      return "unavailable"
+    }
+  }
+
   public async set(modelId: string, apiKey: string): Promise<void> {
     await this.setMany(new Map([[modelId, apiKey]]))
   }
@@ -68,6 +79,48 @@ export class ModelCredentialStore {
     if (!Object.hasOwn(persisted.credentials, modelId)) return
     delete persisted.credentials[modelId]
     await this.write(persisted)
+  }
+
+  /**
+   * Coordinates an opaque credential mutation with its metadata update. The prior
+   * ciphertext is restored verbatim if metadata persistence fails; callers never
+   * need to decrypt or expose the old secret in order to replace or delete it.
+   */
+  public async withCredentialUpdate<T>(
+    modelId: string,
+    apiKey: string | undefined,
+    updateMetadata: () => Promise<T>,
+  ): Promise<T> {
+    this.assertAvailable()
+    const id = modelId.trim()
+    if (!isSafeCredentialId(id)) {
+      throw new Error("A valid model ID is required for secure credential storage.")
+    }
+    const before = await this.read()
+    const after: PersistedModelCredentials = {
+      version: 1,
+      credentials: { ...before.credentials },
+    }
+    if (apiKey === undefined) {
+      delete after.credentials[id]
+    } else {
+      const secret = apiKey.trim()
+      if (!secret) {
+        throw new Error("A non-empty API Key is required for secure credential storage.")
+      }
+      after.credentials[id] = this.encryption.encryptString(secret).toString("base64")
+    }
+    await this.write(after)
+    try {
+      return await updateMetadata()
+    } catch (error) {
+      try {
+        await this.write(before)
+      } catch (rollbackError) {
+        throw new AggregateError([error, rollbackError], "Failed to update and roll back the model credential")
+      }
+      throw error
+    }
   }
 
   private assertAvailable(): void {

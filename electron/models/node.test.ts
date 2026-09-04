@@ -1,5 +1,5 @@
 import assert from "node:assert/strict"
-import { mkdtemp, readFile } from "node:fs/promises"
+import { mkdtemp, readFile, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import path from "node:path"
 import { test, vi } from "vitest"
@@ -14,13 +14,31 @@ function createStore(dir: string): ModelsStore {
   const credentials = new ModelCredentialStore(
     dir,
     {
-      decryptString: (encrypted) => encrypted.toString("utf8").replace(/^encrypted:/, ""),
+      decryptString: (encrypted) => {
+        const ciphertext = encrypted.toString("utf8")
+        if (ciphertext === "foreign-profile-ciphertext") {
+          throw new Error("safeStorage cannot decrypt this ciphertext")
+        }
+        return ciphertext.replace(/^encrypted:/, "")
+      },
       encryptString: (plainText) => Buffer.from(`encrypted:${plainText}`, "utf8"),
       isEncryptionAvailable: () => true,
     },
     "darwin",
   )
   return new ModelsStore(dir, credentials)
+}
+
+async function replaceWithUnreadableCredential(dir: string, modelId: string): Promise<string> {
+  const file = path.join(dir, "model-credentials.json")
+  const persisted = JSON.parse(await readFile(file, "utf8")) as {
+    version: 1
+    credentials: Record<string, string>
+  }
+  const opaqueCiphertext = Buffer.from("foreign-profile-ciphertext", "utf8").toString("base64")
+  persisted.credentials[modelId] = opaqueCiphertext
+  await writeFile(file, JSON.stringify(persisted, null, 2), "utf8")
+  return opaqueCiphertext
 }
 
 test("ModelsServiceImpl preserves custom model image support on update", async () => {
@@ -232,4 +250,102 @@ test("ModelsServiceImpl deletes the secure credential with its model", async () 
 
   assert.equal(await store.credentialStore().get(model.id), undefined)
   assert.equal((await store.catalog()).customModels.length, 0)
+})
+
+test("ModelsServiceImpl replaces an unreadable credential without decrypting the old ciphertext", async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), "wanta-models-service-"))
+  const store = createStore(dir)
+  const service = new ModelsServiceImpl({ store })
+  const created = await service.saveCustomModel({
+    providerId: "custom",
+    baseUrl: "https://models.example.test/v1",
+    apiKey: "original-secret",
+    modelName: "replace-model",
+  })
+  const model = created.customModels[0]
+  assert.ok(model)
+  await replaceWithUnreadableCredential(dir, model.id)
+
+  const updated = await service.saveCustomModel({
+    id: model.id,
+    providerId: model.providerId,
+    baseUrl: model.baseUrl,
+    apiKey: "replacement-secret",
+    modelName: model.modelName,
+  })
+
+  assert.equal(updated.customModels[0]?.credentialStatus, "configured")
+  assert.equal(await store.credentialStore().get(model.id), "replacement-secret")
+})
+
+test("ModelsServiceImpl deletes a model whose old credential is unreadable", async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), "wanta-models-service-"))
+  const store = createStore(dir)
+  const service = new ModelsServiceImpl({ store })
+  const created = await service.saveCustomModel({
+    providerId: "custom",
+    baseUrl: "https://models.example.test/v1",
+    apiKey: "original-secret",
+    modelName: "delete-unreadable-model",
+  })
+  const model = created.customModels[0]
+  assert.ok(model)
+  await replaceWithUnreadableCredential(dir, model.id)
+
+  const catalog = await service.deleteCustomModel(model.id)
+
+  assert.equal(catalog.customModels.length, 0)
+  assert.equal(await store.credentialStore().get(model.id), undefined)
+})
+
+test("ModelsServiceImpl refuses to select a custom model whose credential is unreadable", async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), "wanta-models-service-"))
+  const store = createStore(dir)
+  const service = new ModelsServiceImpl({ store })
+  const created = await service.saveCustomModel({
+    providerId: "custom",
+    baseUrl: "https://models.example.test/v1",
+    apiKey: "original-secret",
+    modelName: "unavailable-selection-model",
+  })
+  const model = created.customModels[0]
+  assert.ok(model)
+  await replaceWithUnreadableCredential(dir, model.id)
+
+  const catalog = await service.setSelectedModel({ kind: "custom", id: model.id })
+
+  assert.deepEqual(catalog.selected, { kind: "builtin", id: "oopilot" })
+  assert.deepEqual((await store.read()).selected, { kind: "builtin", id: "oopilot" })
+})
+
+test("ModelsServiceImpl restores unreadable opaque ciphertext when replacement metadata fails", async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), "wanta-models-service-"))
+  const store = createStore(dir)
+  const service = new ModelsServiceImpl({ store })
+  const created = await service.saveCustomModel({
+    providerId: "custom",
+    baseUrl: "https://models.example.test/v1",
+    apiKey: "original-secret",
+    modelName: "rollback-model",
+  })
+  const model = created.customModels[0]
+  assert.ok(model)
+  const opaqueCiphertext = await replaceWithUnreadableCredential(dir, model.id)
+  vi.spyOn(store, "write").mockRejectedValueOnce(new Error("replacement metadata write failed"))
+
+  await assert.rejects(
+    service.saveCustomModel({
+      id: model.id,
+      providerId: model.providerId,
+      baseUrl: model.baseUrl,
+      apiKey: "replacement-secret",
+      modelName: model.modelName,
+    }),
+    /replacement metadata write failed/,
+  )
+
+  const persisted = JSON.parse(await readFile(path.join(dir, "model-credentials.json"), "utf8")) as {
+    credentials: Record<string, string>
+  }
+  assert.equal(persisted.credentials[model.id], opaqueCiphertext)
 })

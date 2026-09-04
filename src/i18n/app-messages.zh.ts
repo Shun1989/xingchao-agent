@@ -469,6 +469,7 @@ export const zhCNMessages = {
   "chat.modelEditTitle": "编辑自定义模型",
   "chat.modelEditDescription": "更新这个模型的服务地址、能力或 API Key。",
   "chat.modelApiKeyConfigured": "API Key 已配置；留空可继续使用",
+  "chat.modelApiKeyUnavailable": "已保存的 API Key 无法由当前操作系统账户解锁。请输入新的 API Key 进行替换。",
   "chat.modelProvider": "供应商",
   "chat.modelProviderCustom": "自定义",
   "chat.modelApiPlan": "接入方式",

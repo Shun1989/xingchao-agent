@@ -1,5 +1,5 @@
-import type { AppShellRoute } from "@/components/app-shell/app-shell-types.ts"
 import type { CaptainDisplayMode } from "./captain-types.ts"
+import type { AppShellRoute } from "@/components/app-shell/app-shell-types.ts"
 
 export type CaptainWorkspaceMode = "stage" | "deck" | "compact"
 

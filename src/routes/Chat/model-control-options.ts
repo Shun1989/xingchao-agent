@@ -48,7 +48,7 @@ export function selectedModelSummary(catalog: ModelCatalog | null): SelectedMode
   const selected = catalog.selected
   if (selected.kind === "custom") {
     const custom = catalog.customModels.find((model) => model.id === selected.id)
-    if (custom) {
+    if (custom?.apiKeyConfigured) {
       return {
         kind: "custom",
         label: custom.displayName,

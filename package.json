@@ -39,6 +39,7 @@
     "visual:test": "corepack pnpm run visual:build && playwright test --config tests/visual/playwright.config.ts --project=fleet-visual",
     "visual:update": "corepack pnpm run visual:build && playwright test --config tests/visual/playwright.config.ts --project=fleet-visual --update-snapshots",
     "e2e:fleet-skins": "corepack pnpm run visual:build && playwright test --config tests/visual/playwright.config.ts --project=fleet-e2e",
+    "smoke:model-credentials": "node --experimental-strip-types ./scripts/model-credential-recovery-smoke.ts",
     "build:app": "pnpm run ts-check && vite build",
     "prepare:binaries": "node --experimental-strip-types scripts/prepare-binaries.ts",
     "build:electron": "pnpm run build:app && pnpm run prepare:binaries && electron-builder --publish never",

@@ -55,7 +55,7 @@ import { normalizeServiceSlug } from "./tool-display.ts"
 import { stripDraftAttachment, useComposerAttachments } from "./useComposerAttachments.ts"
 import { useComposerPalette } from "./useComposerPalette.ts"
 import { useComposerPreferences } from "./useComposerPreferences.ts"
-import { modelCatalogForRuntime, useModelCatalog } from "./useModelCatalog.ts"
+import { hasConfiguredCustomModel, modelCatalogForRuntime, useModelCatalog } from "./useModelCatalog.ts"
 import { useVoiceComposerInput } from "./useVoiceComposerInput.ts"
 import { getVoiceErrorNotice } from "./voice-error-display.ts"
 import {
@@ -324,7 +324,7 @@ export function ChatComposer({
     [cloudModelsEnabled, modelCatalogState.catalog],
   )
   const modelError = modelCatalogState.selectionError ?? modelCatalogState.catalogError
-  const customModelConfigured = Boolean(modelCatalogState.catalog?.customModels.length)
+  const customModelConfigured = hasConfiguredCustomModel(modelCatalogState.catalog)
   const composerAttachments = useComposerAttachments({
     attachments,
     clearInputError,

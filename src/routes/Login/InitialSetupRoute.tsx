@@ -19,6 +19,7 @@ import {
 import { resolveUserFacingError } from "@/lib/user-facing-error"
 import { cn } from "@/lib/utils"
 import { AddCustomModelDialog } from "@/routes/Chat/AddCustomModelDialog"
+import { hasConfiguredCustomModel } from "@/routes/Chat/useModelCatalog"
 
 export function InitialSetupRoute({
   completing,
@@ -66,7 +67,8 @@ function SelfManagedSetup({
   const [actionError, setActionError] = React.useState<UserFacingError | null>(null)
   const [connectorExpanded, setConnectorExpanded] = React.useState(false)
   const connectorSectionId = React.useId()
-  const hasModel = Boolean(models.catalog?.customModels.length)
+  const configuredModel = models.catalog?.customModels.find((model) => model.apiKeyConfigured)
+  const hasModel = hasConfiguredCustomModel(models.catalog)
   const connectorOnline = linkRuntime.status.kind === "online"
 
   React.useEffect(() => {
@@ -123,8 +125,7 @@ function SelfManagedSetup({
           description={
             hasModel
               ? t("setup.modelConfigured", {
-                  model:
-                    models.catalog?.customModels[0]?.displayName ?? models.catalog?.customModels[0]?.modelName ?? "",
+                  model: configuredModel?.displayName ?? configuredModel?.modelName ?? "",
                 })
               : t("setup.modelStepDescription")
           }

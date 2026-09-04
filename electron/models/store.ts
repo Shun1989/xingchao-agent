@@ -1,5 +1,11 @@
 import type { WantaReasoningVariant } from "../agent/reasoning.ts"
-import type { CustomModelProvider, CustomModelSummary, ModelCatalog, ModelChoice } from "./common.ts"
+import type {
+  CustomModelProvider,
+  CustomModelSummary,
+  ModelCatalog,
+  ModelChoice,
+  ModelCredentialStatus,
+} from "./common.ts"
 import type { ModelCredentialStore } from "./credential-store.ts"
 
 import { readFile } from "node:fs/promises"
@@ -336,7 +342,10 @@ export function customProviderModelReasoningVariants(
   return variants ? [...variants] : undefined
 }
 
-export function publicCustomModel(model: PersistedCustomModel): CustomModelSummary {
+export function publicCustomModel(
+  model: PersistedCustomModel,
+  credentialStatus: ModelCredentialStatus,
+): CustomModelSummary {
   return {
     id: model.id,
     providerId: model.providerId,
@@ -344,7 +353,8 @@ export function publicCustomModel(model: PersistedCustomModel): CustomModelSumma
     baseUrl: model.baseUrl,
     modelName: model.modelName,
     displayName: customModelDisplayName(model),
-    apiKeyConfigured: model.apiKeyConfigured,
+    apiKeyConfigured: credentialStatus === "configured",
+    credentialStatus,
     supportsImages: model.supportsImages === true,
     supportsToolCalls: model.supportsToolCalls !== false,
     ...(model.contextWindow ? { contextWindow: model.contextWindow } : {}),
@@ -441,11 +451,20 @@ export class ModelsStore {
 
   public async catalog(): Promise<ModelCatalog> {
     const models = await this.read()
+    const customModels = await Promise.all(
+      (models.customModels ?? []).map(async (model) =>
+        publicCustomModel(model, await this.credentials.status(model.id)),
+      ),
+    )
+    const selected = isKnownModelChoice(models, models.selected) ? models.selected : defaultModelChoice()
     return {
       builtins: builtinModelSummaries(),
-      customModels: (models.customModels ?? []).map(publicCustomModel),
+      customModels,
       providers: CUSTOM_MODEL_PROVIDERS,
-      selected: isKnownModelChoice(models, models.selected) ? models.selected : defaultModelChoice(),
+      selected:
+        selected.kind === "custom" && !customModels.some((model) => model.id === selected.id && model.apiKeyConfigured)
+          ? defaultModelChoice()
+          : selected,
     }
   }
 
@@ -466,9 +485,14 @@ export class ModelsStore {
         return apiKey ? { ...model, apiKey } : null
       }),
     )
+    const availableCustomModels = customModels.filter((model): model is RuntimeCustomModel => model !== null)
+    const selected = models.selected ?? defaultModelChoice()
     return {
-      customModels: customModels.filter((model): model is RuntimeCustomModel => model !== null),
-      selected: models.selected ?? defaultModelChoice(),
+      customModels: availableCustomModels,
+      selected:
+        selected.kind === "custom" && !availableCustomModels.some((model) => model.id === selected.id)
+          ? defaultModelChoice()
+          : selected,
     }
   }
 

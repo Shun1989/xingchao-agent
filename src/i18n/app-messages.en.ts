@@ -488,6 +488,8 @@ export const enMessages = {
   "chat.modelEditTitle": "Edit custom model",
   "chat.modelEditDescription": "Update this model's endpoint, capabilities, or API key.",
   "chat.modelApiKeyConfigured": "API key configured; leave blank to keep it",
+  "chat.modelApiKeyUnavailable":
+    "The saved API key cannot be unlocked for this operating-system account. Enter a new API key to replace it.",
   "chat.modelProvider": "Provider",
   "chat.modelProviderCustom": "Custom",
   "chat.modelApiPlan": "Access mode",

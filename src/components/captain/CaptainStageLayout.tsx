@@ -10,11 +10,7 @@ export interface CaptainStageLayoutProps {
 /** Stable composition boundary: CSS changes modes while both React subtrees retain identity. */
 export function CaptainStageLayout({ captain, children, decision }: CaptainStageLayoutProps) {
   return (
-    <div
-      className="captain-stage-layout"
-      data-captain-stage-layout
-      data-workspace-mode={decision.workspaceMode}
-    >
+    <div className="captain-stage-layout" data-captain-stage-layout data-workspace-mode={decision.workspaceMode}>
       <div
         className="captain-stage-layout__content"
         data-captain-content

@@ -19,7 +19,7 @@ This document separates implemented behavior from planned release work. A passin
   imported crews, six-Agent rosters, routing signals, mission planning, and palette themes are active. Projection or refresh
   failure falls back to the complete built-in fleet instead of exposing a partial imported catalog.
 - Eight-state Lanxi visual controller, six expression classes, static key-art fallback, crew overlay contract, and system-TTS preview. This is an adapter seam, not a Cubism model.
-- The existing custom-model flow remains the credential boundary: keys stay encrypted through Electron `safeStorage` and are never returned to the renderer. First launch now requires a user-supplied model; OpenConnector stays optional.
+- The existing custom-model flow remains the credential boundary: keys stay encrypted through Electron `safeStorage` and are never returned to the renderer. Missing, usable, and undecryptable credentials are distinguished; an undecryptable model is not treated as configured or selectable, and users can explicitly replace its key or delete it without decrypting the old ciphertext. First launch requires a user-supplied usable model; OpenConnector stays optional.
 
 ## Inherited capabilities retained from Wanta
 
@@ -35,6 +35,7 @@ This document separates implemented behavior from planned release work. A passin
   or system-prompt roster injection. Imported palette values are active, but package files and executable capabilities are not.
 - Provider-native Anthropic and Google protocol adapters. Current custom models run through OpenAI-compatible endpoints; presets do not change the wire protocol.
 - Sixty-agent live-model evaluation. The profiles each carry three executable evaluation cases, but no paid-provider evaluation run was performed.
+- A persistent multi-Agent mission scheduler. Mission Chart currently plans and confirms a DAG, then serializes that plan into one existing Agent session; node admission, durable lifecycle events, crash recovery, dependency-aware scheduling, and per-node retries remain unimplemented.
 - Full rebrand of all upstream localized copy and every internal compatibility identifier. IPC, storage, diagnostics, and several update-safe identifiers intentionally remain `wanta` for migration safety.
 - Windows signing, macOS Developer ID signing/notarization, updater infrastructure, release server, and public distribution approval.
 
@@ -135,8 +136,8 @@ This document separates implemented behavior from planned release work. A passin
 - The Windows crash was isolated to Chromium's sandboxed GPU child in the Playwright Electron harness. Only the Windows
   visual/end-to-end launchers use `--no-sandbox`; the production desktop entry is unchanged. The harness still denies
   unexpected network navigation, uses temporary profile data, and performs no paid or external calls.
-- Remaining work is explicitly outside this first-version acceptance: production Live2D/Cubism assets, migration of
-  older `safeStorage` profile data, signed installers, release audit, push, and
+- Remaining work is explicitly outside this first-version acceptance: production Live2D/Cubism assets, automatic
+  cross-account recovery of old `safeStorage` plaintext (which is impossible without the source account key), signed installers, release audit, push, and
   public distribution. No paid model call, download, push, release, or publication was performed.
 
 ## Four-plane fleet scene integration on 2026-09-02
@@ -171,3 +172,27 @@ This document separates implemented behavior from planned release work. A passin
   and `EBUSY` rename failures receive three bounded retries; a failed staged publish restores the prior managed mirror.
 - Focused filesystem tests exercise a real Windows junction, out-of-root rejection, transient rename recovery, and
   rollback preservation without requiring Developer Mode or administrator symlink privileges.
+
+## Weekly credential-recovery slice on 2026-09-04
+
+- Restored deterministic repository quality gates by excluding local `.worktrees` and `.pnpm-store` dependency trees
+  from lint and formatting scans, and normalized the eight tracked files that the formatter had identified. The local
+  pnpm store remains untracked and was not deleted or staged.
+- The public custom-model catalog now derives `configured`, `missing`, or `unavailable` from the secure credential store
+  instead of trusting stale metadata. An unavailable custom model falls back to the built-in runtime choice and no
+  longer satisfies setup or chat readiness checks.
+- Explicit replacement no longer decrypts the prior ciphertext first. Credential mutation and metadata persistence form
+  a coordinated transaction: a metadata failure restores the prior opaque ciphertext exactly, while delete works for
+  ciphertext that the current operating-system account cannot decrypt. Ciphertext never crosses the main-process API.
+- The model editor explains that the saved key cannot be unlocked, requires a newly entered Key before Save is enabled,
+  and retains deletion as a recovery option.
+- Added a reusable, network-free `smoke:model-credentials` acceptance path. It bundles the production credential/model
+  services, starts real Electron twice against a temporary user-data directory, classifies synthetic invalid ciphertext,
+  replaces it with a dummy Key after restart, deletes the model, and removes the temporary directory.
+- The deterministic full gate passed 358 test files with 2 skipped and 2,908 tests with 20 skipped; lint, formatting of
+  1,115 files, type checking, renderer/main/preload build, the real Electron credential smoke, all 54 fleet visual
+  scenarios, all 6 fleet Electron end-to-end scenarios, and `git diff --check` also passed. The default parallel test run
+  still exposes a documented Windows load-sensitive timeout in the external WebP conversion test; the same complete suite
+  passes with file parallelism disabled and one worker.
+- The next single highest-priority slice is a main-process-owned, persistent single-node Mission lifecycle with explicit
+  admission, event records, recovery, and tests; only after that boundary is proven should execution expand to a DAG.

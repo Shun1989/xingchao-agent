@@ -6,10 +6,7 @@ describe("resolveCaptainWorkspaceLayout", () => {
     [{ route: "fleet", viewportWidth: 1440 }, ["stage", "stage", 360, 560, true, false]],
     [{ route: "voyage", viewportWidth: 1280 }, ["stage", "stage", 360, 560, true, false]],
     [{ route: "chat", viewportWidth: 1440, chatIsEmpty: true }, ["stage", "stage", 360, 560, true, false]],
-    [
-      { route: "chat", viewportWidth: 1440, chatIsEmpty: false },
-      ["deck", "companion", 240, 300, false, true],
-    ],
+    [{ route: "chat", viewportWidth: 1440, chatIsEmpty: false }, ["deck", "companion", 240, 300, false, true]],
     [{ route: "skills", viewportWidth: 1440 }, ["deck", "companion", 240, 300, false, true]],
     [{ route: "settings", viewportWidth: 1920 }, ["compact", "compact", 0, 72, false, false]],
     [{ route: "fleet", viewportWidth: 1279 }, ["compact", "compact", 0, 72, false, false]],
