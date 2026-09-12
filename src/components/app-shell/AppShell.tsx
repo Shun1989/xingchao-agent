@@ -8,6 +8,7 @@ import type {
 import type { ChatErrorKind } from "../../../electron/chat/error.ts"
 import type { KnowledgeBaseSummary } from "../../../electron/knowledge/common.ts"
 import type { SessionInfo, SessionScope } from "../../../electron/session/common.ts"
+import type { MissionRunSummary } from "../../../electron/xingchao/mission-common.ts"
 import type { ChatSendRequest, ChatSendResult } from "./app-shell-model.ts"
 import type { AppShellRoute as Route } from "./app-shell-types.ts"
 import type { PendingChatTransition } from "./pending-chat.ts"
@@ -65,6 +66,7 @@ import {
   writeStoredAgentComposerPrefs,
 } from "./composer-agent-prefs.ts"
 import { KnowledgeContextBar } from "./KnowledgeContextBar.tsx"
+import { routeMissionRetry } from "./mission-retry-routing.ts"
 import { isPendingChatCaughtUp, pendingChatTransitionForActiveSession } from "./pending-chat.ts"
 import {
   readStoredSidebarSegment,
@@ -92,7 +94,7 @@ import { useUpdateReadyToast } from "./use-update-ready-toast.ts"
 import { useWorkspaceActivation } from "./use-workspace-activation.ts"
 import { createCaptainLifecycleSource } from "./useCaptainAppEvents.ts"
 import { ProjectContextBar } from "@/components/app-shell/ProjectContextBar"
-import { useAttentionService, useBrowserService, useChatService } from "@/components/AppContext"
+import { useAttentionService, useBrowserService, useChatService, useMissionRunService } from "@/components/AppContext"
 import { useSkillInventoryResource } from "@/components/AppDataHooks"
 import { AppUpdateTitlebarEntry } from "@/components/AppUpdateTitlebarEntry"
 import { useRuntimeFleet } from "@/components/runtime-fleet-context.ts"
@@ -203,6 +205,7 @@ export function AppShell({ auth }: { auth: UseAuth }) {
   const attentionService = useAttentionService()
   const browserService = useBrowserService()
   const chatService = useChatService()
+  const missionRunService = useMissionRunService()
   const captainLifecycleSource = React.useMemo(
     () => createCaptainLifecycleSource(chatService.serverEvents),
     [chatService.serverEvents],
@@ -1537,15 +1540,63 @@ export function AppShell({ auth }: { auth: UseAuth }) {
   const handleMissionLaunch = React.useCallback(
     async (mission: Mission): Promise<void> => {
       if (mission.fleetRevision !== runtimeFleet.snapshot.revision) {
-        toast.error(t("voyage.fleetChanged"))
-        return
+        throw new Error(t("voyage.fleetChanged"))
       }
-      setRoute("chat")
-      const result = await handleSend({ text: missionLaunchPrompt(mission, runtimeFleet.index), mode: "build" })
-      if (result.status === "failed") throw result.error
-      if (result.status === "rejected") throw new Error("任务尚未准备好，请稍后重试。")
+      if (activeChatSessionId && !chatTurnAllowsDirectSend(activeChatTurnState)) throw new Error(t("voyage.chatBusy"))
+      const result = await sendNow({ text: missionLaunchPrompt(mission, runtimeFleet.index), mode: "build", mission })
+      if (result.status === "failed") {
+        toast.error(t("voyage.launchFailed"))
+        throw result.error
+      }
+      if (result.status === "rejected") {
+        toast.error(t("voyage.launchFailed"))
+        throw new Error(t("voyage.launchFailed"))
+      }
     },
-    [handleSend, runtimeFleet.index, runtimeFleet.snapshot.revision, t],
+    [activeChatSessionId, activeChatTurnState, sendNow, runtimeFleet.index, runtimeFleet.snapshot.revision, t],
+  )
+
+  React.useEffect(
+    () =>
+      missionRunService.serverEvents.on("missionRunChanged", (event) => {
+        if (event.persistencePending)
+          toast.error(t("missionHistory.saveFailed"), {
+            id: `mission-save-${event.runId}`,
+            action: { label: t("missionHistory.title"), onClick: () => setRoute("voyage") },
+          })
+      }),
+    [missionRunService, t],
+  )
+
+  const handleMissionRetry = React.useCallback(
+    async (run: MissionRunSummary): Promise<void> => {
+      if (
+        run.fleetRevision !== runtimeFleet.snapshot.revision ||
+        !run.sessionId ||
+        run.sessionId !== activeChatSessionId ||
+        (activeChatSessionId && !chatTurnAllowsDirectSend(activeChatTurnState))
+      )
+        throw new Error(t("missionHistory.retryFailed"))
+      const result = await sendNow({
+        text: t("missionHistory.retryPrompt", { goal: run.goal }),
+        mode: "build",
+        missionRetryRunId: run.runId,
+      })
+      if (result.status !== "accepted" || result.delivery !== "sent") {
+        toast.error(t("missionHistory.retryFailed"))
+        throw new Error(t("missionHistory.retryFailed"))
+      }
+    },
+    [activeChatSessionId, activeChatTurnState, runtimeFleet.snapshot.revision, sendNow, t],
+  )
+
+  const handleMissionOpenSession = React.useCallback(
+    (sessionId: string): void => {
+      const session = visibleSessions.find((item) => item.id === sessionId)
+      if (session) handleSelectSession(session)
+      else toast.error(t("missionHistory.missingSession"))
+    },
+    [visibleSessions, handleSelectSession, t],
   )
 
   const handleAnswerQuestion = React.useCallback(
@@ -1609,28 +1660,45 @@ export function AppShell({ auth }: { auth: UseAuth }) {
         },
       }))
       if (activeChatSessionId && sessionScope && source && (source.text || source.attachments.length > 0)) {
-        const retryKey = chatTurnInputKey(source)
-        const storedOptions = turnRetryOptionsBySession.current.get(activeChatSessionId)?.get(retryKey)
-        prepareRetry({
-          drawerKey: activeComposerDraftKey,
-          sessionId: activeChatSessionId,
-          service: auth.service,
-          connectionName: auth.connectionName,
-          text: source.text,
-          attachments: source.attachments,
-          contextMentions:
-            storedOptions?.contextMentions ?? lastContextMentionsBySession.current.get(activeChatSessionId),
-          teamSkills: storedOptions?.teamSkills ?? teamSkills.chatContextSkills,
-          projectContext: storedOptions?.projectContext ?? activeProjectContext,
-          model: storedOptions?.model ?? lastModelBySession.current.get(activeChatSessionId),
-          reasoningLevel: storedOptions?.reasoningLevel ?? lastReasoningLevelBySession.current.get(activeChatSessionId),
-          sessionScope: storedOptions?.sessionScope ?? sessionScope,
-          mode: storedOptions?.mode ?? lastModeBySession.current.get(activeChatSessionId),
-          permissionMode:
-            storedOptions?.permissionMode ??
-            lastPermissionModeBySession.current.get(activeChatSessionId) ??
-            displayedPermissionMode,
-        })
+        void (async () => {
+          if (
+            await routeMissionRetry(
+              {
+                list: () => missionRunService.invoke("list"),
+                openHistory: () => {
+                  cancelRetryForDrawer(activeComposerDraftKey)
+                  toast.info(t("missionHistory.retryAfterConnection"))
+                },
+              },
+              activeChatSessionId,
+              source.userMessageId,
+            )
+          )
+            return
+          const retryKey = chatTurnInputKey(source)
+          const storedOptions = turnRetryOptionsBySession.current.get(activeChatSessionId)?.get(retryKey)
+          prepareRetry({
+            drawerKey: activeComposerDraftKey,
+            sessionId: activeChatSessionId,
+            service: auth.service,
+            connectionName: auth.connectionName,
+            text: source.text,
+            attachments: source.attachments,
+            contextMentions:
+              storedOptions?.contextMentions ?? lastContextMentionsBySession.current.get(activeChatSessionId),
+            teamSkills: storedOptions?.teamSkills ?? teamSkills.chatContextSkills,
+            projectContext: storedOptions?.projectContext ?? activeProjectContext,
+            model: storedOptions?.model ?? lastModelBySession.current.get(activeChatSessionId),
+            reasoningLevel:
+              storedOptions?.reasoningLevel ?? lastReasoningLevelBySession.current.get(activeChatSessionId),
+            sessionScope: storedOptions?.sessionScope ?? sessionScope,
+            mode: storedOptions?.mode ?? lastModeBySession.current.get(activeChatSessionId),
+            permissionMode:
+              storedOptions?.permissionMode ??
+              lastPermissionModeBySession.current.get(activeChatSessionId) ??
+              displayedPermissionMode,
+          })
+        })().catch(() => toast.error(t("missionHistory.readFailed")))
       }
     },
     [
@@ -1642,6 +1710,8 @@ export function AppShell({ auth }: { auth: UseAuth }) {
       linkRuntime.state?.active,
       teamSkills.chatContextSkills,
       prepareRetry,
+      missionRunService,
+      cancelRetryForDrawer,
       sessionScope,
       t,
     ],
@@ -1652,11 +1722,35 @@ export function AppShell({ auth }: { auth: UseAuth }) {
     },
     [activeComposerDraftKey, completeRetryForDrawer],
   )
+  const redirectMissionRetry = React.useCallback(
+    async (source: ChatTurnRetrySource): Promise<boolean> => {
+      if (!activeChatSessionId) return false
+      try {
+        return await routeMissionRetry(
+          {
+            list: () => missionRunService.invoke("list"),
+            openHistory: () => {
+              setRoute("voyage")
+              toast.info(t("missionHistory.retryInHistory"))
+            },
+          },
+          activeChatSessionId,
+          source.userMessageId,
+        )
+      } catch {
+        toast.error(t("missionHistory.readFailed"))
+        throw new Error(t("missionHistory.readFailed"))
+      }
+    },
+    [activeChatSessionId, missionRunService, t],
+  )
+
   const handleRetryFresh = React.useCallback(
     async (source: ChatTurnRetrySource): Promise<void> => {
       if (!activeChatSessionId || !sessionScope) {
         throw new Error("A current task and workspace are required for a clean-context retry")
       }
+      if (await redirectMissionRetry(source)) return
       const retryKey = chatTurnInputKey(source)
       const storedOptions = turnRetryOptionsBySession.current.get(activeChatSessionId)?.get(retryKey)
       const retryScope = storedOptions?.sessionScope ?? sessionScope
@@ -1717,6 +1811,7 @@ export function AppShell({ auth }: { auth: UseAuth }) {
       send,
       sessionScope,
       titleGeneration,
+      redirectMissionRetry,
     ],
   )
   const handleChatErrorRecovery = React.useCallback(
@@ -1728,6 +1823,7 @@ export function AppShell({ auth }: { auth: UseAuth }) {
       if (!activeChatSessionId || !sessionScope) {
         throw new Error("A current task and workspace are required to retry")
       }
+      if (await redirectMissionRetry(source)) return
       const retryKey = chatTurnInputKey(source)
       const storedOptions = turnRetryOptionsBySession.current.get(activeChatSessionId)?.get(retryKey)
       await send(activeChatSessionId, source.text, source.attachments, {
@@ -1753,6 +1849,7 @@ export function AppShell({ auth }: { auth: UseAuth }) {
       teamSkills.chatContextSkills,
       send,
       sessionScope,
+      redirectMissionRetry,
     ],
   )
   const handleOpenSearch = React.useCallback((): void => setSearchOpen(true), [])
@@ -2248,7 +2345,12 @@ export function AppShell({ auth }: { auth: UseAuth }) {
                   {route === "fleet" ? (
                     <FleetHarborRoute onOpenVoyage={() => setRoute("voyage")} />
                   ) : route === "voyage" ? (
-                    <VoyageRoute onLaunch={handleMissionLaunch} />
+                    <VoyageRoute
+                      onLaunch={handleMissionLaunch}
+                      onRetry={handleMissionRetry}
+                      onOpenSession={handleMissionOpenSession}
+                      activeSessionId={activeChatSessionId}
+                    />
                   ) : route === "connections" ? (
                     linkRuntime.state?.active === "openconnector" ? (
                       <OpenConnectorConnectionsPanel runtime={linkRuntime} onOpenSettings={handleOpenSettingsCommand} />

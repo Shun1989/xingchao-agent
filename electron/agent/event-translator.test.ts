@@ -86,7 +86,10 @@ test("message.updated with assistant error emits agentError after messageStarted
 
   assert.deepEqual(out, [
     { event: "messageStarted", data: { sessionId: "s1", messageId: "m1", role: "assistant" } },
-    { event: "agentError", data: { sessionId: "s1", message: "Payment Required: account is in deficit" } },
+    {
+      event: "agentError",
+      data: { sessionId: "s1", messageId: "m1", message: "Payment Required: account is in deficit" },
+    },
   ])
 })
 

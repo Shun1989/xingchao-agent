@@ -22,6 +22,7 @@ import {
 } from "electron"
 import path from "node:path"
 import { fileURLToPath, pathToFileURL } from "node:url"
+import { projectRuntimeFleetCatalog } from "../src/domain/xingchao/runtime-fleet.ts"
 import { AgentRefreshScheduler } from "./agent-refresh-scheduler.ts"
 import {
   ooBinaryName,
@@ -114,6 +115,8 @@ import {
 } from "./window/title-bar-overlay.ts"
 import { createHideOnCloseHandler, revealMainWindow } from "./window/window-close-behavior.ts"
 import { createWindowsTrayLifecycle } from "./window/windows-tray-lifecycle.ts"
+import { MissionRunServiceImpl, MissionRunQueryService } from "./xingchao/mission-service.ts"
+import { MissionRunStore } from "./xingchao/mission-store.ts"
 import { ContentPackServiceImpl } from "./xingchao/node.ts"
 import { ContentPackRuntimeManager } from "./xingchao/runtime-manager.ts"
 
@@ -241,7 +244,13 @@ const browserService = new BrowserServiceImpl(browserManager)
 const browserControlServer = new BrowserControlServer(browserManager)
 // Connections 请求已整体搬到渲染层（src/lib/connections-client.ts）；主进程只保留 agent 团队作用域同步，
 // 经 ChatService.setAgentTeam → onSetAgentTeam 回调（渲染层切 workspace 时调用）。
+const missionRuns = new MissionRunServiceImpl({
+  store: new MissionRunStore(app.getPath("userData")),
+  runtimeFleet: async () => projectRuntimeFleetCatalog(await contentPackRuntimeManager.runtimeCatalog()),
+})
+const missionRunService = new MissionRunQueryService(missionRuns)
 const chatService = new ChatServiceImpl(null, {
+  missionRuns,
   browserAvailable: () => settingsStore.read().browserEnabled !== false,
   bugReportRuntime: {
     appCommit: typeof __APP_COMMIT__ === "string" ? __APP_COMMIT__ : "unknown",
@@ -471,6 +480,8 @@ server.registerService(knowledgeService)
 server.registerService(linkRuntimeService)
 server.registerService(browserService)
 server.registerService(contentPackService)
+server.registerService(missionRunService)
+void missionRuns.list().catch((error: unknown) => logMainError("Mission recovery failed; execution unavailable", error))
 settingsService.applyStartupTheme()
 registerAttachmentDialogHandlers(trustedAttachmentPaths, {
   createSpreadsheetPreview: (filePath, mime, size) => spreadsheetPreviewWorker.preview(filePath, mime, size),

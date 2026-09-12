@@ -275,6 +275,8 @@ export function useComposerSubmission({
         retainRecentSession(sessionId)
         try {
           const sendPromise = send(sessionId, text, attachments, {
+            ...(request.mission ? { mission: request.mission } : {}),
+            ...(request.missionRetryRunId ? { missionRetryRunId: request.missionRetryRunId } : {}),
             ...(creatingExternalSession && draftAgentSelection?.modelId
               ? { agentModelId: draftAgentSelection.modelId }
               : {}),

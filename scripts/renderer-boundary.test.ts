@@ -31,6 +31,7 @@ const rendererElectronAllowlist = new Set([
   "electron/models/limits.ts",
   "electron/session/title.ts",
   "electron/skills/actions.ts",
+  "electron/xingchao/mission-common.ts",
 ])
 
 // 收集渲染端源码文件；测试文件自身不属于运行时代码边界。

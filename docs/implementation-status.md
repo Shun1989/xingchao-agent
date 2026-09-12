@@ -35,7 +35,7 @@ This document separates implemented behavior from planned release work. A passin
   or system-prompt roster injection. Imported palette values are active, but package files and executable capabilities are not.
 - Provider-native Anthropic and Google protocol adapters. Current custom models run through OpenAI-compatible endpoints; presets do not change the wire protocol.
 - Sixty-agent live-model evaluation. The profiles each carry three executable evaluation cases, but no paid-provider evaluation run was performed.
-- A persistent multi-Agent mission scheduler. Mission Chart currently plans and confirms a DAG, then serializes that plan into one existing Agent session; node admission, durable lifecycle events, crash recovery, dependency-aware scheduling, and per-node retries remain unimplemented.
+- A persistent multi-Agent mission scheduler. A confirmed Mission now has an atomic single-turn run ledger, restart-to-blocked recovery, user-facing run history, guarded whole-run retries and failed-write repair. Individual DAG node admission, dependency-aware scheduling, per-node retries and deliverable acceptance remain unimplemented.
 - Full rebrand of all upstream localized copy and every internal compatibility identifier. IPC, storage, diagnostics, and several update-safe identifiers intentionally remain `wanta` for migration safety.
 - Windows signing, macOS Developer ID signing/notarization, updater infrastructure, release server, and public distribution approval.
 
@@ -196,3 +196,66 @@ This document separates implemented behavior from planned release work. A passin
   passes with file parallelism disabled and one worker.
 - The next single highest-priority slice is a main-process-owned, persistent single-node Mission lifecycle with explicit
   admission, event records, recovery, and tests; only after that boundary is proven should execution expand to a DAG.
+
+## Local Mission lifecycle checkpoint on 2026-09-06
+
+- The uncommitted working tree now persists one confirmed Mission as one Agent turn: host-validated admission,
+  immutable blueprint, exact session/generation binding, ordered terminal events and restart-to-blocked recovery.
+  This does not implement individual DAG node scheduling or certify deliverable correctness.
+- Internal retry accepts only the latest failed/cancelled/blocked attempt, revalidates the fleet, requires the original
+  chat session when bound, and atomically creates one new attempt without changing its predecessor. Chat dispatch
+  reconstructs the stored goal instead of trusting renderer text. Concurrent duplicate/stale requests are rejected.
+- A failed terminal write preserves the first verified outcome in memory and exposes `persistencePending` in the
+  query/event projection. Repair can retry that exact write without invoking the Agent. Restart still conservatively
+  blocks unresolved durable runs rather than inventing their outcome.
+- Latest focused verification: 4 files and 141 tests passed, covering store, manager, ChatService and Voyage launch.
+  The real Electron smoke passed three isolated launches, preserving completed runs and appending recovery once.
+  The preceding full-suite checkpoint passed 2,937 tests with 20 skipped; it predates the final four retry/repair tests
+  and must not be presented as a full-suite rerun of this final checkpoint.
+- Final checkpoint type checking, lint, formatting (1,126 files), renderer/main/preload production build and
+  `git diff --check` passed. The build retains large-chunk and deprecated `inlineDynamicImports` warnings; these are
+  not installer or release acceptance. The smoke removed its own temporary profile and bundle directories.
+- User-facing run history, confirmation/retry controls, original-chat navigation and save-failure notifications are
+  **not implemented**. Renderer transport fields are prerequisites only, not a completed recovery interface.
+- Independent review and the formal security scan are **not completed**. Both delegated tasks failed on account usage
+  limits. Git audit/commit/push, paid-provider task acceptance, signed installers and public distribution remain undone.
+- The user requested a checkpoint near 50% remaining usage; the weekly window reached 49% remaining. Development
+  expansion stopped and the exact continuation is recorded in
+  `docs/superpowers/plans/2026-09-06-delivery-continuation.md`. No reset credit was consumed.
+
+## Mission recovery interface acceptance on 2026-09-10
+
+- Mission Chart now shows durable run history with goal, attempt, status, timestamps and events ordered by their
+  persisted sequence. A completed status is described as the Agent turn ending, not acceptance of its deliverable.
+- Retrying is a confirmed new execution, never checkpoint resume. The renderer and main process require the latest
+  failed/cancelled/blocked attempt, the current fleet revision, no pending settlement write and the exact original chat.
+  Records without an original chat cannot be redirected into an arbitrary conversation and instead require replanning.
+- The retry confirmation warns about repeated effects, cancel sends nothing and an in-flight guard prevents duplicate
+  dispatch. Rejected attempts preserve the existing history and expose only localized generic errors.
+- A failed terminal write raises an application-wide notification and can be repaired from Mission Chart without
+  executing the Agent again. The main process retains the first verified terminal outcome as the repair source.
+- The isolated real-Electron acceptance passed with main/renderer IPC, restart-to-blocked recovery, original-chat
+  navigation, cancel, one preserved predecessor plus one completed retry, failed-write repair, no external model call and
+  no horizontal overflow at 1024 x 640.
+- The deterministic full gate passed 363 test files with 2 skipped and 2,962 tests with 20 skipped. Type checking, lint,
+  formatting of 1,139 files, renderer boundary scanning, `git diff --check` and renderer/main/preload production builds
+  also passed. The build retains the documented large-chunk and deprecated `inlineDynamicImports` warnings.
+- This is local product acceptance only. Paid-provider behavior, retention/export and corrupt-ledger recovery, signed
+  installers, release publication and per-node Mission scheduling remain separate delivery gates.
+
+## Mission recovery delivery verification on 2026-09-12
+
+- Fixed three acceptance defects: synthetic compaction continuations retain the active Mission failure boundary;
+  external Agent runtime errors no longer require OpenCode-specific transcript error evidence; retries that fail
+  before start retain their original conversation through the durable attempt history, including after restart.
+- The full deterministic suite passed 363 files with 2 skipped: 2,965 tests passed and 20 skipped. Type checking,
+  lint, formatting of 1,139 files and renderer/main/preload production builds passed. Existing large-chunk and
+  deprecated `inlineDynamicImports` build warnings remain.
+- Both real Electron Mission smoke paths passed: three-launch restart recovery and the IPC recovery interface,
+  original-chat navigation, cancelled confirmation, preserved retry history, write repair and 1024 x 640 containment.
+- All 54 immutable fleet visual scenarios and all 6 fleet Electron end-to-end scenarios passed.
+- Independent review identified the external-Agent error defect; its failing regression was reproduced and fixed.
+  The reviewer subsequently hit an account usage limit, so post-fix independent re-review and a formal security scan
+  are not claimed. The coordinator completed the remaining fixes and regression checks.
+- Real-provider acceptance still requires the user's provider choice and spending ceiling. No paid model request,
+  signed installer or public application release is represented by these local checks.

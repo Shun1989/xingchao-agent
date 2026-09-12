@@ -1,13 +1,27 @@
+import type { MissionRunSummary } from "../../../electron/xingchao/mission-common.ts"
 import type { CrewId, Mission } from "@/domain/xingchao/types.ts"
 
 import { CheckCircle2, Circle, GitBranch, Play, ShieldAlert, Users } from "lucide-react"
 import * as React from "react"
+import { MissionHistory } from "./MissionHistory.tsx"
 import { useRuntimeFleet } from "@/components/runtime-fleet-context.ts"
 import { useXingchaoTheme } from "@/components/xingchao-theme-context.ts"
 import { draftMissionForCrews, recommendCrews } from "@/domain/xingchao/routing.ts"
+import { useT } from "@/i18n/i18n"
 import { cn } from "@/lib/utils"
 
-export function VoyageRoute({ onLaunch }: { onLaunch: (mission: Mission) => Promise<void> }) {
+export function VoyageRoute({
+  onLaunch,
+  onRetry,
+  onOpenSession,
+  activeSessionId,
+}: {
+  onLaunch: (mission: Mission) => Promise<void>
+  onRetry?: (run: MissionRunSummary) => Promise<void>
+  onOpenSession?: (sessionId: string) => void
+  activeSessionId?: string | null
+}) {
+  const t = useT()
   const runtimeFleet = useRuntimeFleet()
   const { setActiveCrewId } = useXingchaoTheme()
   const [goal, setGoal] = React.useState("")
@@ -15,6 +29,7 @@ export function VoyageRoute({ onLaunch }: { onLaunch: (mission: Mission) => Prom
   const [supportCrewIds, setSupportCrewIds] = React.useState<CrewId[]>([])
   const [mission, setMission] = React.useState<Mission | null>(null)
   const [launching, setLaunching] = React.useState(false)
+  const [launchError, setLaunchError] = React.useState<string | null>(null)
 
   const buildPlan = React.useCallback(
     (nextGoal: string) => {
@@ -60,9 +75,12 @@ export function VoyageRoute({ onLaunch }: { onLaunch: (mission: Mission) => Prom
   const launch = async () => {
     if (!mission || mission.fleetRevision !== runtimeFleet.snapshot.revision) return
     setLaunching(true)
+    setLaunchError(null)
     setActiveCrewId(mission.primaryCrewId)
     try {
       await onLaunch(mission)
+    } catch {
+      setLaunchError(t("voyage.launchFailed"))
     } finally {
       setLaunching(false)
     }
@@ -71,6 +89,19 @@ export function VoyageRoute({ onLaunch }: { onLaunch: (mission: Mission) => Prom
   return (
     <div className="fleet-route h-full overflow-y-auto">
       <div className="mx-auto grid max-w-[100rem] gap-6 px-8 py-8">
+        {onRetry && onOpenSession ? (
+          <MissionHistory
+            onRetry={onRetry}
+            onOpenSession={onOpenSession}
+            activeSessionId={activeSessionId}
+            fleetRevision={runtimeFleet.snapshot.revision}
+          />
+        ) : null}
+        {launchError ? (
+          <p role="alert" className="text-destructive">
+            {launchError}
+          </p>
+        ) : null}
         <section className="grid min-h-[18rem] grid-cols-[minmax(0,1.25fr)_minmax(18rem,.75fr)] overflow-hidden rounded-2xl border max-[900px]:grid-cols-1">
           <header className="flex flex-col justify-center p-8">
             <p className="text-xs tracking-[.2em] text-primary">MISSION CHART</p>

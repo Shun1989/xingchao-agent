@@ -82,6 +82,8 @@ export interface UseChat {
     text: string,
     attachments?: ChatAttachment[],
     options?: {
+      mission?: import("@/domain/xingchao/types.ts").Mission
+      missionRetryRunId?: string
       contextMentions?: ChatContextMention[]
       mode?: AgentMode
       model?: ModelChoice
@@ -892,6 +894,8 @@ export function useChat(activeSessionId: string | null, activeRunsRefreshKey?: s
       text: string,
       attachments: ChatAttachment[] = [],
       options: {
+        mission?: import("@/domain/xingchao/types.ts").Mission
+        missionRetryRunId?: string
         agentModelId?: string
         agentEffortId?: string
         contextMentions?: ChatContextMention[]
@@ -918,6 +922,8 @@ export function useChat(activeSessionId: string | null, activeRunsRefreshKey?: s
       patch(sessionId, (msgs) => appendOptimisticConversationTurn(msgs, text, attachments, options.contextMentions))
       try {
         await chatService.invoke("sendMessage", {
+          ...(options.mission ? { mission: options.mission } : {}),
+          ...(options.missionRetryRunId ? { missionRetryRunId: options.missionRetryRunId } : {}),
           sessionId,
           text,
           appLocale: locale,

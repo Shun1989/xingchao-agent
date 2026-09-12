@@ -19,6 +19,7 @@ import {
   indexRuntimeFleet,
   projectRuntimeFleetCatalog,
 } from "@/domain/xingchao/runtime-fleet.ts"
+import { I18nContext, translate } from "@/i18n/i18n"
 
 ;(globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 
@@ -77,11 +78,15 @@ async function renderVoyage(
   roots.push(root)
   const renderTree = (value: RuntimeFleetContextValue) =>
     root.render(
-      <RuntimeFleetContext.Provider value={value}>
-        <XingchaoThemeContext.Provider value={themeContextValue}>
-          <VoyageRoute onLaunch={onLaunch} />
-        </XingchaoThemeContext.Provider>
-      </RuntimeFleetContext.Provider>,
+      <I18nContext.Provider
+        value={{ locale: "zh-CN", setLocale: () => undefined, t: (key, vars) => translate("zh-CN", key, vars) }}
+      >
+        <RuntimeFleetContext.Provider value={value}>
+          <XingchaoThemeContext.Provider value={themeContextValue}>
+            <VoyageRoute onLaunch={onLaunch} />
+          </XingchaoThemeContext.Provider>
+        </RuntimeFleetContext.Provider>
+      </I18nContext.Provider>,
     )
   const rerender = async (value: RuntimeFleetContextValue) => {
     await act(async () => renderTree(value))
@@ -104,6 +109,15 @@ afterEach(() => {
 })
 
 describe("VoyageRoute", () => {
+  it("shows a recoverable launch error instead of an unhandled rejected promise", async () => {
+    const onLaunch = vi.fn().mockRejectedValue(new Error("sensitive provider diagnostics"))
+    const { host } = await renderVoyage(builtinRuntimeFleetContext, onLaunch)
+    await enterGoalAndCreatePlan(host, "测试任务")
+    await clickButton(host, "确认并开始执行")
+    expect(host.querySelector('[role="alert"]')?.textContent).toContain("启航失败")
+    expect(host.textContent).not.toContain("sensitive provider diagnostics")
+    expect(buttonByText(host, "确认并开始执行").disabled).toBe(false)
+  })
   it("recommends, displays, and launches an imported crew from one revision", async () => {
     const onLaunch = vi.fn().mockResolvedValue(undefined)
     const { host } = await renderVoyage(importedRuntimeFleetContext("aurora-pack"), onLaunch)

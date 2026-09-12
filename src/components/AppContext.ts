@@ -11,6 +11,7 @@ import type { SettingsService } from "../../electron/settings/common.ts"
 import type { SkillService } from "../../electron/skills/common.ts"
 import type { UpdateService } from "../../electron/update/common.ts"
 import type { ContentPackService } from "../../electron/xingchao/common.ts"
+import type { MissionRunService } from "../../electron/xingchao/mission-common.ts"
 import type { ConnectionClientService } from "@oomol/connection"
 
 import * as React from "react"
@@ -20,6 +21,7 @@ export interface AppContextValue {
   browserService: ConnectionClientService<BrowserService>
   chatService: ConnectionClientService<ChatService>
   contentPackService: ConnectionClientService<ContentPackService>
+  missionRunService: ConnectionClientService<MissionRunService>
   gitService: ConnectionClientService<GitService>
   knowledgeService: ConnectionClientService<KnowledgeService>
   linkRuntimeService: ConnectionClientService<LinkRuntimeService>
@@ -47,6 +49,10 @@ export function useChatService(): ConnectionClientService<ChatService> {
 
 export function useContentPackService(): ConnectionClientService<ContentPackService> {
   return useAppContext().contentPackService
+}
+
+export function useMissionRunService(): ConnectionClientService<MissionRunService> {
+  return useAppContext().missionRunService
 }
 
 export function useAttentionService(): ConnectionClientService<AttentionService> {

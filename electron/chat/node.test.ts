@@ -7,9 +7,13 @@ import { mkdtemp, mkdir, readFile, realpath, rm, writeFile } from "node:fs/promi
 import os from "node:os"
 import path from "node:path"
 import { afterEach, expect, test, vi } from "vitest"
+import { draftMission } from "../../src/domain/xingchao/routing.ts"
+import { builtinRuntimeFleetSnapshot } from "../../src/domain/xingchao/runtime-fleet.ts"
 import { OpencodeAgentAdapter } from "../agent/opencode-adapter.ts"
 import { resolveRuntimeCapabilities } from "../runtime/common.ts"
 import { ExpiringTrustedPathRegistry } from "../trusted-path-registry.ts"
+import { MissionRunServiceImpl } from "../xingchao/mission-service.ts"
+import { MissionRunStore } from "../xingchao/mission-store.ts"
 import {
   ArtifactBundleStore,
   buildArtifactBundle,
@@ -27,6 +31,332 @@ const testTeamScope = {
   teamId: "team-id",
   teamName: "team-name",
 }
+
+test("Mission dispatch persists its main-owned prompt and generation before execution, then completes from verified history", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "xingchao-chat-mission-"))
+  const store = new MissionRunStore(root)
+  const missions = new MissionRunServiceImpl({ store, runtimeFleet: async () => builtinRuntimeFleetSnapshot })
+  const bridge = createBridgeAgent()
+  const service = new ChatServiceImpl(bridge.agent, { missionRuns: missions })
+  captureServiceEvents(service)
+  service.startEventBridge()
+  bridge.promptStreaming.mockImplementation(async () => {
+    const durable = await store.read()
+    expect(durable.runs[0]?.status).toBe("running")
+    expect(durable.runs[0]?.generationId).toBeTruthy()
+  })
+  try {
+    await service.sendMessage({
+      scope: testTeamScope,
+      sessionId: "mission-chat",
+      text: "renderer substitute",
+      mission: draftMission("审计任务"),
+    })
+    expect(bridge.promptStreaming.mock.calls[0]?.[1]).toContain("审计任务")
+    expect(bridge.promptStreaming.mock.calls[0]?.[1]).not.toContain("renderer substitute")
+    bridge.emit({
+      type: "message.updated",
+      properties: { info: { id: "mission-answer", sessionID: "mission-chat", role: "assistant" } },
+    })
+    bridge.emit({ type: "session.idle", properties: { sessionID: "mission-chat" } })
+    await vi.waitFor(async () => expect((await store.read()).runs[0]?.status).toBe("completed"))
+  } finally {
+    service.dispose()
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test("Mission failure after compaction keeps the synthetic continuation in the active generation", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "xingchao-chat-mission-compaction-"))
+  const store = new MissionRunStore(root)
+  const missions = new MissionRunServiceImpl({ store, runtimeFleet: async () => builtinRuntimeFleetSnapshot })
+  const bridge = createBridgeAgent()
+  const service = new ChatServiceImpl(bridge.agent, { missionRuns: missions })
+  captureServiceEvents(service)
+  service.startEventBridge()
+  try {
+    await service.sendMessage({
+      scope: testTeamScope,
+      sessionId: "mission-chat",
+      text: "test",
+      mission: draftMission("压缩恢复结算"),
+    })
+    bridge.emit({
+      type: "message.part.updated",
+      properties: {
+        part: { id: "compact-part", sessionID: "mission-chat", messageID: "compact-user", type: "compaction" },
+      },
+    })
+    bridge.emit({
+      type: "message.updated",
+      properties: { info: { id: "compact-continue", sessionID: "mission-chat", role: "user" } },
+    })
+    bridge.emit({
+      type: "message.updated",
+      properties: {
+        info: {
+          id: "continued-assistant",
+          parentID: "compact-continue",
+          sessionID: "mission-chat",
+          role: "assistant",
+          error: { name: "APIError", data: { message: "continued turn failed" } },
+        },
+      },
+    })
+
+    await vi.waitFor(async () => expect((await missions.list())[0]?.status).toBe("failed"))
+  } finally {
+    service.dispose()
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test.each(["user-stop", "prompt-error", "preparation-error"])(
+  "Mission records %s through the actual chat pipeline",
+  async (scenario) => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "xingchao-chat-mission-"))
+    const store = new MissionRunStore(root)
+    const missions = new MissionRunServiceImpl({ store, runtimeFleet: async () => builtinRuntimeFleetSnapshot })
+    const bridge = createBridgeAgent()
+    if (scenario === "prompt-error") bridge.promptStreaming.mockRejectedValue(new Error("test provider failed"))
+    if (scenario === "preparation-error") bridge.createArtifactDir.mockRejectedValue(new Error("test directory failed"))
+    const service = new ChatServiceImpl(bridge.agent, { missionRuns: missions })
+    captureServiceEvents(service)
+    service.startEventBridge()
+    try {
+      const sending = service.sendMessage({
+        scope: testTeamScope,
+        sessionId: "mission-chat",
+        text: "display",
+        mission: draftMission("审计任务"),
+      })
+      if (scenario === "preparation-error") await expect(sending).rejects.toThrow("test directory failed")
+      else await sending
+      if (scenario === "user-stop") await service.stopGeneration("mission-chat")
+      await vi.waitFor(async () =>
+        expect((await store.read()).runs[0]?.status).toBe(scenario === "user-stop" ? "cancelled" : "failed"),
+      )
+    } finally {
+      service.dispose()
+      await rm(root, { recursive: true, force: true })
+    }
+  },
+)
+
+test("Mission retry uses the stored blueprint, original session and only one new attempt", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "xingchao-chat-retry-"))
+  const store = new MissionRunStore(root)
+  const missions = new MissionRunServiceImpl({ store, runtimeFleet: async () => builtinRuntimeFleetSnapshot })
+  const bridge = createBridgeAgent()
+  const service = new ChatServiceImpl(bridge.agent, { missionRuns: missions })
+  captureServiceEvents(service)
+  try {
+    const first = await missions.admit({ mission: draftMission("保留原始任务") })
+    await missions.start({ runId: first.runId, sessionId: "mission-chat", generationId: "old-generation" })
+    await missions.settleChatTurn({
+      sessionId: "mission-chat",
+      generationId: "old-generation",
+      outcome: "cancelled",
+      reason: "user_stopped",
+    })
+    await expect(
+      service.sendMessage({
+        scope: testTeamScope,
+        sessionId: "different-chat",
+        text: "untrusted",
+        missionRetryRunId: first.runId,
+      }),
+    ).rejects.toThrow(/session/i)
+    await service.sendMessage({
+      scope: testTeamScope,
+      sessionId: "mission-chat",
+      text: "untrusted",
+      missionRetryRunId: first.runId,
+    })
+    expect(bridge.promptStreaming.mock.calls).toHaveLength(1)
+    expect(bridge.promptStreaming.mock.calls[0]?.[1]).toContain("保留原始任务")
+    expect(bridge.promptStreaming.mock.calls[0]?.[1]).not.toContain('"userGoal": "untrusted"')
+    await expect(
+      service.sendMessage({
+        scope: testTeamScope,
+        sessionId: "mission-chat",
+        text: "untrusted",
+        missionRetryRunId: first.runId,
+      }),
+    ).rejects.toThrow()
+    expect((await store.read()).runs).toHaveLength(2)
+    expect((await store.read()).runs[0]?.status).toBe("cancelled")
+    expect((await store.read()).runs[1]?.attempt).toBe(2)
+  } finally {
+    service.dispose()
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test("concurrent attached Missions cannot overwrite a generation before dispatch", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "xingchao-concurrent-mission-"))
+  const store = new MissionRunStore(root)
+  const missions = new MissionRunServiceImpl({ store, runtimeFleet: async () => builtinRuntimeFleetSnapshot })
+  const attachments = new UserAttachmentStore(root)
+  const bridge = createBridgeAgent()
+  const paths = [path.join(root, "one.txt"), path.join(root, "two.txt")]
+  await Promise.all(paths.map((file) => writeFile(file, "test")))
+  const releases: (() => void)[] = []
+  const record = vi
+    .spyOn(attachments, "record")
+    .mockImplementation(() => new Promise<void>((resolve) => releases.push(resolve)))
+  const service = new ChatServiceImpl(bridge.agent, {
+    missionRuns: missions,
+    userAttachmentStore: attachments,
+    trustedAttachmentPaths: new Set(paths),
+  })
+  captureServiceEvents(service)
+  try {
+    const pending = paths.map((file, i) =>
+      service.sendMessage({
+        scope: testTeamScope,
+        sessionId: "race-session",
+        text: "test",
+        mission: { ...draftMission("test"), id: `race-${i}` },
+        attachments: [{ id: `a${i}`, kind: "file", mime: "text/plain", name: `${i}.txt`, path: file, size: 4 }],
+      }),
+    )
+    const outcomes = Promise.allSettled(pending)
+    await vi.waitFor(() => expect(releases).toHaveLength(2))
+    releases.forEach((release) => release())
+    await outcomes
+    expect(bridge.promptStreaming).toHaveBeenCalledTimes(1)
+    expect((await store.read()).runs.filter((run) => run.status === "running")).toHaveLength(1)
+    expect(await service.getActiveRun("race-session")).not.toBeNull()
+  } finally {
+    record.mockRestore()
+    service.dispose()
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test("a late error on a previous assistant message cannot end a retried Mission", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "xingchao-late-error-"))
+  const store = new MissionRunStore(root)
+  const missions = new MissionRunServiceImpl({ store, runtimeFleet: async () => builtinRuntimeFleetSnapshot })
+  const bridge = createBridgeAgent()
+  const service = new ChatServiceImpl(bridge.agent, { missionRuns: missions })
+  captureServiceEvents(service)
+  service.startEventBridge()
+  try {
+    await service.sendMessage({
+      scope: testTeamScope,
+      sessionId: "retry-session",
+      text: "test",
+      mission: draftMission("test"),
+    })
+    bridge.emit({
+      type: "message.updated",
+      properties: { info: { id: "old-assistant", sessionID: "retry-session", role: "assistant" } },
+    })
+    await service.stopGeneration("retry-session")
+    const first = (await store.read()).runs[0]!
+    await service.sendMessage({
+      scope: testTeamScope,
+      sessionId: "retry-session",
+      text: "retry",
+      missionRetryRunId: first.runId,
+    })
+    bridge.emit({
+      type: "message.updated",
+      properties: {
+        info: {
+          id: "old-assistant",
+          sessionID: "retry-session",
+          role: "assistant",
+          error: { name: "APIError", data: { message: "late old failure" } },
+        },
+      },
+    })
+    // Drain queued processing without assuming a provider or elapsed timeout.
+    await new Promise((resolve) => setImmediate(resolve))
+    await new Promise((resolve) => setImmediate(resolve))
+    expect((await missions.list()).find((run) => run.attempt === 2)?.status).toBe("running")
+    expect(await service.getActiveRun("retry-session")).not.toBeNull()
+    bridge.emit({
+      type: "message.updated",
+      properties: {
+        info: {
+          id: "unseen-old-assistant",
+          parentID: bridge.promptStreaming.mock.calls[0]?.[2]?.messageId,
+          sessionID: "retry-session",
+          role: "assistant",
+          error: { name: "APIError", data: { message: "late unseen failure" } },
+        },
+      },
+    })
+    bridge.emit({
+      type: "session.error",
+      properties: {
+        sessionID: "retry-session",
+        error: { name: "APIError", data: { message: "ambiguous old failure" } },
+      },
+    })
+    await new Promise((resolve) => setImmediate(resolve))
+    expect((await missions.list()).find((run) => run.attempt === 2)?.status).toBe("running")
+    bridge.emit({
+      type: "message.updated",
+      properties: {
+        info: {
+          id: "current-assistant",
+          parentID: bridge.promptStreaming.mock.calls[1]?.[2]?.messageId,
+          sessionID: "retry-session",
+          role: "assistant",
+          error: { name: "APIError", data: { message: "current failure" } },
+        },
+      },
+    })
+    await vi.waitFor(async () =>
+      expect((await missions.list()).find((run) => run.attempt === 2)?.status).toBe("failed"),
+    )
+  } finally {
+    service.dispose()
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test("delayed error history cannot turn an interrupted Mission into completed", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "xingchao-error-history-"))
+  const store = new MissionRunStore(root)
+  const missions = new MissionRunServiceImpl({ store, runtimeFleet: async () => builtinRuntimeFleetSnapshot })
+  const bridge = createBridgeAgent()
+  const service = new ChatServiceImpl(bridge.agent, { missionRuns: missions })
+  captureServiceEvents(service)
+  service.startEventBridge()
+  try {
+    await service.sendMessage({
+      scope: testTeamScope,
+      sessionId: "error-session",
+      text: "test",
+      mission: draftMission("test"),
+    })
+    const userMessageId = bridge.promptStreaming.mock.calls[0]![2].messageId!
+    const messages: ChatMessage[] = [{ id: userMessageId, role: "user", createdAt: 1, parts: [] }]
+    bridge.getMessages.mockImplementation(async () => messages)
+    bridge.emit({
+      type: "session.error",
+      properties: { sessionID: "error-session", error: { name: "APIError", data: { message: "late error" } } },
+    })
+    await new Promise((resolve) => setImmediate(resolve))
+    messages.push({
+      id: "failed-answer",
+      role: "assistant",
+      createdAt: 2,
+      completedAt: 3,
+      parts: [{ kind: "error", partId: "failure", errorText: "late error" }],
+    })
+    bridge.emit({ type: "session.idle", properties: { sessionID: "error-session" } })
+    await vi.waitFor(async () => expect((await missions.list())[0]?.status).toBe("failed"))
+  } finally {
+    service.dispose()
+    await rm(root, { recursive: true, force: true })
+  }
+})
 
 afterEach(() => {
   vi.useRealTimers()
@@ -94,7 +424,7 @@ function createBridgeAgent(): {
   const promptStreaming = vi.fn(
     async (_sessionId: string, _text: string, _options: { messageId?: string }) => undefined,
   )
-  const getMessages = vi.fn(async (sessionId: string) => {
+  const getMessages = vi.fn(async (sessionId: string): Promise<ChatMessage[]> => {
     const promptCall = [...promptStreaming.mock.calls].reverse().find((call) => call[0] === sessionId)
     const userMessageId = promptCall?.[2]?.messageId
     const assistantMessageId = activeAssistantIds.get(sessionId)

@@ -264,3 +264,49 @@ been reached and the weekly iteration continues. `N/A` remains an unresolved ide
 - `upstream` fetches from `https://github.com/oomol-lab/wanta.git`, while its push URL remains `DISABLED`.
 - The checked-out publication branch is `codex/xingchao-platform`. An ordinary push remains contingent on the final
   staged-diff audit and a fresh fetch/ahead-behind check; no Release or upstream write is authorized.
+
+## Mission persistence research snapshot on 2026-09-05
+
+The following values were read from GitHub's official repository APIs on 2026-09-05. These are dated observations,
+not live 2026-09-06 counts. Official READMEs, license metadata and the linked implementation files informed the local
+Mission lifecycle design; no source code was copied and no runtime dependency was added.
+
+| Repository                                                   |   Stars | License    | Activity evidence                                                                                                                  | Adopted idea                                                                              | Not adopted                                                                          |
+| ------------------------------------------------------------ | ------: | ---------- | ---------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| [Goose](https://github.com/aaif-goose/goose)                 |  53,915 | Apache-2.0 | [Default-branch commit, September 4](https://github.com/aaif-goose/goose/commit/6d8152a99adbd149783d9d0cc2b43ce2755cca95)          | Versioned, host-owned session storage behind a manager boundary                           | Rust runtime, provider catalog or a storage-engine rewrite                           |
+| [LangGraph](https://github.com/langchain-ai/langgraph)       |  41,065 | MIT        | [Default-branch commit, September 3](https://github.com/langchain-ai/langgraph/commit/81bf17b23123e4ef8b9d5f49fa09a0122fc2edd1)    | Separate conversation identity from execution attempt; explicitly order persisted changes | Python runtime, checkpoint replay or claims of automatic durable resume              |
+| [Hermes Agent](https://github.com/NousResearch/hermes-agent) | 241,473 | MIT        | [Default-branch commit, September 4](https://github.com/NousResearch/hermes-agent/commit/f159e581c7afd22a5c94652c569e3859f1b994d2) | Idempotent terminal outcomes and explicit end reasons                                     | Transcript-based completion inference or defaulting unknown audit state to completed |
+
+Primary implementation references:
+
+- [Goose SessionManager](https://github.com/aaif-goose/goose/blob/6d8152a99adbd149783d9d0cc2b43ce2755cca95/crates/goose/src/session/session_manager.rs).
+- [LangGraph checkpoint base](https://github.com/langchain-ai/langgraph/blob/81bf17b23123e4ef8b9d5f49fa09a0122fc2edd1/libs/checkpoint/langgraph/checkpoint/base/__init__.py).
+- [Hermes session state](https://github.com/NousResearch/hermes-agent/blob/f159e581c7afd22a5c94652c569e3859f1b994d2/hermes_state_sessions.py).
+
+### Benchmark and publication checkpoint
+
+On 2026-09-05 origin `Shun1989/xingchao-agent` had **0 Stars** and confirmed `Shun1989` push/admin permission.
+The effective benchmark was **241,473 Stars**, from the confirmed official Hermes repository. WorkBuddy remained
+N/A (guides/clones and Tencent's evaluation repository are not the product main repository); the exact
+`Deepseek Hareness` identity remained N/A; Alice Agent remained N/A because similarly named repositories did not
+establish the intended product identity. N/A is not zero. The stop threshold was not met.
+
+Sandboxed keyring access initially reported authentication failure; the explicit read-only host verification succeeded.
+The only permitted push target remains project `origin`; Wanta upstream's push URL remains disabled. The local
+2026-09-06 continuation stopped at the user's usage checkpoint without commit/push. Fresh permission, sync and Star
+checks are required before the next Git delivery; this dated snapshot is not a current publication authorization check.
+
+## Mission recovery delivery note on 2026-09-10
+
+The local recovery interface now implements the session-bound, new-attempt retry model selected from the dated
+research above. This delivery added no external runtime dependency and copied no watched-project source. It does not
+change the benchmark snapshot or publication authorization: repository identity, permissions, branch synchronization
+and current Stars still require a live refresh before any push or release decision.
+
+## Git delivery prerequisite refresh on 2026-09-12
+
+GitHub's authenticated API confirmed account `Shun1989`, origin `Shun1989/xingchao-agent`, push/admin permission
+and 0 Stars. A fresh `git fetch origin` succeeded and the local branch had no divergence from
+`origin/codex/xingchao-platform` before the delivery commit. Upstream's push URL remains `DISABLED`.
+Comparison-project Star counts were not refreshed; older benchmark values above remain dated snapshots.
+This check supports an ordinary project-origin code push only, not a Release or installer publication.

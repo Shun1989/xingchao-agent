@@ -34,6 +34,8 @@ export const enMessages = {
   "fleet.runtimeCount": "{crews} crews · {agents} original Agents",
   "fleet.runtimeFallback": "Selected content is temporarily unavailable; only the trusted built-in fleet is shown.",
   "voyage.fleetChanged": "Fleet content changed; regenerate the voyage plan.",
+  "voyage.chatBusy": "This conversation is busy. Wait for completion or stop it before launching.",
+  "voyage.launchFailed": "Launch failed. Check the model and task status before retrying.",
   "runtimeFleet.loadFailed": "Selected content could not be activated; using the built-in fleet. {error}",
   "supply.title": "Supply Depot",
   "supply.description":
@@ -1814,5 +1816,49 @@ export const enMessages = {
   "aria.refresh": "Refresh",
   "aria.expandConnections": "Expand connections panel",
   "aria.collapseConnections": "Collapse connections panel",
+  "missionHistory.title": "Mission run history",
+  "missionHistory.retryInHistory": "This is a Mission turn. Confirm a new attempt in run history.",
+  "missionHistory.retryAfterConnection":
+    "After connecting, confirm a new attempt in Mission Chart history. This task will not replay automatically.",
+  "missionHistory.description":
+    "Track each attempt and interruption. A finished turn does not certify deliverable acceptance.",
+  "missionHistory.refresh": "Refresh records",
+  "missionHistory.loading": "Loading run records…",
+  "missionHistory.empty": "No runs yet. Confirm a mission chart to record an execution here.",
+  "missionHistory.readFailed": "Could not read run records. Refresh to retry; existing records are preserved.",
+  "missionHistory.saveFailed":
+    "The execution outcome has not been saved. Retry saving in Mission Chart; this does not execute the task again.",
+  "missionHistory.retryFailed":
+    "Could not execute again. Refresh records and check the conversation, model and fleet configuration.",
+  "missionHistory.attempt": "Attempt {count}",
+  "missionHistory.events": "Inspect execution events",
+  "missionHistory.open": "Open original conversation",
+  "missionHistory.openOriginalFirst": "Open the original conversation, then return to Mission Chart to execute again.",
+  "missionHistory.missingSession":
+    "The original conversation is unavailable here. Find it in its workspace or plan a new mission.",
+  "missionHistory.staleFleet":
+    "The fleet configuration changed. Create a new mission chart instead of retrying an old configuration.",
+  "missionHistory.retry": "Execute again",
+  "missionHistory.repair": "Retry saving",
+  "missionHistory.confirm": "Confirm new execution",
+  "missionHistory.confirmNotice":
+    "Create a new attempt in the original conversation using the current model, not a checkpoint resume. Earlier actions may be repeated. Old records are preserved and existing permission approvals still apply.",
+  "missionHistory.cancel": "Cancel",
+  "missionHistory.more": "Show more records",
+  "missionHistory.retryPrompt": "Execute mission again: {goal}",
+  "missionHistory.status.admitted": "Accepted",
+  "missionHistory.status.running": "Running",
+  "missionHistory.status.blocked": "Interrupted; action needed",
+  "missionHistory.status.completed": "Turn finished",
+  "missionHistory.status.failed": "Failed",
+  "missionHistory.status.cancelled": "Cancelled",
+  "missionHistory.reason.message_completed": "The response turn ended",
+  "missionHistory.reason.send_failed": "Execution could not start",
+  "missionHistory.reason.send_rejected": "Launch request rejected",
+  "missionHistory.reason.dispatch_not_direct": "Direct execution unavailable",
+  "missionHistory.reason.agent_error": "Execution service reported an error",
+  "missionHistory.reason.system_interrupted": "Runtime interrupted",
+  "missionHistory.reason.user_stopped": "Stopped by user",
+  "missionHistory.reason.app_restarted": "An unfinished record was found at restart",
   ...skillsMessages.en,
 } as const

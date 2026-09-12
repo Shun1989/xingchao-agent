@@ -150,6 +150,8 @@ export interface TurnRetryOptions {
 }
 
 export interface ChatSendRequest {
+  mission?: import("@/domain/xingchao/types.ts").Mission
+  missionRetryRunId?: string
   afterOptimisticSubmit?: () => void
   attachments?: ChatAttachment[]
   contextMentions?: ChatContextMention[]

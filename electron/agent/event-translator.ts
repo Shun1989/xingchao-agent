@@ -299,6 +299,7 @@ export function translateOpencodeEvent(event: OpencodeEvent): ChatEmit[] {
         | {
             id?: string
             sessionID?: string
+            parentID?: string
             role?: ChatRole
             error?: unknown
             finish?: unknown
@@ -317,6 +318,7 @@ export function translateOpencodeEvent(event: OpencodeEvent): ChatEmit[] {
           data: {
             sessionId: info.sessionID,
             messageId: info.id,
+            ...(info.parentID ? { parentMessageId: info.parentID } : {}),
             role: info.role,
             ...(info.summary === true ? { internal: true } : {}),
             ...(finishReason ? { finishReason } : {}),
@@ -325,7 +327,15 @@ export function translateOpencodeEvent(event: OpencodeEvent): ChatEmit[] {
         },
       ]
       if (info.role === "assistant" && isOpencodeError(info.error) && !isMessageAbortedError(info.error)) {
-        emits.push({ event: "agentError", data: { sessionId: info.sessionID, message: errorMessage(info.error) } })
+        emits.push({
+          event: "agentError",
+          data: {
+            sessionId: info.sessionID,
+            messageId: info.id,
+            ...(info.parentID ? { parentMessageId: info.parentID } : {}),
+            message: errorMessage(info.error),
+          },
+        })
       }
       return emits
     }

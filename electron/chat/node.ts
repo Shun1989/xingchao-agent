@@ -243,6 +243,7 @@ function taskChildSessionId(data: ToolCallStartedEvent | ToolCallResultEvent): s
 }
 
 interface ChatServiceDeps {
+  missionRuns?: import("../xingchao/mission-service.ts").MissionRunServiceImpl
   browserAvailable?: () => boolean
   createArtifactResourceUrl?: (item: { mime: string; modifiedAt: number; path: string; size: number }) => {
     expiresAt: number
@@ -279,6 +280,9 @@ interface StopSessionGenerationOptions {
 }
 
 export class ChatServiceImpl extends ConnectionService<ChatService> implements IConnectionService<ChatService> {
+  readonly #missionLaunches = new Set<string>()
+  readonly #missionGenerationIds = new Set<string>()
+  readonly #messageGenerations = new Map<string, string>()
   public readonly sessionActivity = new ServiceEvent<{ sessionId: string; usedAt: number }>()
 
   private agent: OpencodeAgentAdapter | null
@@ -364,6 +368,9 @@ export class ChatServiceImpl extends ConnectionService<ChatService> implements I
 
   /** 登录 / 登出时由 main 重新装配 agent（旧 agent 的事件流随其 dispose 终止）。 */
   public setAgent(agent: OpencodeAgentAdapter | null): void {
+    for (const sessionId of this.generations.keys()) {
+      void this.#settleMission(sessionId, this.generations.get(sessionId)?.id, "failed", "system_interrupted")
+    }
     this.streamEventBuffer?.clear()
     this.streamEventBuffer = null
     this.agentUnsubscribe?.()
@@ -374,6 +381,8 @@ export class ChatServiceImpl extends ConnectionService<ChatService> implements I
     this.emittedMessageErrors.clear()
     this.activeRuns.clear()
     this.generations.reset()
+    this.#missionGenerationIds.clear()
+    this.#messageGenerations.clear()
     this.turnOutputs.clear()
     this.activeAssistantMessages.clear()
     this.activeToolParts.clear()
@@ -523,6 +532,12 @@ export class ChatServiceImpl extends ConnectionService<ChatService> implements I
 
   /** 会话永久删除后释放运行态索引，并删除授权/停止 overlay。 */
   public async forgetSession(sessionId: string): Promise<void> {
+    const missionSettlement = this.#settleMission(
+      sessionId,
+      this.generations.get(sessionId)?.id,
+      "failed",
+      "system_interrupted",
+    )
     this.turnOutputs.delete(sessionId)
     this.turnOutputs.clearPending(sessionId)
     this.clearSessionGeneration(sessionId)
@@ -541,6 +556,7 @@ export class ChatServiceImpl extends ConnectionService<ChatService> implements I
       this.internalAttachmentPathsByMessage.delete(messageId)
     }
     this.managedUserMessageIdsBySession.delete(sessionId)
+    await missionSettlement
     await this.outputPersistence.removeSession(sessionId)
   }
 
@@ -571,6 +587,44 @@ export class ChatServiceImpl extends ConnectionService<ChatService> implements I
       return
     }
     const sourceSessionId = translated.data.sessionId
+    const sourceGeneration = sourceSessionId ? this.generations.get(sourceSessionId) : undefined
+    if (
+      sourceSessionId &&
+      sourceGeneration &&
+      "messageId" in translated.data &&
+      translated.data.messageId &&
+      !(translated.event === "messageStarted" && (translated.data.role === "user" || translated.data.internal))
+    ) {
+      const key = `${sourceSessionId}\0${translated.data.messageId}`
+      if (
+        "parentMessageId" in translated.data &&
+        translated.data.parentMessageId &&
+        translated.data.parentMessageId !== sourceGeneration.userMessageId &&
+        !this.isInternalMessage(sourceSessionId, translated.data.parentMessageId)
+      )
+        return
+      const owner = this.#messageGenerations.get(key)
+      if (owner && owner !== sourceGeneration.id) return
+      if (translated.event === "messageStarted" && translated.data.role === "assistant") {
+        while (this.#messageGenerations.size >= startedMessageLimit) {
+          const oldest = this.#messageGenerations.keys().next().value
+          if (oldest === undefined) break
+          this.#messageGenerations.delete(oldest)
+        }
+        this.#messageGenerations.set(key, sourceGeneration.id)
+      }
+    }
+    if (
+      translated.event === "agentError" &&
+      sourceSessionId &&
+      sourceGeneration &&
+      !externalAgentKindForSessionId(sourceSessionId) &&
+      this.#missionGenerationIds.has(sourceGeneration.id) &&
+      !translated.data.messageId
+    ) {
+      void this.verifyMissionSessionError(emit, sourceSessionId, sourceGeneration, translated.data.message)
+      return
+    }
     const generationSessionId = sourceSessionId ? this.generationWatchdogSessionId(sourceSessionId) : null
     const failedSessionId = generationSessionId ?? sourceSessionId
     if (failedSessionId && this.connectionFailedSessions.has(failedSessionId)) {
@@ -584,6 +638,7 @@ export class ChatServiceImpl extends ConnectionService<ChatService> implements I
         : undefined
     if (translated.event === "agentError" && userStoppedSessionId) {
       const sessionId = generationSessionId ?? userStoppedSessionId
+      const stoppedGenerationId = this.generations.get(sessionId)?.id
       const messageId = this.activeAssistantMessages.get(sessionId)
       const partIds = [...(this.activeToolParts.get(sessionId) ?? [])]
       const stoppedAt = Date.now()
@@ -593,6 +648,7 @@ export class ChatServiceImpl extends ConnectionService<ChatService> implements I
         })
       }
       void this.finalizeTurnOutput(sessionId, messageId)
+        .then(() => this.#settleMission(sessionId, stoppedGenerationId, "cancelled", "user_stopped"))
         .catch((error: unknown) => {
           console.warn("[wanta] failed to finalize stopped turn output", error)
         })
@@ -650,7 +706,8 @@ export class ChatServiceImpl extends ConnectionService<ChatService> implements I
     if (
       ("messageId" in translated.data &&
         typeof translated.data.messageId === "string" &&
-        this.isInternalMessage(translated.data.sessionId, translated.data.messageId)) ||
+        Boolean(translated.data.sessionId) &&
+        this.isInternalMessage(translated.data.sessionId!, translated.data.messageId)) ||
       (translated.event === "messageDelta" && translated.data.synthetic === true)
     ) {
       return
@@ -1229,11 +1286,22 @@ export class ChatServiceImpl extends ConnectionService<ChatService> implements I
     this.clearCompletionRetry(completionKey, false)
     this.completionChecks.add(completionKey)
     try {
-      if (!(await this.currentTurnIsComplete(sessionId, generation))) {
+      const outcome = await this.currentTurnOutcome(sessionId, generation)
+      if (!outcome) {
         this.scheduleCompletionRetry(emit, sessionId, generation)
         return
       }
       if (!this.isCurrentGeneration(sessionId, generation.id)) return
+      if (outcome === "failed") {
+        await this.interruptSessionGeneration(
+          emit,
+          sessionId,
+          "runtime_error",
+          "The saved response contains an execution error. Please retry.",
+          { abortAgent: false },
+        )
+        return
+      }
       this.clearCompletionRetry(completionKey)
       const messageId = this.activeAssistantMessages.get(sessionId)
       const completedRun = this.activeRuns.get(sessionId)
@@ -1241,6 +1309,8 @@ export class ChatServiceImpl extends ConnectionService<ChatService> implements I
       await this.finalizeTurnOutput(sessionId, messageId).catch((error: unknown) => {
         console.warn("[wanta] failed to finalize turn output", error)
       })
+      if (!this.isCurrentGeneration(sessionId, generation.id)) return
+      await this.#settleMission(sessionId, generation.id, "completed", "message_completed")
       if (!this.isCurrentGeneration(sessionId, generation.id)) return
       this.clearSessionGeneration(sessionId, generation.id)
       this.activeAssistantMessages.delete(sessionId)
@@ -1264,13 +1334,16 @@ export class ChatServiceImpl extends ConnectionService<ChatService> implements I
     }
   }
 
-  private async currentTurnIsComplete(sessionId: string, generation: SessionGeneration): Promise<boolean> {
+  private async currentTurnOutcome(
+    sessionId: string,
+    generation: SessionGeneration,
+  ): Promise<"completed" | "failed" | null> {
     const backend = this.chatBackendFor(sessionId)
-    if (!backend) return false
+    if (!backend) return null
     const messages = await withTimeout(backend.getMessages(sessionId), 1_000, "idle history verification").catch(
       () => null,
     )
-    if (!messages || messages.length === 0) return false
+    if (!messages || messages.length === 0) return null
     const userIndex = messages.findIndex(
       (message) => message.id === generation.userMessageId && message.role === "user",
     )
@@ -1281,7 +1354,8 @@ export class ChatServiceImpl extends ConnectionService<ChatService> implements I
     const assistant =
       activeAssistant ??
       (userIndex >= 0 ? messages.slice(userIndex + 1).find((message) => message.role === "assistant") : undefined)
-    return Boolean(assistant?.finishReason || assistant?.completedAt !== undefined)
+    if (assistant?.parts.some((part) => part.kind === "error")) return "failed"
+    return assistant?.finishReason || assistant?.completedAt !== undefined ? "completed" : null
   }
 
   private scheduleCompletionRetry(
@@ -1340,6 +1414,7 @@ export class ChatServiceImpl extends ConnectionService<ChatService> implements I
     if (generationId && generation?.id !== generationId) {
       return
     }
+    if (generation) this.#missionGenerationIds.delete(generation.id)
     this.clearInternalMessages(sessionId)
     this.compactingSessions.delete(sessionId)
     if (generation) this.clearCompletionRetry(`${sessionId}\0${generation.id}`)
@@ -1480,6 +1555,27 @@ export class ChatServiceImpl extends ConnectionService<ChatService> implements I
     this.emitMessageError(emit, sessionId, message, messageId)
   }
 
+  private async verifyMissionSessionError(
+    emit: (event: string, data: unknown) => Promise<void>,
+    sessionId: string,
+    generation: SessionGeneration,
+    message: string,
+  ): Promise<void> {
+    const backend = this.chatBackendFor(sessionId)
+    if (!backend) return
+    const messages = await withTimeout(backend.getMessages(sessionId), 1_000, "mission error verification").catch(
+      () => null,
+    )
+    if (!messages || !this.isCurrentGeneration(sessionId, generation.id)) return
+    const userIndex = messages.findIndex((item) => item.id === generation.userMessageId && item.role === "user")
+    if (userIndex < 0) return
+    const following = messages.slice(userIndex + 1)
+    const nextUser = following.findIndex((item) => item.role === "user" && !this.isInternalMessage(sessionId, item.id))
+    const turn = nextUser < 0 ? following : following.slice(0, nextUser)
+    if (!turn.some((item) => item.role === "assistant" && item.parts.some((part) => part.kind === "error"))) return
+    await this.interruptSessionGeneration(emit, sessionId, "runtime_error", message, { abortAgent: false })
+  }
+
   private generationWatchdogSessionId(sessionId: string): string | null {
     if (this.generations.has(sessionId)) {
       return sessionId
@@ -1545,6 +1641,12 @@ export class ChatServiceImpl extends ConnectionService<ChatService> implements I
     await this.finalizeTurnOutput(sessionId, messageId).catch((error: unknown) => {
       console.warn("[wanta] failed to finalize stopped turn output", error)
     })
+    await this.#settleMission(
+      sessionId,
+      generation?.id,
+      options.reason === "user" ? "cancelled" : "failed",
+      options.reason === "user" ? "user_stopped" : "system_interrupted",
+    )
     this.clearSessionGeneration(sessionId, generation?.id)
     this.turnOutputs.clearPending(sessionId)
     this.turnOutputs.delete(sessionId, generation?.id)
@@ -1597,9 +1699,48 @@ export class ChatServiceImpl extends ConnectionService<ChatService> implements I
   }
 
   public async sendMessage(req: SendMessageRequest): Promise<void> {
+    if (req.mission && req.missionRetryRunId !== undefined) throw new Error("Choose Mission launch or retry, not both")
+    if (!req.mission && req.missionRetryRunId === undefined) return this.#sendMessageNow(req)
+    const manager = this.deps.missionRuns
+    if (!manager) throw new Error("Mission execution is unavailable")
+    const missionId = req.mission ? `mission:${req.mission.id}` : `retry:${req.missionRetryRunId}`
+    if (this.#missionLaunches.has(missionId)) throw new Error("Mission launch is already in progress")
+    this.#missionLaunches.add(missionId)
+    try {
+      const admitted = req.mission
+        ? await manager.admit({ mission: req.mission })
+        : await manager.admitRetry(req.missionRetryRunId!, req.sessionId)
+      if (admitted.status !== "admitted") throw new Error("Mission already has an active execution")
+      try {
+        const text = await manager.launchPrompt(admitted.runId)
+        await this.#sendMessageNow({ ...req, text }, admitted.runId)
+      } catch (error) {
+        await manager.failDispatch({ runId: admitted.runId, reason: "send_failed" }).catch((failure: unknown) => {
+          logDiagnostic("mission", "failed to persist dispatch failure", { error: failure }, "error")
+        })
+        throw error
+      }
+    } finally {
+      this.#missionLaunches.delete(missionId)
+    }
+  }
+
+  async #settleMission(
+    sessionId: string,
+    generationId: string | undefined,
+    outcome: "completed" | "failed" | "cancelled",
+    reason: "message_completed" | "agent_error" | "system_interrupted" | "user_stopped",
+  ): Promise<void> {
+    if (!generationId || !this.deps.missionRuns) return
+    await this.deps.missionRuns.settleChatTurn({ sessionId, generationId, outcome, reason }).catch((error: unknown) => {
+      logDiagnostic("mission", "failed to persist Mission settlement; restart recovery required", { error }, "error")
+    })
+  }
+
+  async #sendMessageNow(req: SendMessageRequest, missionRunId?: string): Promise<void> {
     const externalKind = externalAgentKindForSessionId(req.sessionId)
     if (externalKind) {
-      return this.sendExternalMessage(req, externalKind)
+      return this.sendExternalMessage(req, externalKind, missionRunId)
     }
     if (!this.agent) {
       throw new Error("Agent not configured (sign in first)")
@@ -1608,6 +1749,7 @@ export class ChatServiceImpl extends ConnectionService<ChatService> implements I
       throw new Error("A generation is already active for this session.")
     }
     await this.assertTrustedAttachments(req.attachments)
+    if (this.generations.has(req.sessionId)) throw new Error("A generation is already active for this session.")
     this.setSessionPermissionModeValue(
       req.sessionId,
       req.permissionMode ?? this.sessionPermissionMode(req.sessionId),
@@ -1638,13 +1780,24 @@ export class ChatServiceImpl extends ConnectionService<ChatService> implements I
           ),
         )
       }
+      if (this.generations.has(req.sessionId)) throw new Error("A generation is already active for this session.")
       generation = this.beginSessionGeneration(req.sessionId, userMessageId)
+      if (missionRunId) this.#missionGenerationIds.add(generation.id)
       this.createActiveRun(req, generation)
       const activeGeneration = generation
       this.userStops.delete(req.sessionId)
       this.connectionFailedSessions.delete(req.sessionId)
       this.clearMessageErrorSignatures(req.sessionId)
       this.emitSessionActivity(req.sessionId)
+      if (missionRunId)
+        await this.deps.missionRuns!.start({
+          runId: missionRunId,
+          sessionId: req.sessionId,
+          generationId: activeGeneration.id,
+          userMessageId,
+        })
+      if (!this.isCurrentGeneration(req.sessionId, activeGeneration.id) || activeGeneration.controller.signal.aborted)
+        return
       const knowledgeBaseIds = (req.contextMentions ?? []).flatMap((mention) =>
         mention.kind === "knowledge" && mention.id.trim() ? [mention.id.trim()] : [],
       )
@@ -1784,6 +1937,7 @@ export class ChatServiceImpl extends ConnectionService<ChatService> implements I
             return
           }
           const messageId = this.activeAssistantMessages.get(req.sessionId)
+          await this.#settleMission(req.sessionId, promptGeneration.id, "failed", "agent_error")
           this.clearSessionGeneration(req.sessionId, promptGeneration.id)
           this.activeAssistantMessages.delete(req.sessionId)
           this.activeToolParts.delete(req.sessionId)
@@ -1796,6 +1950,7 @@ export class ChatServiceImpl extends ConnectionService<ChatService> implements I
         })
     } catch (error) {
       if (generation) {
+        await this.#settleMission(req.sessionId, generation.id, "failed", "agent_error")
         this.turnOutputs.removePending(req.sessionId, artifactDir, processDir)
         this.turnOutputs.delete(req.sessionId, generation.id)
         this.clearSessionGeneration(req.sessionId, generation.id)
@@ -1814,7 +1969,11 @@ export class ChatServiceImpl extends ConnectionService<ChatService> implements I
    * and workspace behavior. Wanta contributes run tracking, permission-mode
    * projection, and the shared event bridge.
    */
-  private async sendExternalMessage(req: SendMessageRequest, kind: ExternalAgentKind): Promise<void> {
+  private async sendExternalMessage(
+    req: SendMessageRequest,
+    kind: ExternalAgentKind,
+    missionRunId?: string,
+  ): Promise<void> {
     const adapter = this.externalAgents.get(kind)
     if (!adapter) {
       throw new Error("This agent is not available.")
@@ -1842,12 +2001,20 @@ export class ChatServiceImpl extends ConnectionService<ChatService> implements I
     )
     const userMessageId = createOpencodeMessageId()
     const generation = this.beginSessionGeneration(req.sessionId, userMessageId)
+    if (missionRunId) this.#missionGenerationIds.add(generation.id)
     this.createActiveRun(req, generation)
     this.userStops.delete(req.sessionId)
     this.connectionFailedSessions.delete(req.sessionId)
     this.clearMessageErrorSignatures(req.sessionId)
     this.emitSessionActivity(req.sessionId)
     try {
+      if (missionRunId)
+        await this.deps.missionRuns!.start({
+          runId: missionRunId,
+          sessionId: req.sessionId,
+          generationId: generation.id,
+          userMessageId,
+        })
       const trustedProjectRoot = await this.resolveTrustedProjectRoot(req.projectContext)
       if (!this.isCurrentGeneration(req.sessionId, generation.id) || generation.controller.signal.aborted) {
         this.clearSessionGeneration(req.sessionId, generation.id)
@@ -1890,7 +2057,7 @@ export class ChatServiceImpl extends ConnectionService<ChatService> implements I
             this.scheduleGenerationStartWatchdog(req.sessionId, generation.id)
           }
         })
-        .catch((error: unknown) => {
+        .catch(async (error: unknown) => {
           if (req.attachments?.length) {
             // The prompt never reached the agent; a record without a user turn
             // would resurface as an orphaned attachment bubble on reload.
@@ -1901,6 +2068,7 @@ export class ChatServiceImpl extends ConnectionService<ChatService> implements I
             return
           }
           const messageId = this.activeAssistantMessages.get(req.sessionId)
+          await this.#settleMission(req.sessionId, generation.id, "failed", "agent_error")
           this.clearSessionGeneration(req.sessionId, generation.id)
           this.activeAssistantMessages.delete(req.sessionId)
           this.activeToolParts.delete(req.sessionId)
@@ -1912,6 +2080,7 @@ export class ChatServiceImpl extends ConnectionService<ChatService> implements I
           )
         })
     } catch (error) {
+      await this.#settleMission(req.sessionId, generation.id, "failed", "agent_error")
       this.clearSessionGeneration(req.sessionId, generation.id)
       throw error
     }

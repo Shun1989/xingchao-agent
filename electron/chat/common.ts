@@ -46,6 +46,7 @@ export interface ToolTiming {
 
 // ── ServerEvents 负载（R7 流式：主进程把 OpenCode SSE 转译为这些事件推给渲染层）──
 export interface MessageStartedEvent {
+  parentMessageId?: string
   sessionId: string
   messageId: string
   role: ChatRole
@@ -311,6 +312,8 @@ export interface AgentConnectionChangedEvent {
   createdAt: number
 }
 export interface AgentErrorEvent {
+  parentMessageId?: string
+  messageId?: string
   sessionId?: string
   message: string
 }
@@ -390,6 +393,9 @@ export interface ChatTokenUsage {
 }
 
 export interface SendMessageRequest {
+  /** Confirmed plan; main validates, persists and generates the authoritative prompt. */
+  mission?: import("../../src/domain/xingchao/types.ts").Mission
+  missionRetryRunId?: string
   sessionId: string
   text: string
   appLocale?: AppLocale

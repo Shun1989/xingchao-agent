@@ -17,14 +17,18 @@ import type { UserAttachmentStore } from "./user-attachments.ts"
 
 import assert from "node:assert/strict"
 import { randomUUID } from "node:crypto"
-import { mkdtemp, writeFile } from "node:fs/promises"
+import { mkdtemp, rm, writeFile } from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
 import { test, vi } from "vitest"
+import { draftMission } from "../../src/domain/xingchao/routing.ts"
+import { builtinRuntimeFleetSnapshot } from "../../src/domain/xingchao/runtime-fleet.ts"
 import { AGENT_PROFILES } from "../agent/contract/profile.ts"
 import { ExternalAgentAdapter } from "../agent/external/adapter-base.ts"
 import { externalAgentKindForSessionId, mintExternalSessionId } from "../agent/external/session-id.ts"
 import { SessionServiceImpl } from "../session/node.ts"
+import { MissionRunServiceImpl } from "../xingchao/mission-service.ts"
+import { MissionRunStore } from "../xingchao/mission-store.ts"
 import { ChatServiceImpl } from "./node.ts"
 
 // Adversarial DX edge tests for the CHAT SERVICE external (BYOA) paths:
@@ -163,6 +167,10 @@ class FakeExternalAdapter extends ExternalAgentAdapter {
     this.emit({ event: "messageCompleted", data: { sessionId } })
   }
 
+  public failTurn(sessionId: string): void {
+    this.emit({ event: "agentError", data: { sessionId, message: "provider failed" } })
+  }
+
   /** Surface a native permission request through the contract event channel. */
   public askPermission(sessionId: string, requestId: string): ChatPermissionRequest {
     const request: ChatPermissionRequest = {
@@ -215,6 +223,28 @@ function createHarness(
 function sendRequest(sessionId: string, text: string, extra: Partial<SendMessageRequest> = {}): SendMessageRequest {
   return { scope: localScope, sessionId, text, ...extra }
 }
+
+test("external Mission runtime errors settle without requiring a transcript error part", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "xingchao-external-mission-"))
+  const missions = new MissionRunServiceImpl({
+    store: new MissionRunStore(root),
+    runtimeFleet: async () => builtinRuntimeFleetSnapshot,
+  })
+  const { service, adapters } = createHarness(["claude-code"], { missionRuns: missions })
+  const sessionId = mintExternalSessionId("claude-code")
+  try {
+    await service.sendMessage(sendRequest(sessionId, "test", { mission: draftMission("运行时失败") }))
+    const adapter = adapters.get("claude-code")!
+    await waitForCondition(() => adapter.prompts.length === 1)
+    adapter.startAssistantReply(sessionId, "reply", "working")
+    adapter.failTurn(sessionId)
+    await vi.waitFor(async () => assert.equal((await missions.list())[0]?.status, "failed"))
+    await waitForTurnCompletion(service)
+  } finally {
+    service.dispose()
+    await rm(root, { recursive: true, force: true })
+  }
+})
 
 function sessionEvents(events: CapturedEvent[], sessionId: string): CapturedEvent[] {
   return events.filter((entry) => (entry.data as { sessionId?: string } | undefined)?.sessionId === sessionId)
