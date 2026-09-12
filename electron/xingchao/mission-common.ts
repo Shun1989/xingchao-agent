@@ -71,6 +71,12 @@ export interface MissionRunChangedEvent {
   status: MissionRunStatus
 }
 
+export type MissionStorageStatus =
+  | { state: "ready"; runCount: number; maxRuns: number; bytes: number; maxBytes: number; persistencePending: boolean }
+  | { state: "corrupt" | "unavailable" }
+
+export type MissionFileResult = "done" | "cancelled"
+
 export type MissionRunService = typeof MissionRunService
 export const MissionRunService = serviceName("mission-run-service") as ServiceName<{
   ServerEvents: {
@@ -79,5 +85,8 @@ export const MissionRunService = serviceName("mission-run-service") as ServiceNa
   ClientInvokes: {
     list(): Promise<MissionRunSummary[]>
     retrySettlement(runId: string): Promise<void>
+    storageStatus(): Promise<MissionStorageStatus>
+    exportHistory(): Promise<MissionFileResult>
+    restoreHistory(): Promise<MissionFileResult>
   }
 }>

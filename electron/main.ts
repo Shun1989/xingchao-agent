@@ -115,6 +115,7 @@ import {
 } from "./window/title-bar-overlay.ts"
 import { createHideOnCloseHandler, revealMainWindow } from "./window/window-close-behavior.ts"
 import { createWindowsTrayLifecycle } from "./window/windows-tray-lifecycle.ts"
+import { createMissionFileDialogs } from "./xingchao/mission-file-dialogs.ts"
 import { MissionRunServiceImpl, MissionRunQueryService } from "./xingchao/mission-service.ts"
 import { MissionRunStore } from "./xingchao/mission-store.ts"
 import { ContentPackServiceImpl } from "./xingchao/node.ts"
@@ -248,7 +249,10 @@ const missionRuns = new MissionRunServiceImpl({
   store: new MissionRunStore(app.getPath("userData")),
   runtimeFleet: async () => projectRuntimeFleetCatalog(await contentPackRuntimeManager.runtimeCatalog()),
 })
-const missionRunService = new MissionRunQueryService(missionRuns)
+const missionRunService = new MissionRunQueryService(
+  missionRuns,
+  createMissionFileDialogs(app.getPath("userData"), () => activeLocale()),
+)
 const chatService = new ChatServiceImpl(null, {
   missionRuns,
   browserAvailable: () => settingsStore.read().browserEnabled !== false,

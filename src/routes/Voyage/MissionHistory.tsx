@@ -2,6 +2,7 @@ import type { MissionRunSummary } from "../../../electron/xingchao/mission-commo
 import type { MissionHistoryState } from "@/hooks/useMissionRuns.ts"
 
 import * as React from "react"
+import { MissionStorage } from "./MissionStorage.tsx"
 import { Button } from "@/components/ui/button"
 import { useMissionRuns } from "@/hooks/useMissionRuns.ts"
 import { useT } from "@/i18n/i18n"
@@ -15,7 +16,12 @@ export interface MissionHistoryProps {
 
 export function MissionHistory(props: MissionHistoryProps) {
   const history = useMissionRuns()
-  return <MissionHistoryView {...props} history={history} />
+  return (
+    <>
+      <MissionStorage onRestored={history.refresh} />
+      <MissionHistoryView {...props} history={history} />
+    </>
+  )
 }
 
 export function MissionHistoryView({

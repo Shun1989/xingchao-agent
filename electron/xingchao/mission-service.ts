@@ -8,6 +8,8 @@ import type {
   MissionRunService,
   MissionRunStatus,
   MissionRunSummary,
+  MissionStorageStatus,
+  MissionFileResult,
   StartMissionRunRequest,
 } from "./mission-common.ts"
 import type {
@@ -25,7 +27,13 @@ import { missionLaunchPrompt } from "../../src/domain/xingchao/routing.ts"
 import { indexRuntimeFleet } from "../../src/domain/xingchao/runtime-fleet.ts"
 import { ServiceEvent } from "../service-events.ts"
 import { MissionRunService as MissionRunServiceName } from "./mission-common.ts"
-import { missionRunBlueprintNodeSchema, missionRunBlueprintSchema, normalizeMissionRunState } from "./mission-store.ts"
+import {
+  missionRunBlueprintNodeSchema,
+  missionRunBlueprintSchema,
+  normalizeMissionRunState,
+  MissionLedgerCorruptError,
+  parseMissionBackup,
+} from "./mission-store.ts"
 
 const admissionNodeSchema = missionRunBlueprintNodeSchema
   .extend({ status: z.literal("pending", { error: "Mission nodes must be pending at admission" }) })
@@ -338,6 +346,42 @@ export class MissionRunServiceImpl {
     if (pending) await this.settleChatTurn(pending)
   }
 
+  public storageStatus(): Promise<MissionStorageStatus> {
+    return this.#enqueue(async () => {
+      try {
+        const state = await this.#initialize()
+        return {
+          state: "ready",
+          runCount: state.runs.length,
+          maxRuns: 1024,
+          bytes: Buffer.byteLength(JSON.stringify(state, null, 2) + "\n", "utf8"),
+          maxBytes: 16 * 1024 * 1024,
+          persistencePending: this.#pendingSettlements.size > 0,
+        }
+      } catch (error) {
+        return { state: error instanceof MissionLedgerCorruptError ? "corrupt" : "unavailable" }
+      }
+    })
+  }
+
+  public exportHistory(): Promise<string> {
+    return this.#enqueue(async () => {
+      if (this.#pendingSettlements.size) throw new Error("Repair pending writes before export")
+      return JSON.stringify(normalizeMissionRunState(await this.#initialize()), null, 2) + "\n"
+    })
+  }
+
+  public restoreHistory(text: string): Promise<void> {
+    return this.#enqueue(async () => {
+      if (this.#state || this.#pendingSettlements.size || !this.#deps.store.restoreCorrupt)
+        throw new Error("Recovery is only available for an unreadable ledger before execution")
+      const snapshot = parseMissionBackup(text)
+      await this.#deps.store.restoreCorrupt(snapshot)
+      this.#initialization = null
+      await this.#initialize()
+    })
+  }
+
   public async settleChatTurn(settlement: ChatTurnSettlement): Promise<MissionRunSummary | null> {
     return this.#mutate(async (state) => {
       const sessionId = z
@@ -471,15 +515,23 @@ export class MissionRunServiceImpl {
 }
 
 /** Query/repair facade; callers cannot supply lifecycle outcomes or admission data. */
+export interface MissionFileDialogs {
+  save(contents: string): Promise<MissionFileResult>
+  chooseBackup(): Promise<string | null>
+}
+
 export class MissionRunQueryService
   extends ConnectionService<MissionRunService>
   implements IConnectionService<MissionRunService>
 {
   readonly #manager: MissionRunServiceImpl
   readonly #unsubscribe: () => void
-  public constructor(manager: MissionRunServiceImpl) {
+  readonly #files?: MissionFileDialogs
+  #fileOperation = false
+  public constructor(manager: MissionRunServiceImpl, files?: MissionFileDialogs) {
     super(MissionRunServiceName)
     this.#manager = manager
+    this.#files = files
     this.#unsubscribe = manager.changed.on((event) => {
       void this.send("missionRunChanged", event).catch(() => undefined)
     })
@@ -489,6 +541,31 @@ export class MissionRunQueryService
   }
   public retrySettlement(runId: string): Promise<void> {
     return this.#manager.retrySettlement(runId)
+  }
+  public storageStatus(): Promise<MissionStorageStatus> {
+    return this.#manager.storageStatus()
+  }
+  public async exportHistory(): Promise<MissionFileResult> {
+    if (!this.#files || this.#fileOperation) throw new Error("History export unavailable")
+    this.#fileOperation = true
+    try {
+      return await this.#files.save(await this.#manager.exportHistory())
+    } finally {
+      this.#fileOperation = false
+    }
+  }
+  public async restoreHistory(): Promise<MissionFileResult> {
+    if (!this.#files || this.#fileOperation) throw new Error("History recovery unavailable")
+    this.#fileOperation = true
+    try {
+      if ((await this.#manager.storageStatus()).state !== "corrupt") throw new Error("History is not corrupt")
+      const text = await this.#files.chooseBackup()
+      if (text === null) return "cancelled"
+      await this.#manager.restoreHistory(text)
+      return "done"
+    } finally {
+      this.#fileOperation = false
+    }
   }
   public override dispose(): void {
     this.#unsubscribe()

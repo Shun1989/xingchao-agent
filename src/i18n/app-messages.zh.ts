@@ -1778,4 +1778,17 @@ export const zhCNMessages = {
   "missionHistory.reason.user_stopped": "用户停止执行",
   "missionHistory.reason.app_restarted": "应用重启时发现未完成记录",
   ...skillsMessages["zh-CN"],
+  "missionStorage.title": "任务记录备份",
+  "missionStorage.retention":
+    "任务记录默认持续保留，不会自动删除。备份包含任务目标、执行蓝图和事件，不包含对话、附件或 API Key；请妥善保存。",
+  "missionStorage.usage": "当前保留 {count} 条记录，容量上限 {max} 条。",
+  "missionStorage.capacity": "任务记录接近容量限制，请先导出备份。导出不会清空记录；达到容量上限后无法新增任务记录。",
+  "missionStorage.pending": "有记录尚未保存，请先在运行历史中重试保存，再导出备份。",
+  "missionStorage.export": "导出备份",
+  "missionStorage.restore": "从备份恢复",
+  "missionStorage.corrupt": "任务记录文件损坏或格式不受支持。原文件尚未更改；可选择有效备份恢复，恢复前会保留原文件。",
+  "missionStorage.unavailable": "暂时无法读取任务记录，请检查磁盘空间和文件访问权限后刷新。",
+  "missionStorage.exported": "备份已导出。当前任务记录保持不变。",
+  "missionStorage.restored": "备份已恢复，原损坏文件已保留。未完成任务已标记为中断。",
+  "missionStorage.failed": "操作未完成。请检查备份格式、磁盘空间和文件权限后重试。",
 } as const

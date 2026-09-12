@@ -36,6 +36,7 @@
 ## Subsequent delivery gates, in order
 
 1. Real-provider task acceptance with an explicitly approved provider/budget: successful output, permissions, cancellation, provider/network failure and restart. Confirm actual artifacts rather than inferring success from final text.
-2. Mission retention/export and actionable corrupt-ledger recovery, without silently deleting user records.
+2. Mission export and actionable corrupt-ledger recovery are implemented on 2026-09-12. History is retained with
+   capacity warnings and no automatic deletion. Archive rotation/deletion remains separate work.
 3. Release-candidate install/upgrade/uninstall checks on a clean Windows profile, then signing/distribution configuration. macOS requires its own evidence if advertised.
 4. Dependency-aware node scheduling and per-node retries only after the single-turn boundary is accepted. Live2D and extra voices remain optional scope, not substitutes for these gates.

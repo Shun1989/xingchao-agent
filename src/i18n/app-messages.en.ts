@@ -1861,4 +1861,20 @@ export const enMessages = {
   "missionHistory.reason.user_stopped": "Stopped by user",
   "missionHistory.reason.app_restarted": "An unfinished record was found at restart",
   ...skillsMessages.en,
+  "missionStorage.title": "Mission history backups",
+  "missionStorage.retention":
+    "Mission records are retained without automatic deletion. Backups include goals, blueprints and events, but not chats, attachments or API keys. Store them carefully.",
+  "missionStorage.usage": "Retaining {count} records; capacity is {max} records.",
+  "missionStorage.capacity":
+    "History is nearing capacity. Export a backup first. Export does not clear records; new runs cannot be recorded once capacity is reached.",
+  "missionStorage.pending": "Some records have not been saved. Repair pending writes in run history before exporting.",
+  "missionStorage.export": "Export backup",
+  "missionStorage.restore": "Restore from backup",
+  "missionStorage.corrupt":
+    "Mission history is damaged or uses an unsupported format. The original file is unchanged. Choose a valid backup to restore; the original will be preserved first.",
+  "missionStorage.unavailable": "Mission history cannot be read. Check disk space and file permissions, then refresh.",
+  "missionStorage.exported": "Backup exported. Current mission records are unchanged.",
+  "missionStorage.restored": "Backup restored and the damaged file preserved. Unfinished runs are blocked.",
+  "missionStorage.failed":
+    "The operation could not finish. Check the backup format, disk space and file permissions, then retry.",
 } as const

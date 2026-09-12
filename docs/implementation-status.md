@@ -259,3 +259,23 @@ This document separates implemented behavior from planned release work. A passin
   are not claimed. The coordinator completed the remaining fixes and regression checks.
 - Real-provider acceptance still requires the user's provider choice and spending ceiling. No paid model request,
   signed installer or public application release is represented by these local checks.
+
+## Mission backups and corrupt-ledger recovery on 2026-09-12
+
+- Mission Chart now exposes native-file-dialog JSON export of the full validated Mission ledger. The renderer
+  cannot choose filesystem paths or supply replacement ledger contents through IPC. Pending settlement writes must
+  be repaired before export; exporting does not delete records or copy the credential store.
+- History is retained without automatic deletion. The interface shows the record count and warns near the existing
+  1,024-record or 16 MiB limit. Archive rotation/deletion is not implemented; export does not free ledger capacity.
+- Malformed JSON, unsupported formats and invalid event histories are distinguished from operational read failures.
+  Only a corrupt ledger in a process that has not loaded live Mission state can be restored from a validated backup.
+  Native confirmation defaults to cancellation. The original damaged bytes are preserved in a uniquely named
+  `mission-runs.corrupt-*.json` file before atomic replacement; active backup entries become blocked, never auto-run.
+- Backups restore only Mission records, not conversations or deliverable files. Entries newer than the chosen backup
+  cannot be recreated. Normal healthy history cannot be replaced through this recovery action.
+- The real Electron smoke exercises full export plus a second isolated launch with corruption, recovery via IPC and
+  preserved original bytes. File selection/confirmation is scripted in that harness; native-dialog cancellation,
+  format validation and default-cancel semantics have separate tests. Independent code review found no defects.
+- Final verification passed 366 test files with 2 skipped: 2,981 tests passed and 20 skipped. Type checking, lint,
+  formatting of 1,144 files, renderer boundary tests, the extended Electron Mission smoke, production builds and
+  `git diff --check` passed. Existing build chunk-size/deprecation warnings remain; this is not installer acceptance.

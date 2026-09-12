@@ -1,6 +1,6 @@
 import { _electron as electron, expect } from "@playwright/test"
 import assert from "node:assert/strict"
-import { mkdir, mkdtemp, readFile, rm } from "node:fs/promises"
+import { mkdir, mkdtemp, readFile, readdir, rm } from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
@@ -92,8 +92,38 @@ try {
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true)
   await mkdir(path.join(repo, ".wanta-dev"), { recursive: true })
   await page.screenshot({ path: path.join(repo, ".wanta-dev/mission-history-acceptance.png"), fullPage: true })
+  await page.getByRole("button", { name: "导出备份", exact: true }).click()
+  await expect(page.getByRole("status")).toContainText("备份已导出")
+  assert.equal(JSON.parse(await readFile(path.join(temporaryRoot, "exported-history.json"), "utf8")).runs.length, 3)
+  await application.close()
+  environment["MISSION_UI_SMOKE_CORRUPT"] = "1"
+  application = await electron.launch({
+    executablePath: path.join(
+      repo,
+      ".electron-dist",
+      process.platform === "win32"
+        ? "electron.exe"
+        : process.platform === "darwin"
+          ? "Electron.app/Contents/MacOS/Electron"
+          : "electron",
+    ),
+    args: [...(process.platform === "win32" ? ["--no-sandbox"] : []), path.join(temporaryRoot, "main/main.mjs")],
+    env: environment,
+    timeout: 30_000,
+  })
+  const restoredPage = await application.firstWindow()
+  await expect(restoredPage.getByText("任务记录文件损坏或格式不受支持。", { exact: false })).toBeVisible()
+  await restoredPage.getByRole("button", { name: "从备份恢复", exact: true }).click()
+  await expect(restoredPage.getByRole("status")).toContainText("备份已恢复")
+  await expect(restoredPage.locator("article")).toHaveCount(1)
+  await expect(restoredPage.locator("article")).toContainText("已中断，待处理")
+  const preserved = (await readdir(path.join(temporaryRoot, "corrupt-profile"))).find((name) =>
+    name.startsWith("mission-runs.corrupt-"),
+  )!
+  assert.equal(await readFile(path.join(temporaryRoot, "corrupt-profile", preserved), "utf8"), "{damaged-history")
+  await restoredPage.screenshot({ path: path.join(repo, ".wanta-dev/mission-backup-acceptance.png"), fullPage: true })
   console.log(
-    "[mission-history] PASS: real Electron IPC, recovered history, original session, cancel, save repair, preserved retry attempts, no overflow at 1024x640",
+    "[mission-history] PASS: real Electron IPC, recovered history, original session, cancel, save repair, preserved retry attempts, no overflow at 1024x640, complete export, corrupt-ledger restore with original bytes preserved",
   )
 } finally {
   await application?.close()

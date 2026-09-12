@@ -1,6 +1,7 @@
 import type { MissionRunEvent, MissionRunStatus } from "./mission-common.ts"
 
-import { readFile } from "node:fs/promises"
+import { randomUUID } from "node:crypto"
+import { readFile, writeFile } from "node:fs/promises"
 import path from "node:path"
 import { z } from "zod"
 import { atomicWriteText } from "../atomic-file.ts"
@@ -120,6 +121,22 @@ export type PersistedMissionRunState = z.infer<typeof persistedMissionRunStateSc
 export interface MissionRunPersistence {
   read(): Promise<PersistedMissionRunState>
   write(state: PersistedMissionRunState): Promise<void>
+  restoreCorrupt?(state: PersistedMissionRunState): Promise<void>
+}
+
+export class MissionLedgerCorruptError extends Error {
+  constructor() {
+    super("Mission ledger is invalid; restore a validated backup")
+  }
+}
+
+export function parseMissionBackup(text: string): PersistedMissionRunState {
+  if (Buffer.byteLength(text, "utf8") > 16 * 1024 * 1024) throw new MissionLedgerCorruptError()
+  try {
+    return normalizeMissionRunState(JSON.parse(text))
+  } catch {
+    throw new MissionLedgerCorruptError()
+  }
 }
 
 export interface MissionRunStoreDeps {
@@ -264,13 +281,30 @@ export class MissionRunStore implements MissionRunPersistence {
   public async read(): Promise<PersistedMissionRunState> {
     try {
       const text = await this.#deps.readText(this.#file)
-      if (Buffer.byteLength(text, "utf8") > 16 * 1024 * 1024) throw new Error("Mission ledger exceeds 16 MiB")
-      return normalizeMissionRunState(JSON.parse(text))
+      return parseMissionBackup(text)
     } catch (error) {
       logStoreReadFailure("Mission Run ledger", this.#file, error)
       if (isMissingFileError(error)) return emptyMissionRunState()
       throw error
     }
+  }
+
+  /** Only called under the manager's mutation queue, before it owns any live state. */
+  public async restoreCorrupt(state: PersistedMissionRunState): Promise<void> {
+    normalizeMissionRunState(state)
+    const original = await readFile(this.#file)
+    let corrupt = false
+    try {
+      parseMissionBackup(original.toString("utf8"))
+    } catch (error) {
+      if (error instanceof MissionLedgerCorruptError) corrupt = true
+      else throw error
+    }
+    if (!corrupt) throw new Error("Healthy history cannot be replaced")
+    const preserved = path.join(path.dirname(this.#file), `mission-runs.corrupt-${randomUUID()}.json`)
+    await writeFile(preserved, original, { flag: "wx", mode: 0o600 })
+    if (!(await readFile(this.#file)).equals(original)) throw new Error("Mission history changed during recovery")
+    await this.write(state)
   }
 
   public async write(state: PersistedMissionRunState): Promise<void> {
