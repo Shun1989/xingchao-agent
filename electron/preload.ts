@@ -4,12 +4,12 @@ import type { AttachmentPickerKind, SaveClipboardAttachmentInput, SelectedAttach
 
 export type { AttachmentPickerKind, SaveClipboardAttachmentInput, SelectedAttachmentPath } from "./attachment-picker.ts"
 
-import { setupConnectionPreload } from "@oomol/connection-electron-adapter/preload"
 import { contextBridge, ipcRenderer, webUtils } from "electron"
 import { APP_COMMAND_CHANNEL, isAppCommand } from "./app-command.ts"
 import { APP_LOCALE_CHANNEL } from "./app-locale.ts"
 import { branding } from "./branding.ts"
 import { WRITE_CLIPBOARD_TEXT_CHANNEL } from "./clipboard-common.ts"
+import { setupConnectionPreload } from "./ipc/preload.ts"
 
 declare const __APP_COMMIT__: string | undefined
 declare const __APP_VERSION__: string | undefined
@@ -42,7 +42,7 @@ declare global {
   var wanta: WantaBridge
 }
 
-// @oomol/connection 的 RPC 桥接，仅此一行即可让 renderer 的 ElectronClientAdapter 找到通道。
+// Expose only the first-party RPC request/event bridge to the renderer.
 setupConnectionPreload()
 
 const wanta: WantaBridge = {

@@ -11,7 +11,7 @@
   oo-desktop.
 - **Decision**: create a standalone repo (not a fork), but replicate oo-desktop entirely for
   vite/electron/tsconfig/oxlint/oxfmt/packaging/signing/CI/postinstall (download-electron)/IPC
-  service split (`@oomol/connection` + common.ts/node.ts)/frontend stack (React 19 + shadcn +
+  service split (common.ts/node.ts; now backed by first-party `electron/ipc/`)/frontend stack (React 19 + shadcn +
   Tailwind 4).
 - **Rationale**: the two apps' UI stays coherent, maintenance cost is shared, and CI secret names
   carry over directly (`MACOS_CERTIFICATE` / `APPLEID`, etc.).
@@ -105,8 +105,9 @@
     accounts → because the launcher returns no verifiable state/nonce, **every** browser login
     callback — including app-initiated ones with a pending login — must confirm the account
     identity via a system dialog; canceling the confirmation rejects the pending login.
-  - RPC credential leak: `@oomol/connection` registration exposes everything → credential logic
-    moved into the **unregistered** `AuthManager`; only a thin facade is registered.
+  - Legacy RPC credential leak: the former connection registration exposed every method → credential
+    logic moved into the **unregistered** `AuthManager`; only a thin facade is registered.
+    The replacement first-party IPC also enforces explicit contract method allowlists.
   - Assembly race → everything goes through `applyChain` serialization + same-credential
     idempotent short-circuit.
   - Known limitations (accepted tradeoffs explicitly marked "not fixing, record only" at the time):

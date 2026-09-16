@@ -1,10 +1,10 @@
 # Delivery Continuation Checkpoint
 
-**Status:** Local acceptance refreshed on 2026-09-12: three review/verification defects fixed; 2,965 tests passed, type/lint/format/build, both real Electron Mission smoke checks and all 60 fleet visual/end-to-end scenarios passed. Ready for ordinary origin delivery. Independent post-fix re-review is unavailable due to reviewer account limits. The next product gate is real-provider acceptance with an explicit provider and budget.
+**Status:** Local acceptance refreshed on 2026-09-16 from committed baseline `aa01e97`: retry failure keeps history visible, and failed dispatch-status writes can be repaired without execution. The full suite passed 2,989 tests (20 skipped); type/lint/format/build and the extended real Electron history/backup smoke passed. These latest changes remain uncommitted. Independent post-fix re-review was unavailable due to reviewer account limits. The next product gate is real-provider acceptance; `docs/windows-candidate-2026-09-13.md` records the earlier provider/budget decision and credential blocker, which must be rechecked before use.
 
 **Goal:** Finish the Mission recovery interface before expanding orchestration or distribution.
 
-## Exact starting state
+## Historical starting state (2026-09-06; superseded by the status above)
 
 - Work in the existing `codex/xingchao-platform` checkout. Preserve its uncommitted Mission lifecycle slice; do not reset or recreate it.
 - Latest published baseline at pause is `19ce2b3`. The local continuation has not been committed or pushed.
@@ -14,7 +14,7 @@
 - Two independent agent tasks failed on usage limits without producing UI work or a review result. Do not count them as completed review.
 - At the latest checkpoint the account's weekly window had 49% remaining and its five-hour window had 88% remaining. No reset credit was used.
 
-## Next single priority: usable recovery interface
+## Recovery interface implementation checklist (implemented; retained as acceptance criteria)
 
 1. Connect `MissionRunService` in `src/main.tsx` and `src/components/AppContext.ts`, mirroring the existing content-pack client. Update typed AppContext fixtures.
 2. Add `src/hooks/useMissionRuns.ts`: load summaries; subscribe to `missionRunChanged`; discard stale async responses after a newer refresh or unmount; show a safe generic read error and allow refresh; call `retrySettlement` for repair. Do not render raw exceptions.

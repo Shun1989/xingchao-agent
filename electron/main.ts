@@ -5,8 +5,6 @@ import type { BrowserControlConnection } from "./browser/control-server.ts"
 import type { AppUpdateState } from "./update/common.ts"
 import type { MessageBoxOptions, OpenDialogOptions } from "electron"
 
-import { ConnectionServer } from "@oomol/connection"
-import { ElectronServerAdapter } from "@oomol/connection-electron-adapter/server"
 import {
   app,
   BrowserWindow,
@@ -80,6 +78,8 @@ import { registerClipboardHandler } from "./clipboard-handler.ts"
 import { parseConnectionOAuthCallback } from "./connections/domain.ts"
 import { configureDiagnosticsLog, flushDiagnosticsLog, logDiagnostic } from "./diagnostics-log.ts"
 import { GitServiceImpl } from "./git/node.ts"
+import { ConnectionServer } from "./ipc/connection.ts"
+import { ElectronServerAdapter } from "./ipc/electron-server.ts"
 import { KnowledgeServiceImpl } from "./knowledge/node.ts"
 import { DingTalkCliManager } from "./link-runtime/dingtalk-cli.ts"
 import { LarkCliManager } from "./link-runtime/lark-cli.ts"
@@ -161,7 +161,13 @@ let windowsTrayLifecycle: {
 let updateReadyNotification: Notification | null = null
 let lastNotifiedUpdateVersion: string | null = null
 
-const server = new ConnectionServer(new ElectronServerAdapter())
+const server = new ConnectionServer(
+  new ElectronServerAdapter({
+    isTrustedSender: (event) =>
+      event.sender === mainWindow?.webContents &&
+      isTrustedRendererUrl(event.senderFrame?.url, viteDevServerUrl, rendererBaseUrl),
+  }),
+)
 
 const settingsStore = new SettingsStore(app.getPath("userData"))
 const attentionStore = new AttentionStore(app.getPath("userData"))

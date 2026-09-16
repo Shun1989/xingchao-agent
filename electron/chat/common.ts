@@ -7,9 +7,9 @@ import type { ModelChoice } from "../models/common.ts"
 import type { RuntimeCapabilities } from "../runtime/common.ts"
 import type { SessionScope } from "../session/common.ts"
 import type { ChatErrorKind } from "./error.ts"
-import type { ServiceName } from "@oomol/connection"
 
 import { serviceName } from "../branding.ts"
+import { defineService } from "../ipc/connection.ts"
 
 export type ChatRole = "user" | "assistant"
 export type ToolStatus = "pending" | "running" | "completed" | "error"
@@ -879,7 +879,7 @@ export interface BillingOverviewResult {
 }
 
 export type ChatService = typeof ChatService
-export const ChatService = serviceName("chat-service") as ServiceName<{
+export const ChatService = defineService<{
   ServerEvents: {
     messageStarted: MessageStartedEvent
     messageDelta: MessageDeltaEvent
@@ -948,4 +948,38 @@ export const ChatService = serviceName("chat-service") as ServiceName<{
     /** Agent sidecar 是否就绪；本地模式缺少 custom model 时为 false。 */
     isReady(): Promise<boolean>
   }
-}>
+}>(serviceName("chat-service"), {
+  sendMessage: true,
+  getAttachmentPreview: true,
+  copyLocalImage: true,
+  saveLocalImageAs: true,
+  getLocalArtifactPreview: true,
+  getLocalArtifactThumbnail: true,
+  getTurnOutputs: true,
+  getTurnFileDiff: true,
+  resolveLocalArtifacts: true,
+  getArtifactBundles: true,
+  openLocalPath: true,
+  showLocalPathInFolder: true,
+  openExternalUrl: true,
+  setAgentTeam: true,
+  stopGeneration: true,
+  getActiveRuns: true,
+  getActiveRun: true,
+  getSessionSnapshot: true,
+  getMessages: true,
+  getPendingQuestions: true,
+  answerQuestion: true,
+  rejectQuestion: true,
+  getPendingPermissions: true,
+  answerPermission: true,
+  setPermissionMode: true,
+  getAgentStatus: true,
+  getRuntimeCapabilities: true,
+  getExternalAgents: true,
+  setExternalSessionModel: true,
+  setExternalSessionEffort: true,
+  getExternalSessionSelection: true,
+  warmExternalAgent: true,
+  isReady: true,
+})

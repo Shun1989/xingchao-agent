@@ -1,4 +1,5 @@
 import type { AppLocale } from "../app-locale.ts"
+import type { IConnectionService } from "../ipc/connection.ts"
 import type { AppSettings } from "../settings/common.ts"
 import type {
   AttentionService,
@@ -8,13 +9,12 @@ import type {
   VisibleSessionRequest,
 } from "./common.ts"
 import type { AttentionStore, UnreadAttentionEntry } from "./store.ts"
-import type { IConnectionService } from "@oomol/connection"
 import type { BrowserWindow as ElectronBrowserWindow, Event as ElectronEvent, NativeImage } from "electron"
 
-import { ConnectionService } from "@oomol/connection"
 import { app, nativeImage, Notification, shell } from "electron"
 import { branding } from "../branding.ts"
 import { logDiagnostic } from "../diagnostics-log.ts"
+import { ConnectionService } from "../ipc/connection.ts"
 import { AttentionService as AttentionServiceName } from "./common.ts"
 import {
   notificationCapability,

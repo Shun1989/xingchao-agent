@@ -1,17 +1,16 @@
+import type { IConnectionService } from "../ipc/connection.ts"
 import type { SettingsStore } from "../settings/store.ts"
 import type { UpdateChannel } from "./channel.ts"
 import type { AppUpdateState, AppUpdateStatus, UpdateService } from "./common.ts"
-import type { IConnectionService } from "@oomol/connection"
 import type { UpdateCheckResult } from "electron-updater"
 
-import { ConnectionService } from "@oomol/connection"
 import { app, powerMonitor } from "electron"
 import updaterPkg from "electron-updater"
-import { branding } from "../branding.ts"
 import { logDiagnostic } from "../diagnostics-log.ts"
-import { staticBaseUrl } from "../domain.ts"
+import { ConnectionService } from "../ipc/connection.ts"
 import { resolveUpdateChannel, updaterChannelName } from "./channel.ts"
 import { UpdateService as UpdateServiceName } from "./common.ts"
+import { configureGithubUpdater } from "./feed.ts"
 import {
   foregroundUpdateCheckDelayRangeMs,
   hasRecentSuccessfulCheck,
@@ -25,9 +24,9 @@ import {
 
 // 结构移植自 oo-desktop electron/update/node.ts（状态机 / in-flight 去重 / 404 容忍重试），
 // 裁去 telemetry 与 apply-outcome 跟踪（Wanta 无 telemetry 基建），加渠道管理。
-// 渠道经 setFeedURL 的 GenericServerOptions.channel 传入——刻意不用 autoUpdater.channel
-// setter：该 setter 会静默把 allowDowngrade 置 true（electron-updater AppUpdater 源码），
-// 与"beta 切回 stable 默认等下一个正式版、绝不自动降级"的策略冲突。
+// GitHubProvider's prerelease scan reads autoUpdater.channel, so channel selection configures both
+// that property and setFeedURL. The channel setter enables allowDowngrade; feed.ts resets it to false
+// after configuration so beta-to-stable switching can never install an older stable version.
 
 const missingAssetRetryDelayMs = 60_000
 const missingAssetMaxRetries = 3
@@ -511,14 +510,7 @@ export class UpdateServiceImpl extends ConnectionService<UpdateService> implemen
 
     const channel = updaterChannelName(this.channel)
     if (this.configuredChannel !== channel) {
-      this.autoUpdater.setFeedURL({
-        provider: "generic",
-        url: `${staticBaseUrl}/${branding.updateFeedPath}/${process.platform}/${process.arch}`,
-        channel,
-      })
-      // 显式 false：stable 构建经 generateUpdatesFilesForAllChannels 刷新 beta.yml 时
-      // 可能低于已装 beta，必须忽略（等下一个 stable 版本号反超后收敛），绝不自动降级。
-      this.autoUpdater.allowDowngrade = false
+      configureGithubUpdater(this.autoUpdater, this.channel)
       this.configuredChannel = channel
     }
 

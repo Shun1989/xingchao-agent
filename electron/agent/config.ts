@@ -59,6 +59,8 @@ export interface OpencodeCustomModel {
 // 保留直接 oo CLI 的 OpenCode 快速路径：oo 由 WANTA_OO_BIN/PATH 指向 Wanta 内置二进制。
 function wantaPermission(linkRuntime: LinkRuntime | null): OpencodePermissionConfig {
   return {
+    // Direct reads must reach the host even after external-directory access was granted.
+    read: "ask",
     edit: "ask",
     bash: linkRuntime?.kind === "oomol" ? OO_CLI_BASH_PERMISSION : "ask",
     webfetch: "allow",
@@ -69,6 +71,7 @@ function wantaPermission(linkRuntime: LinkRuntime | null): OpencodePermissionCon
 // 覆盖 OpenCode 原生 plan agent 时保留其“不写用户文件”的语义；是否允许本地 shell 仍交给 ChatService 访问策略。
 function wantaPlanPermission(linkRuntime: LinkRuntime | null): OpencodePermissionConfig {
   return {
+    read: "ask",
     bash: linkRuntime?.kind === "oomol" ? OO_CLI_BASH_PERMISSION : "ask",
     webfetch: "allow",
     external_directory: "ask",

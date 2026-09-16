@@ -1,3 +1,4 @@
+import type { IConnectionService } from "../ipc/connection.ts"
 import type {
   ImportKnowledgeBaseRequest,
   KnowledgeBaseSummary,
@@ -8,11 +9,10 @@ import type {
   KnowledgeChapterNode,
 } from "./common.ts"
 import type { WikiGraphInspect, WikiGraphLibraryArchive, WikiGraphMetadata, WikiGraphRuntime } from "./runner.ts"
-import type { IConnectionService } from "@oomol/connection"
 
-import { ConnectionService } from "@oomol/connection"
 import { dialog, nativeImage, shell } from "electron"
 import path from "node:path"
+import { ConnectionService } from "../ipc/connection.ts"
 import { ServiceEvent } from "../service-events.ts"
 import { KnowledgeService as KnowledgeServiceName } from "./common.ts"
 import {

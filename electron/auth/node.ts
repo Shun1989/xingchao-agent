@@ -1,13 +1,13 @@
+import type { IConnectionService } from "../ipc/connection.ts"
 import type { BrowserLoginProfile } from "./browser-login.ts"
 import type { AuthService, AuthState } from "./common.ts"
 import type { AuthAccount, AuthRuntimeAccount, AuthStore } from "./store.ts"
-import type { IConnectionService } from "@oomol/connection"
 
-import { ConnectionService } from "@oomol/connection"
 import { app, dialog, shell } from "electron"
 import { randomUUID } from "node:crypto"
 import { logDiagnostic } from "../diagnostics-log.ts"
 import { apiBaseUrl } from "../domain.ts"
+import { ConnectionService } from "../ipc/connection.ts"
 import { ServiceEvent } from "../service-events.ts"
 import {
   browserLoginUrl,
@@ -48,10 +48,9 @@ interface PendingLogin {
 const loginTimeoutMs = 10 * 60_000
 
 /**
- * 浏览器登录的全部逻辑与凭证持有者。**不注册为 RPC service**：
- * @oomol/connection 的 invoke 按方法名动态派发、无白名单，注册实例上的任何公开方法
- * （如返回会话 token 的 currentSessionToken / activeRuntimeAccount）都会暴露给渲染进程。
- * 凭证只能留在这里，渲染层经 AuthServiceImpl（薄门面，仅 getAuthState/login/logout）访问。
+ * Owns browser login and credentials; never registered as an RPC service.
+ * The renderer uses only the allowlisted AuthServiceImpl facade. Session tokens
+ * and active runtime accounts remain on this unregistered main-process object.
  */
 export class AuthManager {
   private readonly deps: AuthManagerDeps

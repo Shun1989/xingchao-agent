@@ -158,6 +158,49 @@ describe("MissionRunServiceImpl admission", () => {
     await expect(target.admitRetry("run-1")).rejects.toThrow(/retry/i)
   })
 
+  it("shows and repairs a failed dispatch terminal write without execution", async () => {
+    const store = new MemoryMissionRunStore()
+    const target = service(store)
+    await target.admit({ mission: mission() })
+    const changed: Array<{ persistencePending?: boolean; runId: string; status: string }> = []
+    const unsubscribe = target.changed.on((event) => changed.push(event))
+    vi.spyOn(store, "write").mockRejectedValueOnce(new Error("disk unavailable"))
+
+    await expect(target.failDispatch({ runId: "run-1", reason: "send_failed" })).rejects.toThrow()
+    expect((await target.list())[0]).toMatchObject({ status: "admitted", persistencePending: true })
+    expect(changed).toContainEqual({ runId: "run-1", status: "admitted", persistencePending: true })
+
+    await expect(target.admit({ mission: mission() })).rejects.toThrow(/pending/i)
+    await expect(target.launchPrompt("run-1")).rejects.toThrow(/pending/i)
+    await expect(
+      target.start({ runId: "run-1", sessionId: "session-1", generationId: "generation-1" }),
+    ).rejects.toThrow(/pending/i)
+    await expect(target.exportHistory()).rejects.toThrow(/pending/i)
+    expect(await target.storageStatus()).toMatchObject({ persistencePending: true })
+
+    await target.retrySettlement("run-1")
+    const repaired = (await target.list())[0]
+    expect(repaired).toMatchObject({ status: "failed" })
+    expect(repaired?.persistencePending).toBeFalsy()
+    expect(repaired?.events.at(-1)).toMatchObject({ status: "failed", reason: "send_failed" })
+    expect(store.state.runs).toHaveLength(1)
+    unsubscribe()
+  })
+
+  it("preserves the first dispatch failure across late outcomes and duplicate repairs", async () => {
+    const store = new MemoryMissionRunStore()
+    const target = service(store)
+    await target.admit({ mission: mission() })
+    vi.spyOn(store, "write")
+      .mockRejectedValueOnce(new Error("disk unavailable"))
+      .mockRejectedValueOnce(new Error("still unavailable"))
+    await expect(target.failDispatch({ runId: "run-1", reason: "send_failed" })).rejects.toThrow()
+    await expect(target.failDispatch({ runId: "run-1", reason: "send_rejected" })).rejects.toThrow()
+    await Promise.all([target.retrySettlement("run-1"), target.retrySettlement("run-1")])
+    expect(store.state.runs[0]?.events).toHaveLength(2)
+    expect(store.state.runs[0]?.events.at(-1)?.reason).toBe("send_failed")
+  })
+
   it("durably admits the exact confirmed blueprint with its first ordered event", async () => {
     const store = new MemoryMissionRunStore()
     const target = service(store)

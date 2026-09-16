@@ -11,12 +11,14 @@ import { afterEach, beforeEach, describe, it } from "vitest"
 import {
   collectMacMetadata,
   collectWinMetadata,
+  assertMetadataArtifactsExist,
   formatMiB,
+  retargetArtifactFileName,
   renderDownloadsTable,
   sumFileBytesRecursive,
 } from "./release-size.ts"
 
-const OSS_BASE = "https://static.oomol.com/release/apps/wanta"
+const GITHUB_RELEASE_BASE = "https://github.com/Shun1989/xingchao-agent/releases/download/v1.2.3"
 
 describe("formatMiB", () => {
   it("formats exact MiB boundaries with one decimal", () => {
@@ -76,11 +78,11 @@ describe("collectMacMetadata", () => {
 
   it("produces a two-artifact entry with the same expanded size for DMG and ZIP", async () => {
     const version = "9.8.7"
-    await writeFile(path.join(releaseDir, `Wanta-${version}.dmg`), Buffer.alloc(1000))
-    await writeFile(path.join(releaseDir, `Wanta-${version}.zip`), Buffer.alloc(800))
-    const appDir = path.join(releaseDir, "mac-arm64", "Wanta.app", "Contents", "MacOS")
+    await writeFile(path.join(releaseDir, `星潮航局-${version}.dmg`), Buffer.alloc(1000))
+    await writeFile(path.join(releaseDir, `星潮航局-${version}.zip`), Buffer.alloc(800))
+    const appDir = path.join(releaseDir, "mac-arm64", "星潮航局.app", "Contents", "MacOS")
     await mkdir(appDir, { recursive: true })
-    await writeFile(path.join(appDir, "Wanta"), Buffer.alloc(2048))
+    await writeFile(path.join(appDir, "星潮航局"), Buffer.alloc(2048))
 
     const metadata = await collectMacMetadata({
       version,
@@ -92,14 +94,14 @@ describe("collectMacMetadata", () => {
     assert.equal(metadata.artifacts.length, 2)
     assert.deepEqual(metadata.artifacts[0], {
       artifact: "DMG",
-      fileName: `Wanta-${version}.dmg`,
+      fileName: `星潮航局-${version}.dmg`,
       downloadBytes: 1000,
       expandedBytes: 2048,
       expandedLabel: "app bundle",
     })
     assert.deepEqual(metadata.artifacts[1], {
       artifact: "ZIP",
-      fileName: `Wanta-${version}.zip`,
+      fileName: `星潮航局-${version}.zip`,
       downloadBytes: 800,
       expandedBytes: 2048,
       expandedLabel: "app bundle",
@@ -108,8 +110,8 @@ describe("collectMacMetadata", () => {
 
   it("fails fast when the unpacked .app bundle is missing", async () => {
     const version = "9.8.7"
-    await writeFile(path.join(releaseDir, `Wanta-${version}.dmg`), Buffer.alloc(1))
-    await writeFile(path.join(releaseDir, `Wanta-${version}.zip`), Buffer.alloc(1))
+    await writeFile(path.join(releaseDir, `星潮航局-${version}.dmg`), Buffer.alloc(1))
+    await writeFile(path.join(releaseDir, `星潮航局-${version}.zip`), Buffer.alloc(1))
     await assert.rejects(collectMacMetadata({ version, arch: "arm64", releaseDir }), /unpacked \.app bundle/)
   })
 })
@@ -125,7 +127,7 @@ describe("collectWinMetadata", () => {
 
   it("produces Setup EXE entries with the same expanded size", async () => {
     const version = "9.8.7"
-    await writeFile(path.join(releaseDir, `Wanta-${version}-Setup.exe`), Buffer.alloc(500))
+    await writeFile(path.join(releaseDir, `星潮航局-${version}-Setup.exe`), Buffer.alloc(500))
     const unpackedDir = path.join(releaseDir, "win-unpacked", "resources")
     await mkdir(unpackedDir, { recursive: true })
     await writeFile(path.join(unpackedDir, "app.asar"), Buffer.alloc(4096))
@@ -140,7 +142,7 @@ describe("collectWinMetadata", () => {
     assert.equal(metadata.artifacts.length, 1)
     assert.deepEqual(metadata.artifacts[0], {
       artifact: "Setup EXE",
-      fileName: `Wanta-${version}-Setup.exe`,
+      fileName: `星潮航局-${version}-Setup.exe`,
       downloadBytes: 500,
       expandedBytes: 4096,
       expandedLabel: "installed app payload",
@@ -149,33 +151,65 @@ describe("collectWinMetadata", () => {
 
   it("fails fast when win-unpacked is missing", async () => {
     const version = "9.8.7"
-    await writeFile(path.join(releaseDir, `Wanta-${version}-Setup.exe`), Buffer.alloc(1))
+    await writeFile(path.join(releaseDir, `星潮航局-${version}-Setup.exe`), Buffer.alloc(1))
     await assert.rejects(collectWinMetadata({ version, arch: "x64", releaseDir }), /Windows unpacked payload/)
   })
 })
 
+describe("staged Windows metadata", () => {
+  let candidateDir: string
+  beforeEach(async () => {
+    candidateDir = await mkdtemp(path.join(tmpdir(), "xingchao-candidate-metadata-"))
+  })
+  afterEach(async () => {
+    await rm(candidateDir, { recursive: true, force: true })
+  })
+
+  it("retargets the local Chinese installer name to the staged GitHub asset and validates it exists", async () => {
+    const publishedName = "xingchao-navigation-setup-1.2.3.exe"
+    await writeFile(path.join(candidateDir, publishedName), Buffer.alloc(1))
+    const metadata: ReleaseSizeMetadata = {
+      version: "1.2.3",
+      platform: "win32",
+      arch: "x64",
+      artifacts: [
+        {
+          artifact: "Setup EXE",
+          fileName: "星潮航局-1.2.3-Setup.exe",
+          downloadBytes: 1,
+          expandedBytes: 2,
+          expandedLabel: "installed app payload",
+        },
+      ],
+    }
+
+    const staged = retargetArtifactFileName(metadata, "星潮航局-1.2.3-Setup.exe", publishedName)
+
+    assert.equal(staged.artifacts[0]?.fileName, publishedName)
+    await assert.doesNotReject(assertMetadataArtifactsExist(staged, candidateDir))
+  })
+
+  it("rejects metadata that points at an artifact absent from the candidate", async () => {
+    const metadata: ReleaseSizeMetadata = {
+      version: "1.2.3",
+      platform: "win32",
+      arch: "x64",
+      artifacts: [
+        {
+          artifact: "Setup EXE",
+          fileName: "xingchao-navigation-setup-1.2.3.exe",
+          downloadBytes: 1,
+          expandedBytes: 2,
+          expandedLabel: "installed app payload",
+        },
+      ],
+    }
+
+    await assert.rejects(assertMetadataArtifactsExist(metadata, candidateDir), /missing staged artifact/i)
+  })
+})
+
 describe("renderDownloadsTable", () => {
-  const macMetadata: ReleaseSizeMetadata = {
-    version: "1.2.3",
-    platform: "darwin",
-    arch: "arm64",
-    artifacts: [
-      {
-        artifact: "DMG",
-        fileName: "Wanta-1.2.3.dmg",
-        downloadBytes: 113506914,
-        expandedBytes: 273530880,
-        expandedLabel: "app bundle",
-      },
-      {
-        artifact: "ZIP",
-        fileName: "Wanta-1.2.3.zip",
-        downloadBytes: 107986869,
-        expandedBytes: 273530880,
-        expandedLabel: "app bundle",
-      },
-    ],
-  }
   const winMetadata: ReleaseSizeMetadata = {
     version: "1.2.3",
     platform: "win32",
@@ -183,7 +217,7 @@ describe("renderDownloadsTable", () => {
     artifacts: [
       {
         artifact: "Setup EXE",
-        fileName: "Wanta-1.2.3-Setup.exe",
+        fileName: "星潮航局-1.2.3-Setup.exe",
         downloadBytes: 90000000,
         expandedBytes: 250000000,
         expandedLabel: "installed app payload",
@@ -191,43 +225,25 @@ describe("renderDownloadsTable", () => {
     ],
   }
 
-  it("renders macOS rows before Windows rows regardless of metadata order", () => {
+  it("renders the supported Windows candidate without requiring macOS metadata", () => {
     const table = renderDownloadsTable({
       version: "1.2.3",
-      ossBase: OSS_BASE,
-      metadata: [winMetadata, macMetadata],
+      downloadBase: GITHUB_RELEASE_BASE,
+      metadata: [winMetadata],
     })
-    const macIndex = table.indexOf("macOS arm64")
-    const winIndex = table.indexOf("Windows x64")
-    assert.ok(macIndex > -1)
-    assert.ok(winIndex > -1)
-    assert.ok(macIndex < winIndex)
+    assert.ok(table.includes("Windows x64"))
   })
 
-  it("emits Markdown table header, formatted sizes, and OSS download links", () => {
+  it("emits Markdown table header, formatted sizes, and GitHub release download links", () => {
     const table = renderDownloadsTable({
       version: "1.2.3",
-      ossBase: OSS_BASE,
-      metadata: [macMetadata, winMetadata],
+      downloadBase: GITHUB_RELEASE_BASE,
+      metadata: [winMetadata],
     })
     assert.ok(table.includes("| Platform | Artifact | Download Size | Expanded / Installed Size | Link |"))
-    assert.ok(table.includes("108.2 MiB"))
-    assert.ok(table.includes("260.9 MiB app bundle"))
-    assert.ok(table.includes(`${OSS_BASE}/darwin/arm64/Wanta-1.2.3.dmg`))
-    assert.ok(table.includes(`${OSS_BASE}/win32/x64/Wanta-1.2.3-Setup.exe`))
+    assert.ok(table.includes("85.8 MiB"))
+    assert.ok(table.includes(`${GITHUB_RELEASE_BASE}/星潮航局-1.2.3-Setup.exe`))
     assert.ok(table.includes("installed app payload"))
-  })
-
-  it("fails fast when a required platform's metadata is missing", () => {
-    assert.throws(
-      () =>
-        renderDownloadsTable({
-          version: "1.2.3",
-          ossBase: OSS_BASE,
-          metadata: [macMetadata],
-        }),
-      /Missing required release size metadata.*win32\/x64/,
-    )
   })
 
   it("fails fast when a metadata file disagrees with the release version", () => {
@@ -236,8 +252,8 @@ describe("renderDownloadsTable", () => {
       () =>
         renderDownloadsTable({
           version: "1.2.3",
-          ossBase: OSS_BASE,
-          metadata: [macMetadata, stale],
+          downloadBase: GITHUB_RELEASE_BASE,
+          metadata: [stale],
         }),
       /version mismatch/i,
     )

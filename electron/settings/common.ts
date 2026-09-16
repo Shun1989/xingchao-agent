@@ -1,6 +1,5 @@
-import type { ServiceName } from "@oomol/connection"
-
 import { serviceName } from "../branding.ts"
+import { defineService } from "../ipc/connection.ts"
 
 export type ThemeSource = "system" | "light" | "dark"
 export type CompletionNotificationCondition = "never" | "background" | "always"
@@ -30,7 +29,7 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
 }
 
 export type SettingsService = typeof SettingsService
-export const SettingsService = serviceName("settings-service") as ServiceName<{
+export const SettingsService = defineService<{
   ServerEvents: {
     settingsChanged: AppSettings
   }
@@ -46,4 +45,14 @@ export const SettingsService = serviceName("settings-service") as ServiceName<{
     setSelfManagedSetupDismissed(dismissed: boolean): Promise<void>
     setUnreadBadgeEnabled(enabled: boolean): Promise<void>
   }
-}>
+}>(serviceName("settings-service"), {
+  getSettings: true,
+  setThemeSource: true,
+  setBrowserEnabled: true,
+  setKnowledgeBaseBetaEnabled: true,
+  setCompletionNotificationCondition: true,
+  setNotificationSoundEnabled: true,
+  setOperatingMode: true,
+  setSelfManagedSetupDismissed: true,
+  setUnreadBadgeEnabled: true,
+})

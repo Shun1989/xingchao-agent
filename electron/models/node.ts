@@ -1,10 +1,10 @@
+import type { IConnectionService } from "../ipc/connection.ts"
 import type { ModelCatalog, ModelChoice, ModelsService, SaveCustomModelRequest } from "./common.ts"
 import type { PersistedCustomModel, ModelsStore } from "./store.ts"
-import type { IConnectionService } from "@oomol/connection"
 
-import { ConnectionService } from "@oomol/connection"
 import { randomUUID } from "node:crypto"
 import { logDiagnostic } from "../diagnostics-log.ts"
+import { ConnectionService } from "../ipc/connection.ts"
 import { ModelsService as ModelsServiceName } from "./common.ts"
 import {
   CUSTOM_MODEL_PROVIDERS,

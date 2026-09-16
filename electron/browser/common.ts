@@ -1,6 +1,5 @@
-import type { ServiceName } from "@oomol/connection"
-
 import { serviceName } from "../branding.ts"
+import { defineService } from "../ipc/connection.ts"
 
 export interface BrowserViewBounds {
   height: number
@@ -46,7 +45,7 @@ export interface BrowserDownloadResult {
 }
 
 export type BrowserService = typeof BrowserService
-export const BrowserService = serviceName("browser-service") as ServiceName<{
+export const BrowserService = defineService<{
   ServerEvents: {
     browserRequested: { sessionId: string }
     downloadFinished: BrowserDownloadResult
@@ -67,4 +66,17 @@ export const BrowserService = serviceName("browser-service") as ServiceName<{
     openDownloadsFolder(): Promise<void>
     openInSystemBrowser(sessionId: string): Promise<void>
   }
-}>
+}>(serviceName("browser-service"), {
+  clearData: true,
+  capturePreview: true,
+  getState: true,
+  show: true,
+  hide: true,
+  navigate: true,
+  goBack: true,
+  goForward: true,
+  reload: true,
+  setZoomFactor: true,
+  openDownloadsFolder: true,
+  openInSystemBrowser: true,
+})

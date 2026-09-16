@@ -1,6 +1,6 @@
 import type { BrowserPageState, BrowserViewBounds } from "../../../electron/browser/common.ts"
 import type { BrowserService } from "../../../electron/browser/common.ts"
-import type { ConnectionClientService } from "@oomol/connection"
+import type { ConnectionClientService } from "../../../electron/ipc/connection.ts"
 
 import {
   ArrowLeft,

@@ -15,7 +15,7 @@
 // 体积口径，跨平台保持一致：
 //   - 下载体积 = installer/zip 文件的 `stat.size`（表观字节）。
 //   - 展开体积 = 解包 app payload 目录下文件 `stat.size` 的递归求和（表观字节）。
-//                macOS 是 `mac-<arch>/Wanta.app`；Windows 是 `win-unpacked`
+//                macOS uses `mac-<arch>/星潮航局.app`; Windows uses `win-unpacked`
 //                （非 x64 架构为 `win-<arch>-unpacked`）。该口径与用户安装后在
 //                磁盘上看到的体积（Finder 显示简介 / 资源管理器属性）一致，且
 //                避免在签名 runner 上跑 NSIS 安装器或用 `hdiutil` 挂载 DMG。
@@ -26,6 +26,7 @@ import { readdir, readFile, stat, writeFile } from "node:fs/promises"
 import path from "node:path"
 import { pathToFileURL } from "node:url"
 import { parseArgs } from "node:util"
+import { branding } from "../electron/branding.ts"
 
 const BYTES_PER_MIB = 1024 * 1024
 
@@ -46,6 +47,41 @@ export interface ReleaseSizeMetadata {
   artifacts: ReleaseArtifactMetadata[]
 }
 
+export function retargetArtifactFileName(
+  metadata: ReleaseSizeMetadata,
+  currentFileName: string,
+  publishedFileName: string,
+): ReleaseSizeMetadata {
+  if (path.basename(publishedFileName) !== publishedFileName) {
+    throw new Error(`Published artifact name must be a file name, got "${publishedFileName}"`)
+  }
+  const matching = metadata.artifacts.filter((artifact) => artifact.fileName === currentFileName)
+  if (matching.length !== 1) {
+    throw new Error(`Expected exactly one release-size artifact named "${currentFileName}", found ${matching.length}`)
+  }
+  return {
+    ...metadata,
+    artifacts: metadata.artifacts.map((artifact) =>
+      artifact.fileName === currentFileName ? { ...artifact, fileName: publishedFileName } : { ...artifact },
+    ),
+  }
+}
+
+export async function assertMetadataArtifactsExist(metadata: ReleaseSizeMetadata, artifactDir: string): Promise<void> {
+  for (const artifact of metadata.artifacts) {
+    if (path.basename(artifact.fileName) !== artifact.fileName) {
+      throw new Error(`Release-size artifact name must be a file name, got "${artifact.fileName}"`)
+    }
+    const artifactPath = path.join(artifactDir, artifact.fileName)
+    try {
+      const artifactStats = await stat(artifactPath)
+      if (!artifactStats.isFile()) throw new Error("not a file")
+    } catch (error) {
+      throw new Error(`Release-size metadata references missing staged artifact: ${artifactPath}`, { cause: error })
+    }
+  }
+}
+
 interface CollectMetadataOptions {
   version: string
   arch: string
@@ -54,7 +90,7 @@ interface CollectMetadataOptions {
 
 interface RenderDownloadsOptions {
   version: string
-  ossBase: string
+  downloadBase: string
   metadata: ReleaseSizeMetadata[]
 }
 
@@ -70,12 +106,9 @@ const PLATFORM_DISPLAY: Record<ReleasePlatform, string> = {
   win32: "Windows",
 }
 
-// 每个 Release 构建都必须产出元数据的平台+架构组合。`render` 会拒绝缺少其中任一
-// 组合的 release —— 我们要 workflow 大声失败，而不是发出一张缺了半行的体积表。
-const REQUIRED_PLATFORM_ARCH_PAIRS = [
-  { platform: "darwin", arch: "arm64" },
-  { platform: "win32", arch: "x64" },
-] satisfies ReleasePlatformArch[]
+// The maintained candidate pipeline currently accepts Windows x64 only. macOS collection remains
+// available for future use but is not a release gate until a macOS workflow is deliberately restored.
+const REQUIRED_PLATFORM_ARCH_PAIRS = [{ platform: "win32", arch: "x64" }] satisfies ReleasePlatformArch[]
 
 function isNodeError(error: unknown): error is NodeJS.ErrnoException {
   return error instanceof Error && "code" in error
@@ -139,9 +172,9 @@ export async function collectMacMetadata({
   arch,
   releaseDir,
 }: CollectMetadataOptions): Promise<ReleaseSizeMetadata> {
-  const dmgPath = path.join(releaseDir, `Wanta-${version}.dmg`)
-  const zipPath = path.join(releaseDir, `Wanta-${version}.zip`)
-  const appPath = path.join(releaseDir, macUnpackedDirName(arch), "Wanta.app")
+  const dmgPath = path.join(releaseDir, `${branding.appName}-${version}.dmg`)
+  const zipPath = path.join(releaseDir, `${branding.appName}-${version}.zip`)
+  const appPath = path.join(releaseDir, macUnpackedDirName(arch), `${branding.appName}.app`)
 
   const [dmgBytes, zipBytes, appBytes] = await Promise.all([
     fileSize(dmgPath),
@@ -184,7 +217,7 @@ export async function collectWinMetadata({
   arch,
   releaseDir,
 }: CollectMetadataOptions): Promise<ReleaseSizeMetadata> {
-  const exePath = path.join(releaseDir, `Wanta-${version}-Setup.exe`)
+  const exePath = path.join(releaseDir, `${branding.appName}-${version}-Setup.exe`)
   const unpackedPath = path.join(releaseDir, winUnpackedDirName(arch))
 
   const [exeBytes, unpackedBytes] = await Promise.all([fileSize(exePath), sumFileBytesRecursive(unpackedPath)])
@@ -217,8 +250,8 @@ function platformDisplay({ platform, arch }: ReleasePlatformArch): string {
   return `${base} ${arch}`
 }
 
-function ossUrl(ossBase: string, platform: ReleasePlatform, arch: string, fileName: string): string {
-  return `${ossBase}/${platform}/${arch}/${fileName}`
+function downloadUrl(downloadBase: string, fileName: string): string {
+  return `${downloadBase.replace(/\/$/, "")}/${fileName}`
 }
 
 /**
@@ -226,7 +259,7 @@ function ossUrl(ossBase: string, platform: ReleasePlatform, arch: string, fileNa
  * 元数据文件的 version 与 release version 不一致，即快速失败 —— 二者都表示我们想暴露、
  * 而非绕过的 CI bug。
  */
-export function renderDownloadsTable({ version, ossBase, metadata }: RenderDownloadsOptions): string {
+export function renderDownloadsTable({ version, downloadBase, metadata }: RenderDownloadsOptions): string {
   const byKey = new Map<string, ReleaseSizeMetadata>()
   for (const entry of metadata) {
     if (entry.version !== version) {
@@ -263,7 +296,7 @@ export function renderDownloadsTable({ version, ossBase, metadata }: RenderDownl
       throw new Error(`Missing release size metadata for ${pair.platform}/${pair.arch}`)
     }
     for (const artifact of entry.artifacts) {
-      const url = ossUrl(ossBase, entry.platform, entry.arch, artifact.fileName)
+      const url = downloadUrl(downloadBase, artifact.fileName)
       const download = formatMiB(artifact.downloadBytes)
       const expanded = `${formatMiB(artifact.expandedBytes)} ${artifact.expandedLabel}`
       lines.push(
@@ -331,7 +364,7 @@ async function runCollect(values: CliValues): Promise<void> {
 
 async function runRender(values: CliValues): Promise<void> {
   const metadataDir = requireOption(values, "metadata-dir", "render")
-  const ossBase = requireOption(values, "oss-base", "render")
+  const downloadBase = requireOption(values, "download-base", "render")
   const version = requireOption(values, "version", "render")
 
   const files = await findMetadataFiles(metadataDir)
@@ -341,8 +374,20 @@ async function runRender(values: CliValues): Promise<void> {
     metadata.push(JSON.parse(text) as ReleaseSizeMetadata)
   }
 
-  const table = renderDownloadsTable({ version, ossBase, metadata })
+  const table = renderDownloadsTable({ version, downloadBase, metadata })
   process.stdout.write(table + "\n")
+}
+
+async function runStage(values: CliValues): Promise<void> {
+  const metadataFile = requireOption(values, "metadata-file", "stage")
+  const artifactDir = requireOption(values, "artifact-dir", "stage")
+  const currentFileName = requireOption(values, "from-file", "stage")
+  const publishedFileName = requireOption(values, "to-file", "stage")
+  const metadata = JSON.parse(await readFile(metadataFile, "utf8")) as ReleaseSizeMetadata
+  const staged = retargetArtifactFileName(metadata, currentFileName, publishedFileName)
+  await assertMetadataArtifactsExist(staged, artifactDir)
+  await writeFile(metadataFile, JSON.stringify(staged, null, 2) + "\n", "utf8")
+  console.log(`release-size: staged ${metadataFile} for ${publishedFileName}`)
 }
 
 function parseCli(argv: string[]): { command: string | undefined; values: CliValues } {
@@ -356,7 +401,11 @@ function parseCli(argv: string[]): { command: string | undefined; values: CliVal
       "release-dir": { type: "string" },
       out: { type: "string" },
       "metadata-dir": { type: "string" },
-      "oss-base": { type: "string" },
+      "download-base": { type: "string" },
+      "metadata-file": { type: "string" },
+      "artifact-dir": { type: "string" },
+      "from-file": { type: "string" },
+      "to-file": { type: "string" },
     },
   })
   return { command: positionals[0], values: values as CliValues }
@@ -366,7 +415,8 @@ function usage(): string {
   return [
     "Usage:",
     "  release-size.ts collect --platform <darwin|win32> --arch <arch> --version <v> --release-dir <dir> --out <path>",
-    "  release-size.ts render  --metadata-dir <dir> --oss-base <url> --version <v>",
+    "  release-size.ts render  --metadata-dir <dir> --download-base <url> --version <v>",
+    "  release-size.ts stage   --metadata-file <json> --artifact-dir <dir> --from-file <name> --to-file <name>",
   ].join("\n")
 }
 
@@ -382,6 +432,8 @@ if (isMain) {
       await runCollect(values)
     } else if (command === "render") {
       await runRender(values)
+    } else if (command === "stage") {
+      await runStage(values)
     } else {
       throw new Error(`Unknown subcommand "${command ?? ""}".\n${usage()}`)
     }

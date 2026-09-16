@@ -279,3 +279,38 @@ This document separates implemented behavior from planned release work. A passin
 - Final verification passed 366 test files with 2 skipped: 2,981 tests passed and 20 skipped. Type checking, lint,
   formatting of 1,144 files, renderer boundary tests, the extended Electron Mission smoke, production builds and
   `git diff --check` passed. Existing build chunk-size/deprecation warnings remain; this is not installer acceptance.
+
+## Mission retry and dispatch-save repair on 2026-09-16
+
+- Mission retries now keep history mounted until direct dispatch succeeds. Permission persistence and dispatch
+  failures remain on the history route, preserving actionable error feedback; ordinary chat navigation is unchanged.
+- A pre-start dispatch failure whose terminal write fails is retained as a pending settlement, emits the existing
+  persistence notification, and can be repaired without invoking the Agent. The first failure reason survives late
+  outcomes and duplicate repair requests. Pending writes block admission replay, start, prompt retrieval and export.
+- Added real-hook regressions for permission failure, dispatch failure, original-session routing and ordinary sends.
+  The isolated Electron IPC smoke now repairs both chat completion and dispatch failure, checks that repair creates
+  no new run, and still verifies retry history, backup export, corruption recovery and 1024 x 640 containment.
+- The full deterministic suite passed 367 test files with 2 skipped: 2,989 tests passed and 20 skipped. Type checking,
+  lint, formatting, production renderer/main/preload builds, the real Electron smoke and `git diff --check` passed.
+  Existing large-chunk and deprecated `inlineDynamicImports` build warnings remain.
+- An earlier independent review identified the two repaired defects; post-fix independent re-review was unavailable
+  due to account usage limits. No new independent review or formal security-scan success is claimed.
+- This checkpoint is local and uncommitted. It preserves the existing Agent read-permission changes and Windows
+  candidate notes. No paid provider request, installer rebuild or public release was performed in this checkpoint.
+- The supplied WebCodex article was checked against primary documentation. See
+  `docs/webcodex-method-2026-09-16.md` for the connection method and its distinction from an in-app model provider.
+
+## Windows signed-candidate preparation on 2026-09-16
+
+- The release target is a signed Windows x64 stable build. The user has no signing certificate yet; no unsigned
+  public release is authorized or represented by this checkpoint.
+- Replaced upstream publication with a manual artifact-only signed-candidate workflow. The installer and executable
+  must have valid matching publisher signatures and timestamps. Missing signing credentials fail closed.
+- Fixed the project update repository, beta selection, downgrade policy and renamed-asset metadata. Retained Chromium
+  notices and added a complete ASAR integrity gate after discovering a corrupt earlier local archive.
+- Final local verification passed 371 test files with 2 skipped: 3,000 tests passed and 20 skipped. Type checking, lint,
+  formatting of 1,156 files, production builds, the unsigned NSIS build, archive validation, isolated packaged startup
+  and restart smoke, and `git diff --check` passed. Independent review closed the release fixes.
+- No hosted CI, paid provider call, signed install/upgrade/uninstall or public release was performed. Source changes
+  remain local and uncommitted. See `docs/windows-release-readiness.md` for artifact identity, remaining acceptance
+  gates and unresolved dependency notice metadata; see `docs/release.md` for the signing and promotion runbook.

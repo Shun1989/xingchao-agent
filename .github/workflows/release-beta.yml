@@ -1,0 +1,154 @@
+name: Windows unsigned beta candidate
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-unsigned-beta-candidate-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  NODE_OPTIONS: --max-old-space-size=8192
+
+jobs:
+  windows-x64:
+    name: Build unsigned Windows x64 beta candidate
+    runs-on: windows-latest
+    timeout-minutes: 90
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6
+
+      - name: Install pinned pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.21.0
+          run_install: false
+
+      - name: Set up pinned Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22.22.2
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Validate beta version and release notes
+        id: version
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $version = (Get-Content -LiteralPath "package.json" -Raw | ConvertFrom-Json).version
+          if ($version -notmatch '^\d+\.\d+\.\d+-beta\.(0|[1-9]\d*)$') {
+            throw "package.json version '$version' must match X.Y.Z-beta.N before building an unsigned beta candidate."
+          }
+          $releaseNote = "docs/releases/$version.md"
+          if (-not (Test-Path -LiteralPath $releaseNote -PathType Leaf)) {
+            throw "Beta release notes are missing: $releaseNote"
+          }
+          "version=$version" >> $env:GITHUB_OUTPUT
+
+      - name: Install locked dependencies
+        shell: pwsh
+        env:
+          npm_config_audit: "false"
+          npm_config_fund: "false"
+          ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
+          OO_SKIP_BINARY_DOWNLOAD: "1"
+        run: pnpm.cmd install --frozen-lockfile
+
+      - name: Lint
+        shell: pwsh
+        run: pnpm.cmd run lint
+
+      - name: Type check
+        shell: pwsh
+        run: pnpm.cmd run ts-check
+
+      - name: Check formatting
+        shell: pwsh
+        run: pnpm.cmd run format
+
+      - name: Run tests
+        shell: pwsh
+        run: pnpm.cmd run test
+
+      - name: Build application
+        shell: pwsh
+        run: pnpm.cmd run build:app
+
+      - name: Prepare packaged runtimes
+        shell: pwsh
+        run: pnpm.cmd run prepare:binaries
+
+      - name: Package unsigned prerelease without publishing
+        shell: pwsh
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+          EP_PRE_RELEASE: "true"
+          XINGCHAO_REQUIRE_CODE_SIGNING: "false"
+        run: >-
+          pnpm.cmd exec electron-builder --win nsis --x64 --publish never
+          --config.publish.releaseType=prerelease --config.publish.channel=beta
+          --config.generateUpdatesFilesForAllChannels=false --config.forceCodeSigning=false
+
+      - name: Verify packaged archive integrity
+        shell: pwsh
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          $archive = "release/$env:VERSION/win-unpacked/resources/app.asar"
+          node -e "require('./scripts/verify-packaged-archive.cjs')(process.argv[1]).then(() => console.log('Packaged ASAR integrity verified.')).catch((error) => { console.error(error); process.exit(1) })" $archive
+
+      - name: Run packaged Windows smoke
+        shell: pwsh
+        run: node --experimental-strip-types scripts/windows-packaged-smoke.ts
+
+      - name: Collect release size metadata
+        shell: pwsh
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          node --experimental-strip-types scripts/release-size.ts collect `
+            --platform win32 `
+            --arch x64 `
+            --version $env:VERSION `
+            --release-dir "release/$env:VERSION" `
+            --out "release/$env:VERSION/release-size-win32-x64.json"
+
+      - name: Verify unsigned status and stage beta candidate
+        shell: pwsh
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          $releaseDir = "release/$env:VERSION"
+          $installer = "$releaseDir/星潮航局-$env:VERSION-Setup.exe"
+          $appExecutable = "$releaseDir/win-unpacked/星潮航局.exe"
+          foreach ($required in @($installer, $appExecutable)) {
+            if (-not (Test-Path -LiteralPath $required -PathType Leaf)) {
+              throw "Required release output is missing: $required"
+            }
+          }
+          $installerStatus = (Get-AuthenticodeSignature -LiteralPath $installer).Status.ToString()
+          $appStatus = (Get-AuthenticodeSignature -LiteralPath $appExecutable).Status.ToString()
+          node --experimental-strip-types scripts/windows-beta-stage.ts `
+            --version $env:VERSION `
+            --release-dir $releaseDir `
+            --candidate-dir "candidate/windows-x64" `
+            --release-note "docs/releases/$env:VERSION.md" `
+            --installer-signature-status $installerStatus `
+            --app-signature-status $appStatus
+
+      - name: Upload unsigned beta candidate artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: xingchao-navigation-${{ steps.version.outputs.version }}-windows-x64-unsigned-beta-candidate
+          path: candidate/windows-x64
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 0

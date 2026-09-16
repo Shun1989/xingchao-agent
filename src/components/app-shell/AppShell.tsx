@@ -36,6 +36,7 @@ import {
   authorizationHandlingForLinkRuntime,
   buildSessionTitleInput,
   chatSendAccepted,
+  chatSendRouteFor,
   connectionWorkspaceSwitchKey,
   EMPTY_CONNECTION_PROVIDERS,
   existingSessionComposerDraftKey,
@@ -1577,15 +1578,18 @@ export function AppShell({ auth }: { auth: UseAuth }) {
         (activeChatSessionId && !chatTurnAllowsDirectSend(activeChatTurnState))
       )
         throw new Error(t("missionHistory.retryFailed"))
-      const result = await sendNow({
+      const request: ChatSendRequest = {
         text: t("missionHistory.retryPrompt", { goal: run.goal }),
         mode: "build",
         missionRetryRunId: run.runId,
-      })
+      }
+      const result = await sendNow(request)
       if (result.status !== "accepted" || result.delivery !== "sent") {
         toast.error(t("missionHistory.retryFailed"))
         throw new Error(t("missionHistory.retryFailed"))
       }
+      const nextRoute = chatSendRouteFor(request, result)
+      if (nextRoute) setRoute(nextRoute)
     },
     [activeChatSessionId, activeChatTurnState, runtimeFleet.snapshot.revision, sendNow, t],
   )

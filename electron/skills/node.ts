@@ -1,4 +1,5 @@
 import type { AuthManager } from "../auth/node.ts"
+import type { IConnectionService } from "../ipc/connection.ts"
 import type { OoCommandResult } from "../oo-command.ts"
 import type {
   CheckSkillVersionsRequest,
@@ -19,9 +20,7 @@ import type {
 import type { DefaultRegistrySkillSpec } from "./default-registry-skills.ts"
 import type { SkillDeleteStoreTarget } from "./delete-plan.ts"
 import type { EnsureSkillPublishMetadataResult } from "./publish-metadata.ts"
-import type { IConnectionService } from "@oomol/connection"
 
-import { ConnectionService } from "@oomol/connection"
 import { app, shell } from "electron"
 import { readFile } from "node:fs/promises"
 import path from "node:path"
@@ -29,6 +28,7 @@ import { buildOomolMaintenanceEnv } from "../agent/oo.ts"
 import { resolveAgentSkillRoot, supportedAgents } from "../agents/catalog.ts"
 import { logDiagnostic, logDiagnosticOnChange } from "../diagnostics-log.ts"
 import { ooEndpoint } from "../domain.ts"
+import { ConnectionService } from "../ipc/connection.ts"
 import { runOoCommand } from "../oo-command.ts"
 import { resolveOoStoreDirectory } from "../oo-store-paths.ts"
 import { ServiceEvent } from "../service-events.ts"

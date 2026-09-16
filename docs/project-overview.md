@@ -74,7 +74,8 @@ evolution (arc in §4). The main divergences between plan and outcome:
 
 Locked decisions that held: Agent kernel = OpenCode sidecar; all connector traffic through the oo CLI;
 LLM gateway derived from the endpoint; authorization state sourced from `/v1/apps`; deep link
-`wanta://signin` (dev `wanta-local`); IPC over `@oomol/connection`. (The original "three panes, no drag
+deep-link schemes now follow `electron/branding.ts`; typed IPC now uses the first-party
+`electron/ipc/` implementation, replacing the original connection packages. (The original "three panes, no drag
 handles" lock did not survive: the layout has since evolved into a right-hand Artifacts panel with a
 draggable resize splitter — see §1.)
 

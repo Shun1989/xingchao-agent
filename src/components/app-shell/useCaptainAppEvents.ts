@@ -1,4 +1,5 @@
 import type { ChatService } from "../../../electron/chat/common.ts"
+import type { ConnectionClientService } from "../../../electron/ipc/connection.ts"
 import type { CaptainAppEventInput } from "./app-shell-types.ts"
 import type {
   CaptainCaptionKey,
@@ -8,7 +9,6 @@ import type {
 } from "@/captain/captain-types.ts"
 import type { CaptainSpeechIntent } from "@/captain/captain-voice.ts"
 import type { CaptainEventDraft, CaptainProducerLease } from "@/components/captain/captain-context.ts"
-import type { ConnectionClientService } from "@oomol/connection"
 
 import * as React from "react"
 import { useCaptain } from "@/components/captain/captain-context.ts"

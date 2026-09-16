@@ -1,6 +1,5 @@
-import type { ServiceName } from "@oomol/connection"
-
 import { serviceName } from "../branding.ts"
+import { defineService } from "../ipc/connection.ts"
 
 export type SkillControlState = "controlled" | "modified" | "source-missing" | "unknown"
 export type ManagedSkillKind = "registry" | "local" | "unknown"
@@ -196,7 +195,7 @@ export interface DeleteSkillRequest {
 
 export type SkillService = typeof SkillService
 
-export const SkillService = serviceName("skill-service") as ServiceName<{
+export const SkillService = defineService<{
   ServerEvents: {
     skillInventoryChanged: SkillInventoryChangedEvent
   }
@@ -213,4 +212,16 @@ export const SkillService = serviceName("skill-service") as ServiceName<{
     readSkillDocument(request: SkillDocumentRequest): Promise<SkillDocument>
     updateRegistrySkill(request: UpdateRegistrySkillRequest): Promise<SkillInventory>
   }
-}>
+}>(serviceName("skill-service"), {
+  getSkillInventory: true,
+  deleteSkill: true,
+  installRegistrySkill: true,
+  installRegistrySkills: true,
+  checkSkillVersions: true,
+  executeCliUpdate: true,
+  openSkillDocument: true,
+  openSkillFolder: true,
+  publishSkill: true,
+  readSkillDocument: true,
+  updateRegistrySkill: true,
+})

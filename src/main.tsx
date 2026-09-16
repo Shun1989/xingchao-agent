@@ -1,11 +1,11 @@
-import { ConnectionClient } from "@oomol/connection"
-import { ElectronClientAdapter } from "@oomol/connection-electron-adapter/client"
 import { createRoot } from "react-dom/client"
 import { AttentionService } from "../electron/attention/common.ts"
 import { AuthService } from "../electron/auth/common.ts"
 import { BrowserService } from "../electron/browser/common.ts"
 import { ChatService } from "../electron/chat/common.ts"
 import { GitService } from "../electron/git/common.ts"
+import { ConnectionClient } from "../electron/ipc/connection.ts"
+import { ElectronClientAdapter } from "../electron/ipc/electron-client.ts"
 import { KnowledgeService } from "../electron/knowledge/common.ts"
 import { LinkRuntimeService } from "../electron/link-runtime/common.ts"
 import { ModelsService } from "../electron/models/common.ts"
@@ -24,7 +24,6 @@ import { reportRendererIssue } from "@/lib/renderer-diagnostics"
 import "@univerjs/preset-sheets-core/lib/index.css"
 import "./index.css"
 
-const electronConnectionBridgeName = "oomol-connection-electron-bridge"
 const reactRootOptions = safeReactRootOptions()
 const rootElement = document.querySelector("#root")
 if (!rootElement) {
@@ -83,7 +82,7 @@ if (!hasElectronConnectionBridge()) {
 }
 
 function hasElectronConnectionBridge(): boolean {
-  return Boolean((globalThis as Record<string, unknown>)[electronConnectionBridgeName])
+  return Boolean(globalThis.xingchaoRpc)
 }
 
 function renderStartupError(container: Element): void {

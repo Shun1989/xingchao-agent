@@ -2,7 +2,7 @@
 
 import type { BrowserPageState } from "../../../electron/browser/common.ts"
 import type { BrowserService } from "../../../electron/browser/common.ts"
-import type { ConnectionClientService } from "@oomol/connection"
+import type { ConnectionClientService } from "../../../electron/ipc/connection.ts"
 import type { Root } from "react-dom/client"
 
 import * as React from "react"

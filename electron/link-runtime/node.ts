@@ -1,3 +1,4 @@
+import type { IConnectionService } from "../ipc/connection.ts"
 import type {
   LinkRuntimeSelection,
   LinkRuntimeService,
@@ -9,12 +10,11 @@ import type {
   WecomCliState,
   DingTalkCliState,
 } from "./common.ts"
-import type { IConnectionService } from "@oomol/connection"
 
-import { ConnectionService } from "@oomol/connection"
 import { readFile } from "node:fs/promises"
 import path from "node:path"
 import { atomicWriteText } from "../atomic-file.ts"
+import { ConnectionService } from "../ipc/connection.ts"
 import { ServiceEvent } from "../service-events.ts"
 import { LinkRuntimeService as LinkRuntimeServiceName } from "./common.ts"
 import { DingTalkCliManager } from "./dingtalk-cli.ts"

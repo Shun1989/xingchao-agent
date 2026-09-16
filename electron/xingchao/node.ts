@@ -1,4 +1,5 @@
 import type { RuntimeFleetSnapshot } from "../../src/domain/xingchao/runtime-fleet.ts"
+import type { IConnectionService } from "../ipc/connection.ts"
 import type {
   ContentPackService,
   ContentPackSummary,
@@ -7,13 +8,12 @@ import type {
   SetContentPackSelectionRequest,
 } from "./common.ts"
 import type { ContentPackRuntimeManager } from "./runtime-manager.ts"
-import type { IConnectionService } from "@oomol/connection"
 
-import { ConnectionService } from "@oomol/connection"
 import { readFile, stat } from "node:fs/promises"
 import path from "node:path"
 import { originalFleetPack } from "../../src/domain/xingchao/content-pack.ts"
 import { projectRuntimeFleetCatalog } from "../../src/domain/xingchao/runtime-fleet.ts"
+import { ConnectionService } from "../ipc/connection.ts"
 import { ServiceEvent } from "../service-events.ts"
 import { ContentPackService as ContentPackServiceName } from "./common.ts"
 

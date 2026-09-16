@@ -1,6 +1,5 @@
-import type { ServiceName } from "@oomol/connection"
-
 import { serviceName } from "../branding.ts"
+import { defineService } from "../ipc/connection.ts"
 
 export type AuthStatus = "authenticated" | "unauthenticated"
 
@@ -21,7 +20,7 @@ export interface AuthState {
 }
 
 export type AuthService = typeof AuthService
-export const AuthService = serviceName("auth-service") as ServiceName<{
+export const AuthService = defineService<{
   ServerEvents: {
     authStateChanged: AuthState
   }
@@ -34,4 +33,9 @@ export const AuthService = serviceName("auth-service") as ServiceName<{
     /** 登出当前账号：删除凭证并停用 agent。 */
     logout(): Promise<AuthState>
   }
-}>
+}>(serviceName("auth-service"), {
+  getAuthState: true,
+  expireSession: true,
+  login: true,
+  logout: true,
+})

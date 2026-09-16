@@ -1,7 +1,7 @@
 import type { Mission } from "../../src/domain/xingchao/types.ts"
-import type { ServiceName } from "@oomol/connection"
 
 import { serviceName } from "../branding.ts"
+import { defineService } from "../ipc/connection.ts"
 
 export type MissionRunStatus = "admitted" | "running" | "blocked" | "completed" | "failed" | "cancelled"
 
@@ -78,7 +78,7 @@ export type MissionStorageStatus =
 export type MissionFileResult = "done" | "cancelled"
 
 export type MissionRunService = typeof MissionRunService
-export const MissionRunService = serviceName("mission-run-service") as ServiceName<{
+export const MissionRunService = defineService<{
   ServerEvents: {
     missionRunChanged: MissionRunChangedEvent
   }
@@ -89,4 +89,10 @@ export const MissionRunService = serviceName("mission-run-service") as ServiceNa
     exportHistory(): Promise<MissionFileResult>
     restoreHistory(): Promise<MissionFileResult>
   }
-}>
+}>(serviceName("mission-run-service"), {
+  list: true,
+  retrySettlement: true,
+  storageStatus: true,
+  exportHistory: true,
+  restoreHistory: true,
+})

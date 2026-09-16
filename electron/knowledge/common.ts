@@ -1,6 +1,5 @@
-import type { ServiceName } from "@oomol/connection"
-
 import { serviceName } from "../branding.ts"
+import { defineService } from "../ipc/connection.ts"
 
 export const KNOWLEDGE_LIBRARY_CONTEXT_ID = "wikg://lib"
 
@@ -72,7 +71,7 @@ export interface KnowledgeBasesChangedEvent {
 }
 
 export type KnowledgeService = typeof KnowledgeService
-export const KnowledgeService = serviceName("knowledge-service") as ServiceName<{
+export const KnowledgeService = defineService<{
   ServerEvents: {
     knowledgeBasesChanged: KnowledgeBasesChangedEvent
   }
@@ -89,4 +88,16 @@ export const KnowledgeService = serviceName("knowledge-service") as ServiceName<
     reveal(id: string): Promise<void>
     refresh(id: string): Promise<KnowledgeBaseSummary>
   }
-}>
+}>(serviceName("knowledge-service"), {
+  list: true,
+  listFolders: true,
+  importKnowledgeBase: true,
+  readChapters: true,
+  move: true,
+  rename: true,
+  createFolder: true,
+  removeFolder: true,
+  remove: true,
+  reveal: true,
+  refresh: true,
+})

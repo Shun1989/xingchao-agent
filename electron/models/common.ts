@@ -1,8 +1,8 @@
 import type { WantaReasoningVariant } from "../agent/reasoning.ts"
 import type { BuiltinModelId } from "./builtin.ts"
-import type { ServiceName } from "@oomol/connection"
 
 import { serviceName } from "../branding.ts"
+import { defineService } from "../ipc/connection.ts"
 
 export interface BuiltinModelSummary {
   id: BuiltinModelId
@@ -101,7 +101,7 @@ export interface SaveCustomModelRequest {
 }
 
 export type ModelsService = typeof ModelsService
-export const ModelsService = serviceName("models-service") as ServiceName<{
+export const ModelsService = defineService<{
   ServerEvents: {
     modelsChanged: ModelCatalog
   }
@@ -111,4 +111,9 @@ export const ModelsService = serviceName("models-service") as ServiceName<{
     saveCustomModel(req: SaveCustomModelRequest): Promise<ModelCatalog>
     deleteCustomModel(id: string): Promise<ModelCatalog>
   }
-}>
+}>(serviceName("models-service"), {
+  listModels: true,
+  setSelectedModel: true,
+  saveCustomModel: true,
+  deleteCustomModel: true,
+})

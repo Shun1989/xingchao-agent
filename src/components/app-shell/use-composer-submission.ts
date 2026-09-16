@@ -20,7 +20,12 @@ import type { CreateSessionOptions } from "@/hooks/useSessions"
 import * as React from "react"
 import { isExternalAgentKind } from "../../../electron/agent/contract/profile.ts"
 import { buildFallbackSessionTitle } from "../../../electron/session/title.ts"
-import { buildSessionTitleInput, rememberTurnRetryOptions, sessionScopeKey } from "./app-shell-model.ts"
+import {
+  buildSessionTitleInput,
+  chatSendRouteFor,
+  rememberTurnRetryOptions,
+  sessionScopeKey,
+} from "./app-shell-model.ts"
 import { chatTurnInputKey } from "@/routes/Chat/chat-turns"
 
 export interface ComposerSubmissionMemory {
@@ -180,7 +185,8 @@ export function useComposerSubmission({
       }
       sendInFlightKeys.current.add(sendKey)
       try {
-        setRoute("chat")
+        const initialRoute = chatSendRouteFor(request)
+        if (initialRoute) setRoute(initialRoute)
         let sessionId = activeChatSessionId
         const creatingExternalSession = !sessionId && isExternalAgentKind(draftAgentKind)
         const titleInput = { ...buildSessionTitleInput(messages, text, attachments), model }

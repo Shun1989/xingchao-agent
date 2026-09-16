@@ -1,7 +1,7 @@
 import type { BrowserPageState, BrowserService } from "../../../electron/browser/common.ts"
+import type { ConnectionClientService } from "../../../electron/ipc/connection.ts"
 import type { ArtifactSelection } from "@/routes/Chat/GeneratedArtifacts"
 import type { TurnOutputSelection } from "@/routes/Chat/TurnOutputs"
-import type { ConnectionClientService } from "@oomol/connection"
 
 import * as React from "react"
 import { ARTIFACTS_PANEL_MIN_WIDTH_PX } from "./app-shell-model.ts"

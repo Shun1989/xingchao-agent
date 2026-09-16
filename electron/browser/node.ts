@@ -1,3 +1,4 @@
+import type { IConnectionService } from "../ipc/connection.ts"
 import type {
   BrowserDownloadResult,
   BrowserNavigateRequest,
@@ -7,15 +8,14 @@ import type {
   BrowserZoomRequest,
 } from "./common.ts"
 import type { BrowserReadResult, BrowserTypeInput } from "./page.ts"
-import type { IConnectionService } from "@oomol/connection"
 import type { BrowserWindow, Session } from "electron"
 
-import { ConnectionService } from "@oomol/connection"
 import { session, shell } from "electron"
 import { createHash } from "node:crypto"
 import { mkdir, rm, writeFile } from "node:fs/promises"
 import path from "node:path"
 import { pathToFileURL } from "node:url"
+import { ConnectionService } from "../ipc/connection.ts"
 import { BrowserService as BrowserServiceName } from "./common.ts"
 import { BrowserPage, browserZoomOrigin, normalizeBrowserZoomFactor } from "./page.ts"
 import { normalizeBrowserBounds } from "./policy.ts"

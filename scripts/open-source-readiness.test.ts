@@ -40,12 +40,14 @@ describe("open-source installation contract", () => {
     const npmrc = readFileSync(path.join(repoRoot, ".npmrc"), "utf8")
     expect(npmrc).not.toContain("npm.pkg.github.com")
     expect(npmrc).not.toContain("_authToken")
-    expect(npmrc).toContain("@oomol:registry=https://registry.npmjs.org/")
     expect(existsSync(path.join(repoRoot, "package-lock.json"))).toBe(false)
     expect(lockfile).not.toContain("npm.pkg.github.com")
     expect(lockfile).not.toContain("_authToken")
-    expect(lockfile).toContain("@oomol/connection@0.2.28")
-    expect(lockfile).toContain("@oomol/connection-electron-adapter@0.2.12(@oomol/connection@0.2.28)")
+    for (const removed of ["@oomol/connection", "@oomol/connection-electron-adapter"]) {
+      expect(manifest.dependencies?.[removed]).toBeUndefined()
+      expect(manifest.devDependencies?.[removed]).toBeUndefined()
+      expect(lockfile).not.toContain(removed)
+    }
     expect(lockfile).toContain("resolution: {integrity:")
   })
 

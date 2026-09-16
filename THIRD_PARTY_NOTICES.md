@@ -67,9 +67,40 @@ The CLI keeps account tokens encrypted through its platform credential backend. 
 private configuration and ciphertext directories and exposes only redacted account and connection
 state to the renderer.
 
+## Lark CLI and Skills
+
+The package includes Lark CLI 1.0.81 and its bundled Skills. The fixed upstream version's
+[LICENSE](https://github.com/larksuite/cli/blob/v1.0.81/LICENSE) is MIT.
+Copyright (c) 2026 Lark Technologies Pte. Ltd.
+
+## ripgrep
+
+The package includes ripgrep 14.1.1 (`rg.exe`). Upstream permits either Unlicense or MIT;
+this distribution uses the [MIT option](https://github.com/BurntSushi/ripgrep/blob/14.1.1/LICENSE-MIT).
+Copyright (c) 2015 Andrew Gallant.
+
+## Bundled JavaScript License Files
+
+The following code is compiled into application bundles, so its original npm package directory
+may not be present in the installed application. Corresponding license files are retained under
+the installed `resources/licenses/` directory:
+
+- `khroma@2.1.0`: MIT, Copyright (c) 2019-present Fabio Spampinato, Andrew Maney;
+  `khroma-LICENSE.txt`.
+- `@univerjs/telemetry@0.25.1`: Apache-2.0, Copyright 2023-present DreamNum;
+  `Univer-telemetry-LICENSE.txt`.
+- `@anthropic-ai/claude-agent-sdk@0.3.226`: Anthropic PBC, all rights reserved;
+  `Claude-Agent-SDK-LICENSE.txt` preserves its reference to
+  [Anthropic's applicable agreements](https://code.claude.com/docs/en/legal-and-compliance).
+  This component is not covered by this project's Apache-2.0 or the MIT notice below. Including
+  the notice does not establish compliance with all applicable commercial terms.
+
+These additions address identified omissions; they do not claim a completed inventory of all
+transitive bundled code.
+
 ## MIT License Text
 
-The following text applies to the OpenCode, oo CLI, and WeCom CLI entries above:
+The following text applies to the OpenCode, oo CLI, WeCom CLI, Lark CLI and ripgrep entries above:
 
 ```text
 MIT License
@@ -77,6 +108,8 @@ MIT License
 Copyright (c) 2025 opencode
 Copyright (c) 2026 OOMOL Lab
 Copyright (c) 2026 WeCom
+Copyright (c) 2026 Lark Technologies Pte. Ltd.
+Copyright (c) 2015 Andrew Gallant
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -99,16 +132,14 @@ SOFTWARE.
 
 Each copyright line above applies to its corresponding component family.
 
-## OOMOL-Maintained Public Packages
+## First-party IPC
 
-Wanta uses the publicly downloadable `@oomol/connection@0.2.28` and
-`@oomol/connection-electron-adapter@0.2.12` packages for typed Electron IPC. They are maintained by
-OOMOL and their published tarballs include source code. Their current package versions do not yet
-declare license metadata or include a license file. Public npm availability permits anonymous
-installation but does not by itself grant redistribution rights. Before an official distributable
-Wanta release, OOMOL must either publish package versions with explicit license terms or record
-written redistribution permission for these exact versions. Until then, this is a release-readiness
-blocker for redistributed binaries, not an installation or source-build blocker.
+Typed Electron IPC is implemented in `electron/ipc/` under this repository's Apache-2.0
+license. The former `@oomol/connection@0.2.28` and
+`@oomol/connection-electron-adapter@0.2.12` dependencies have been removed. The replacement
+was implemented from the application's own contracts and tests, without consulting or copying
+those packages' source or declarations. This does not grant permission to redistribute older
+builds that still contain the removed packages.
 
 ## Other Dependencies and Assets
 

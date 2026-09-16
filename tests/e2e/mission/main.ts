@@ -1,9 +1,9 @@
-import { ConnectionServer, ConnectionService } from "@oomol/connection"
-import { ElectronServerAdapter } from "@oomol/connection-electron-adapter/server"
 import { app, BrowserWindow, session } from "electron"
 import { readFile, writeFile } from "node:fs/promises"
 import path from "node:path"
-import { fileURLToPath } from "node:url"
+import { fileURLToPath, pathToFileURL } from "node:url"
+import { ConnectionServer, ConnectionService } from "../../../electron/ipc/connection.ts"
+import { ElectronServerAdapter } from "../../../electron/ipc/electron-server.ts"
 import { MissionRunServiceImpl, MissionRunQueryService } from "../../../electron/xingchao/mission-service.ts"
 import { MissionRunStore } from "../../../electron/xingchao/mission-store.ts"
 import { draftMission } from "../../../src/domain/xingchao/routing.ts"
@@ -53,10 +53,32 @@ async function run(): Promise<void> {
         reason: "message_completed",
       })
       .catch(() => undefined)
+    const dispatch = await manager.admit({
+      mission: { ...draftMission("启动结果保存失败任务"), id: "dispatch-saving-fixture" },
+    })
+    failNextWrite = true
+    await manager.failDispatch({ runId: dispatch.runId, reason: "send_failed" }).catch(() => undefined)
   }
   class TestControls extends ConnectionService<typeof Controls> {
     constructor() {
       super(Controls)
+    }
+    async echo(value: string | null | undefined, delay: number) {
+      await new Promise((resolve) => setTimeout(resolve, delay))
+      return value
+    }
+    emitProbe(value: string) {
+      return this.send("probe", value)
+    }
+    failSync(): Promise<never> {
+      throw new Error("ipc smoke synchronous failure")
+    }
+    async failAsync(): Promise<never> {
+      await Promise.resolve()
+      throw new Error("ipc smoke asynchronous failure")
+    }
+    internalOnly(): string {
+      return "must never cross IPC"
     }
     async retry(runId: string) {
       const next = await manager.admitRetry(runId, "original-session")
@@ -69,7 +91,21 @@ async function run(): Promise<void> {
       })
     }
   }
-  const server = new ConnectionServer(new ElectronServerAdapter())
+  let window: BrowserWindow | undefined
+  const rendererRoot = path.join(root, "renderer")
+  const trustedUrl = pathToFileURL(path.join(rendererRoot, "index.html")).href
+  const server = new ConnectionServer(
+    new ElectronServerAdapter({
+      isTrustedSender: (event) =>
+        Boolean(
+          window &&
+          !window.isDestroyed() &&
+          event.sender === window.webContents &&
+          event.senderFrame === window.webContents.mainFrame &&
+          event.senderFrame.url === trustedUrl,
+        ),
+    }),
+  )
   server.registerService(
     new MissionRunQueryService(manager, {
       save: async (contents) => {
@@ -81,7 +117,6 @@ async function run(): Promise<void> {
   )
   server.registerService(new TestControls())
   server.start()
-  const rendererRoot = path.join(root, "renderer")
   session.defaultSession.webRequest.onBeforeRequest((details, callback) => {
     let allowed = details.url.startsWith("data:")
     if (details.url.startsWith("file:")) {
@@ -94,7 +129,7 @@ async function run(): Promise<void> {
     callback({ cancel: !allowed })
   })
   session.defaultSession.setPermissionRequestHandler((_contents, _permission, callback) => callback(false))
-  const window = new BrowserWindow({
+  window = new BrowserWindow({
     width: 1100,
     height: 900,
     show: false,

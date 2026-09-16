@@ -7,6 +7,7 @@ import {
   authorizationHandlingForLinkRuntime,
   existingSessionComposerDraftKey,
   chatSendAccepted,
+  chatSendRouteFor,
   getUnlinkedProviderSkillRecommendations,
   initialRoute,
   NO_DRAFT_PROJECT_ID,
@@ -297,6 +298,15 @@ describe("chat send result", () => {
     expect(chatSendAccepted({ delivery: "queued", status: "accepted" })).toBe(true)
     expect(chatSendAccepted({ reason: "workspace_not_ready", status: "rejected" })).toBe(false)
     expect(chatSendAccepted({ error: new Error("failed"), status: "failed" })).toBe(false)
+  })
+
+  test("keeps Mission retry history visible until delivery succeeds", () => {
+    const retry = { missionRetryRunId: "run-1", text: "retry" }
+    expect(chatSendRouteFor(retry)).toBeNull()
+    expect(chatSendRouteFor(retry, { reason: "workspace_not_ready", status: "rejected" })).toBeNull()
+    expect(chatSendRouteFor(retry, { error: new Error("failed"), status: "failed" })).toBeNull()
+    expect(chatSendRouteFor(retry, { delivery: "sent", status: "accepted" })).toBe("chat")
+    expect(chatSendRouteFor({ text: "ordinary" })).toBe("chat")
   })
 })
 

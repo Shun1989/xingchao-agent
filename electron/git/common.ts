@@ -1,6 +1,5 @@
-import type { ServiceName } from "@oomol/connection"
-
 import { serviceName } from "../branding.ts"
+import { defineService } from "../ipc/connection.ts"
 
 export type GitRepositoryError = "git_unavailable" | "not_repository" | "path_unavailable" | "timeout" | "unknown"
 
@@ -41,11 +40,15 @@ export interface GitCreateBranchRequest extends GitRepositoryRequest {
 }
 
 export type GitService = typeof GitService
-export const GitService = serviceName("git-service") as ServiceName<{
+export const GitService = defineService<{
   ServerEvents: Record<string, never>
   ClientInvokes: {
     getRepositoryState(req: GitRepositoryRequest): Promise<GitRepositoryState>
     checkoutBranch(req: GitCheckoutBranchRequest): Promise<GitRepositoryState>
     createAndCheckoutBranch(req: GitCreateBranchRequest): Promise<GitRepositoryState>
   }
-}>
+}>(serviceName("git-service"), {
+  getRepositoryState: true,
+  checkoutBranch: true,
+  createAndCheckoutBranch: true,
+})

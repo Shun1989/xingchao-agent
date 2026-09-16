@@ -15,7 +15,9 @@ const updaterMocks = vi.hoisted(() => {
   type Listener = (...args: unknown[]) => void
   const listeners = new Map<string, Set<Listener>>()
   const updater = {
+    _channel: null as string | null,
     allowDowngrade: false,
+    allowPrerelease: false,
     autoDownload: false,
     autoInstallOnAppQuit: false,
     checkForUpdates: vi.fn(),
@@ -28,6 +30,13 @@ const updaterMocks = vi.hoisted(() => {
     }),
     quitAndInstall: vi.fn(),
     setFeedURL: vi.fn(),
+    get channel(): string | null {
+      return this._channel
+    },
+    set channel(value: string | null) {
+      this._channel = value
+      this.allowDowngrade = true
+    },
   }
   return {
     emit(event: string, ...args: unknown[]): void {
@@ -45,8 +54,8 @@ import type { PersistedSettings, SettingsStore } from "../settings/store.ts"
 
 import { UpdateServiceImpl } from "./node.ts"
 
-function settingsStore(): SettingsStore {
-  let settings: PersistedSettings = { updateChannel: "stable" }
+function settingsStore(updateChannel: PersistedSettings["updateChannel"] = "stable"): SettingsStore {
+  let settings: PersistedSettings = { updateChannel }
   return {
     read: () => settings,
     write: (next: PersistedSettings) => {
@@ -61,6 +70,9 @@ describe("UpdateServiceImpl", () => {
     updaterMocks.listeners.clear()
     updaterMocks.updater.autoDownload = false
     updaterMocks.updater.autoInstallOnAppQuit = false
+    updaterMocks.updater._channel = null
+    updaterMocks.updater.allowDowngrade = false
+    updaterMocks.updater.allowPrerelease = false
   })
 
   afterEach(() => {
@@ -81,6 +93,48 @@ describe("UpdateServiceImpl", () => {
 
     expect(updaterMocks.updater.checkForUpdates).toHaveBeenCalledOnce()
     expect(electronMocks.powerMonitor.on).toHaveBeenCalledWith("resume", expect.any(Function))
+    service.dispose()
+  })
+
+  it("targets the Xingchao GitHub latest channel without allowing prereleases or downgrade", async () => {
+    updaterMocks.updater.checkForUpdates.mockResolvedValue({
+      isUpdateAvailable: false,
+      updateInfo: { version: "1.0.0" },
+    })
+    const service = new UpdateServiceImpl({ store: settingsStore("stable") })
+
+    await service.checkForAppUpdate()
+
+    expect(updaterMocks.updater.setFeedURL).toHaveBeenCalledWith({
+      provider: "github",
+      owner: "Shun1989",
+      repo: "xingchao-agent",
+      channel: "latest",
+    })
+    expect(updaterMocks.updater.allowPrerelease).toBe(false)
+    expect(updaterMocks.updater.channel).toBe("latest")
+    expect(updaterMocks.updater.allowDowngrade).toBe(false)
+    service.dispose()
+  })
+
+  it("targets the Xingchao GitHub beta channel while still refusing downgrade", async () => {
+    updaterMocks.updater.checkForUpdates.mockResolvedValue({
+      isUpdateAvailable: false,
+      updateInfo: { version: "1.0.0" },
+    })
+    const service = new UpdateServiceImpl({ store: settingsStore("beta") })
+
+    await service.checkForAppUpdate()
+
+    expect(updaterMocks.updater.setFeedURL).toHaveBeenCalledWith({
+      provider: "github",
+      owner: "Shun1989",
+      repo: "xingchao-agent",
+      channel: "beta",
+    })
+    expect(updaterMocks.updater.allowPrerelease).toBe(true)
+    expect(updaterMocks.updater.channel).toBe("beta")
+    expect(updaterMocks.updater.allowDowngrade).toBe(false)
     service.dispose()
   })
 

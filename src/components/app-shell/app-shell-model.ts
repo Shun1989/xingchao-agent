@@ -176,6 +176,11 @@ export function chatSendAccepted(result: ChatSendResult): boolean {
   return result.status === "accepted"
 }
 
+export function chatSendRouteFor(request: ChatSendRequest, result?: ChatSendResult): "chat" | null {
+  if (!request.missionRetryRunId) return "chat"
+  return result?.status === "accepted" && result.delivery === "sent" ? "chat" : null
+}
+
 export function rememberTurnRetryOptions(
   store: Map<string, Map<string, TurnRetryOptions>>,
   sessionId: string,

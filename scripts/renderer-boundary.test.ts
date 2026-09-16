@@ -27,6 +27,8 @@ const rendererElectronAllowlist = new Set([
   "electron/connections/summary.ts",
   "electron/connections/usage.ts",
   "electron/domain.ts",
+  "electron/ipc/connection.ts",
+  "electron/ipc/electron-client.ts",
   "electron/models/builtin.ts",
   "electron/models/limits.ts",
   "electron/session/title.ts",

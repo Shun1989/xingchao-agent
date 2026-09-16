@@ -1,6 +1,5 @@
-import type { ServiceName } from "@oomol/connection"
-
 import { serviceName } from "../branding.ts"
+import { defineService } from "../ipc/connection.ts"
 
 export type LinkRuntimeSelection = "oomol" | "openconnector"
 export type ActiveLinkRuntime = "none" | LinkRuntimeSelection
@@ -98,7 +97,7 @@ export interface DingTalkCliState {
 }
 
 export type LinkRuntimeService = typeof LinkRuntimeService
-export const LinkRuntimeService = serviceName("link-runtime-service") as ServiceName<{
+export const LinkRuntimeService = defineService<{
   ServerEvents: {
     linkRuntimeChanged: LinkRuntimeState
     larkCliChanged: LarkCliState
@@ -129,4 +128,27 @@ export const LinkRuntimeService = serviceName("link-runtime-service") as Service
     cancelDingTalkCliConnection(): Promise<void>
     reopenDingTalkCliAuthorization(): Promise<boolean>
   }
-}>
+}>(serviceName("link-runtime-service"), {
+  getState: true,
+  getOpenConnectorStatus: true,
+  listOpenConnectorApps: true,
+  saveOpenConnector: true,
+  testOpenConnector: true,
+  selectRuntime: true,
+  clearOpenConnectorToken: true,
+  removeOpenConnector: true,
+  getLarkCliState: true,
+  connectLarkCli: true,
+  disconnectLarkCli: true,
+  cancelLarkCliConnection: true,
+  getWecomCliState: true,
+  connectWecomCli: true,
+  disconnectWecomCli: true,
+  cancelWecomCliConnection: true,
+  reopenWecomCliAuthorization: true,
+  getDingTalkCliState: true,
+  connectDingTalkCli: true,
+  disconnectDingTalkCli: true,
+  cancelDingTalkCliConnection: true,
+  reopenDingTalkCliAuthorization: true,
+})

@@ -1,7 +1,7 @@
 import type { UpdateChannel } from "./channel.ts"
-import type { ServiceName } from "@oomol/connection"
 
 import { serviceName } from "../branding.ts"
+import { defineService } from "../ipc/connection.ts"
 
 export type { UpdateChannel } from "./channel.ts"
 
@@ -26,7 +26,7 @@ export interface AppUpdateState {
 }
 
 export type UpdateService = typeof UpdateService
-export const UpdateService = serviceName("update-service") as ServiceName<{
+export const UpdateService = defineService<{
   ServerEvents: {
     appUpdateStateChanged: AppUpdateState
   }
@@ -40,4 +40,10 @@ export const UpdateService = serviceName("update-service") as ServiceName<{
     /** 切换更新渠道：持久化 + 重配 feed + 触发一次检查。 */
     setUpdateChannel(channel: UpdateChannel): Promise<AppUpdateState>
   }
-}>
+}>(serviceName("update-service"), {
+  getAppUpdateState: true,
+  checkForAppUpdate: true,
+  downloadAppUpdate: true,
+  installDownloadedAppUpdate: true,
+  setUpdateChannel: true,
+})

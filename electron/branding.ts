@@ -1,6 +1,6 @@
 // R1：产品品牌相关标识的**单一来源**。改名只动这一处。
 //
-// 注意（R1 例外）：`@oomol/connection` 的 ServiceName 字符串前缀虽放在这里集中，
+// The internal IPC service namespace is centralized here for compatibility.
 // 但 oo-cli 的 `OO_` 环境变量前缀、connector 的 `x-oomol-*` 头等属于外部协议契约，
 // **不随产品名改**，不在本文件管辖。
 //
@@ -21,7 +21,7 @@ export const branding = {
   devProtocolScheme: "xingchao-local",
   /** 应用内部本地 Artifact 流式资源协议，不注册为系统 deep-link。 */
   artifactResourceProtocolScheme: "xingchao-resource",
-  /** @oomol/connection ServiceName 的命名空间前缀（产品内部约定）。 */
+  /** Namespace for first-party IPC service identifiers. */
   // Compatibility identifiers stay stable so existing local data and IPC clients keep working.
   servicePrefix: "wanta",
   /** preload 暴露到 renderer 的全局 bridge 名（window.<windowBridge>）。 */

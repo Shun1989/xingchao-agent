@@ -1,6 +1,5 @@
-import type { ServiceName } from "@oomol/connection"
-
 import { serviceName } from "../branding.ts"
+import { defineService } from "../ipc/connection.ts"
 
 export interface AttentionState {
   unreadSessionIds: string[]
@@ -38,7 +37,7 @@ export interface NotificationTestResult {
 }
 
 export type AttentionService = typeof AttentionService
-export const AttentionService = serviceName("attention-service") as ServiceName<{
+export const AttentionService = defineService<{
   ServerEvents: {
     attentionStateChanged: AttentionState
     openSessionRequested: OpenAttentionSessionEvent
@@ -51,4 +50,11 @@ export const AttentionService = serviceName("attention-service") as ServiceName<
     setVisibleSession(req: VisibleSessionRequest): Promise<void>
     testCompletionNotification(): Promise<NotificationTestResult>
   }
-}>
+}>(serviceName("attention-service"), {
+  getAttentionState: true,
+  getNotificationCapability: true,
+  markSessionViewed: true,
+  openSystemNotificationSettings: true,
+  setVisibleSession: true,
+  testCompletionNotification: true,
+})

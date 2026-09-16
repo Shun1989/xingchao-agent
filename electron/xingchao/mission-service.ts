@@ -1,4 +1,5 @@
 import type { RuntimeFleetSnapshot } from "../../src/domain/xingchao/runtime-fleet.ts"
+import type { IConnectionService } from "../ipc/connection.ts"
 import type {
   AdmitMissionRunRequest,
   FailMissionDispatchRequest,
@@ -18,13 +19,12 @@ import type {
   PersistedMissionRun,
   PersistedMissionRunState,
 } from "./mission-store.ts"
-import type { IConnectionService } from "@oomol/connection"
 
-import { ConnectionService } from "@oomol/connection"
 import { randomUUID } from "node:crypto"
 import { z } from "zod"
 import { missionLaunchPrompt } from "../../src/domain/xingchao/routing.ts"
 import { indexRuntimeFleet } from "../../src/domain/xingchao/runtime-fleet.ts"
+import { ConnectionService } from "../ipc/connection.ts"
 import { ServiceEvent } from "../service-events.ts"
 import { MissionRunService as MissionRunServiceName } from "./mission-common.ts"
 import {
@@ -55,6 +55,10 @@ export interface ChatTurnSettlement {
   reason: "message_completed" | "agent_error" | "system_interrupted" | "user_stopped"
   sessionId: string
 }
+
+type PendingMissionSettlement =
+  | { kind: "chat"; settlement: ChatTurnSettlement }
+  | { kind: "dispatch"; request: FailMissionDispatchRequest }
 
 export interface MissionRunServiceDeps {
   createRunId?: () => string
@@ -197,7 +201,7 @@ export class MissionRunServiceImpl {
   #initialization: Promise<PersistedMissionRunState> | null = null
   #mutationQueue: Promise<void> = Promise.resolve()
   #state: PersistedMissionRunState | null = null
-  readonly #pendingSettlements = new Map<string, ChatTurnSettlement>()
+  readonly #pendingSettlements = new Map<string, PendingMissionSettlement>()
 
   public constructor(deps: MissionRunServiceDeps) {
     this.#deps = deps
@@ -214,6 +218,7 @@ export class MissionRunServiceImpl {
       const conflict = sameMission.find((run) => JSON.stringify(run.mission) !== canonical)
       if (conflict) throw new Error(`Mission id ${mission.id} was already used for a different blueprint`)
       const active = sameMission.find((run) => activeStatus(run.status))
+      if (active && this.#pendingSettlements.has(active.runId)) throw new Error("Mission terminal write is pending")
       if (active) return { changed: false, value: publicRun(active) }
 
       const at = this.#now()
@@ -237,6 +242,7 @@ export class MissionRunServiceImpl {
     return this.#mutate(async (state) => {
       const run = state.runs.find(({ runId }) => runId === request?.runId)
       if (!run) throw new Error("Mission Run does not exist")
+      if (this.#pendingSettlements.has(run.runId)) throw new Error("Mission terminal write is pending")
       const sessionId = z
         .string()
         .min(1)
@@ -321,8 +327,11 @@ export class MissionRunServiceImpl {
       if (!run) throw new Error("Mission Run does not exist")
       const reason = z.enum(["send_failed", "send_rejected", "dispatch_not_direct"]).parse(request?.reason)
       if (run.status !== "admitted") return { changed: false, value: publicRun(run, state.runs) }
+      const pending = this.#pendingSettlements.get(run.runId)
+      const accepted = pending?.kind === "dispatch" ? pending.request : { reason, runId: run.runId }
+      this.#pendingSettlements.set(run.runId, { kind: "dispatch", request: structuredClone(accepted) })
       const at = Math.max(this.#now(), run.updatedAt)
-      run.events.push(eventFor(state, at, "failed", "mission-failed", { reason }))
+      run.events.push(eventFor(state, at, "failed", "mission-failed", { reason: accepted.reason }))
       run.status = "failed"
       run.updatedAt = at
       return { changed: true, value: publicRun(run, state.runs) }
@@ -343,7 +352,9 @@ export class MissionRunServiceImpl {
 
   public async retrySettlement(runId: string): Promise<void> {
     const pending = this.#pendingSettlements.get(runId)
-    if (pending) await this.settleChatTurn(pending)
+    if (!pending) return
+    if (pending.kind === "dispatch") await this.failDispatch(pending.request)
+    else await this.settleChatTurn(pending.settlement)
   }
 
   public storageStatus(): Promise<MissionStorageStatus> {
@@ -398,7 +409,8 @@ export class MissionRunServiceImpl {
       )
       if (!run) return { changed: false, value: null }
       // Preserve the first verified terminal outcome across failed writes and late callbacks.
-      const accepted = this.#pendingSettlements.get(run.runId) ?? settlement
+      const pending = this.#pendingSettlements.get(run.runId)
+      const accepted = pending?.kind === "chat" ? pending.settlement : settlement
       const terminal = {
         cancelled: { reason: "user_stopped", status: "cancelled", type: "mission-cancelled" },
         completed: { reason: "message_completed", status: "completed", type: "mission-completed" },
@@ -412,7 +424,7 @@ export class MissionRunServiceImpl {
       if (accepted.reason !== selected.reason) {
         throw new Error(`Mission chat settlement reason ${accepted.reason} does not match ${accepted.outcome}`)
       }
-      this.#pendingSettlements.set(run.runId, structuredClone(accepted))
+      this.#pendingSettlements.set(run.runId, { kind: "chat", settlement: structuredClone(accepted) })
       const at = Math.max(this.#now(), run.updatedAt)
       run.events.push(eventFor(state, at, selected.status, selected.type, { reason: selected.reason }))
       run.status = selected.status
@@ -498,6 +510,7 @@ export class MissionRunServiceImpl {
       const state = await this.#initialize()
       const run = state.runs.find((item) => item.runId === runId)
       if (!run || run.status !== "admitted") throw new Error("Mission Run is not ready for dispatch")
+      if (this.#pendingSettlements.has(run.runId)) throw new Error("Mission terminal write is pending")
       const fleet = await this.#deps.runtimeFleet()
       assertMissionAgainstFleet(run.mission, fleet)
       return missionLaunchPrompt(

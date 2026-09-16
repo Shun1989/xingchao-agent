@@ -85,8 +85,9 @@
 
 - Credentials never enter the renderer: the only OOMOL credential in the app is the session token
   `oomol-token`; the `AuthManager` that holds it (`currentSessionToken` / `activeRuntimeAccount`) is
-  deliberately not registered as an RPC service (`@oomol/connection` registration exposes
-  everything — there is no method allowlist); only the contract facade is registered. **Long-lived
+  deliberately not registered as an RPC service; only the contract facade is registered.
+  First-party IPC dispatches only methods explicitly allowlisted by `defineService` in the
+  shared contract. Keep credential owners separate even with that allowlist. **Long-lived
   api-keys are no longer fetched or persisted** — the gateway layer uniformly accepts
   cookie/token/api-key, so the session token is used throughout. User-entered third-party custom
   model API keys (DeepSeek / Gemini / OpenRouter, etc.) are the exception: they are stored as

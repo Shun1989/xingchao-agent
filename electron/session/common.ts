@@ -1,9 +1,9 @@
 import type { AgentKind } from "../agent/contract/profile.ts"
 import type { AgentPermissionMode } from "../chat/common.ts"
 import type { ModelChoice } from "../models/common.ts"
-import type { ServiceName } from "@oomol/connection"
 
 import { serviceName } from "../branding.ts"
+import { defineService } from "../ipc/connection.ts"
 
 export interface SessionInfo {
   id: string
@@ -166,7 +166,7 @@ export interface GenerateSessionTitleResult {
 }
 
 export type SessionService = typeof SessionService
-export const SessionService = serviceName("session-service") as ServiceName<{
+export const SessionService = defineService<{
   ServerEvents: {
     sessionsChanged: SessionsChangedEvent
   }
@@ -192,4 +192,25 @@ export const SessionService = serviceName("session-service") as ServiceName<{
     remove(id: string): Promise<void>
     removeMany(req: BatchSessionRequest): Promise<BatchSessionResult>
   }
-}>
+}>(serviceName("session-service"), {
+  list: true,
+  listArchived: true,
+  listProjects: true,
+  create: true,
+  createProject: true,
+  assignSessionProject: true,
+  setPermissionMode: true,
+  setKnowledgeBases: true,
+  renameProject: true,
+  pinProject: true,
+  archiveProject: true,
+  removeProject: true,
+  generateTitle: true,
+  rename: true,
+  pin: true,
+  archive: true,
+  archiveMany: true,
+  unarchive: true,
+  remove: true,
+  removeMany: true,
+})

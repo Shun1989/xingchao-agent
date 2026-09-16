@@ -1,3 +1,4 @@
+import type { IConnectionService } from "../ipc/connection.ts"
 import type { SessionProjectStore } from "../session/project-store.ts"
 import type {
   GitCheckoutBranchRequest,
@@ -7,11 +8,10 @@ import type {
   GitService,
 } from "./common.ts"
 import type { GitCommandError, GitCommandOutput } from "./status.ts"
-import type { IConnectionService } from "@oomol/connection"
 
-import { ConnectionService } from "@oomol/connection"
 import { execFile } from "node:child_process"
 import { promisify } from "node:util"
+import { ConnectionService } from "../ipc/connection.ts"
 import { GitService as GitServiceName } from "./common.ts"
 import { classifyGitError, normalizeCheckoutBranchName, readGitRepositoryState } from "./status.ts"
 

@@ -1,8 +1,7 @@
 import { branding } from "./electron/branding.ts"
+import { githubUpdateRepository } from "./electron/update/feed.ts"
 
 // @see - https://www.electron.build/configuration/configuration
-// 阶段 0：未签名本地包。图标 / extraResources（oo + opencode 二进制）/ 签名公证
-// 在后续阶段补齐；品牌标识从 electron/branding.ts 派生（R1）。
 export default {
   $schema:
     "https://raw.githubusercontent.com/electron-userland/electron-builder/master/packages/app-builder-lib/scheme.json",
@@ -15,14 +14,12 @@ export default {
     output: "release/${version}",
   },
   publish: {
-    provider: "generic",
-    url: "",
+    ...githubUpdateRepository,
+    releaseType: "release",
   },
-  // 双渠道（stable/beta）：generic provider 由版本号 prerelease 段自动推导渠道
-  // （1.2.3-beta.1 → beta*.yml；detectUpdateChannel 默认开启）。此开关让 stable 构建
-  // 同时刷新 beta*.yml，beta 用户在正式版发布后立即收敛到 stable，无需等下一个 beta。
-  // 多产出的 alpha*.yml 不在 CI 上传清单内，自然丢弃。
-  generateUpdatesFilesForAllChannels: true,
+  // Local developer packages may remain unsigned. The signed candidate workflow sets this flag
+  // and also verifies both the unpacked executable and installer with Get-AuthenticodeSignature.
+  forceCodeSigning: process.env.XINGCHAO_REQUIRE_CODE_SIGNING === "true",
   protocols: [
     {
       name: branding.protocolScheme,
@@ -36,6 +33,10 @@ export default {
   // resources/skills 是 oo 自带的 4 个内置 skill（同由 prepare-binaries.ts 导出）；运行时拷进 OpenCode
   // workspace 的 .opencode/skill/，使 Wanta agent 直接读到。
   extraResources: [
+    {
+      from: "resources/licenses",
+      to: "licenses",
+    },
     {
       from: "LICENSE",
       to: "licenses/Xingchao-LICENSE",
@@ -114,7 +115,7 @@ export default {
         arch: ["x64"],
       },
     ],
-    // Release signing is injected by the publisher environment. Never inherit the upstream certificate identity.
+    // The publisher injects CSC_LINK/CSC_KEY_PASSWORD. No upstream certificate identity is inherited.
     artifactName: "${productName}-${version}-Setup.${ext}",
   },
   nsis: {

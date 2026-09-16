@@ -1,3 +1,4 @@
+import type { IConnectionService } from "../ipc/connection.ts"
 import type { WindowsTitleBarTheme } from "../window/title-bar-overlay.ts"
 import type {
   AppSettings,
@@ -7,10 +8,9 @@ import type {
   ThemeSource,
 } from "./common.ts"
 import type { SettingsStore } from "./store.ts"
-import type { IConnectionService } from "@oomol/connection"
 
-import { ConnectionService } from "@oomol/connection"
 import { BrowserWindow, nativeTheme } from "electron"
+import { ConnectionService } from "../ipc/connection.ts"
 import {
   buildWindowsTitleBarOverlay,
   nativeWindowMaterialForPlatform,

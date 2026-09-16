@@ -7,16 +7,11 @@
 - **Node >= 22.22.2** (matches the minimum of the pinned OpenCode dependency chain; PR CI pins
   Node 24, release CI pins Node 22 in all four jobs that set up Node — compute-version,
   release-mac, release-win, create-release; the fifth job, refresh-cdn-cache, installs no Node at
-  all). pnpm `9.14.4` through Corepack + `pnpm-lock.yaml`.
-- **All dependency sources are public**: `@oomol/connection` / `@oomol/connection-electron-adapter`
-  are published to the public registry (`registry.npmjs.org`); `corepack pnpm install` **needs no token or
-  `.npmrc`** — since the repo went open source, a fresh clone and an external fork's CI both
-  install directly (historically this went through the GitHub Packages private registry + a
-  `read:packages` PAT; that auth chain was removed once the repo turned public and the packages
-  shipped to public npm). If your machine's global `~/.npmrc` still points the `@oomol` scope at
-  `npm.pkg.github.com`, it overrides the default public registry — delete that line. Note: the
-  postinstall binary/skill download scripts are best-effort (warn only), but dev cannot start
-  without `@oomol/connection` — an install failure must not be ignored.
+  all). Use the pnpm version pinned in `package.json` through Corepack and `pnpm-lock.yaml`.
+- **All dependency sources are public**: installation needs no private registry token.
+  Typed IPC is first-party code in `electron/ipc/`; the former OOMOL connection packages are no
+  longer dependencies. Postinstall binary/skill downloads are best-effort (warn only), so inspect
+  their results before launching or packaging.
 - `pnpm install`'s postinstall chains the binary/skill download scripts and finally builds the
   custom tool runtime:
   - `scripts/download-electron.ts` → downloads the dev-only Electron copy into `.electron-dist/`

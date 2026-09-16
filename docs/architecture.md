@@ -63,8 +63,8 @@
   a main-process service — both domains' requests moved wholesale to renderer-direct (see §4, §7);
   the agent's team scope is now driven by the `chatService.setAgentTeam` IPC callback
   (`onSetAgentTeam` → `handleAgentTeamChanged`, updating `activeAgentTeamName` + `agent.setTeamName`).
-- **preload** `electron/preload.ts`: paper-thin. `setupConnectionPreload()` (the @oomol/connection
-  RPC bridge) + a contextBridge that exposes a **single** bridge, `window.wanta` (name from
+- **preload** `electron/preload.ts`: paper-thin. `setupConnectionPreload()` exposes the first-party
+  `window.xingchaoRpc` request/event bridge, alongside `window.wanta` (name from
   `branding.windowBridge`) — there is no `window.electron` anymore. Beyond `{ appCommit, platform,
 version }` (from the vite defines `__APP_COMMIT__` / `__APP_VERSION__`), the `WantaBridge`
   interface also carries `onAppCommand`, `reportRendererError`, `releaseAttachmentPaths`,
@@ -73,7 +73,7 @@ version }` (from the vite defines `__APP_COMMIT__` / `__APP_VERSION__`), the `Wa
   locale, and app commands). It **exposes no network/credential surface** — renderer-direct requests
   authenticate automatically via the session cookie and never pass through preload (see §4).
 - **Renderer process** `src/main.tsx`: `ConnectionClient(new ElectronClientAdapter())` →
-  `client.use()` the thirteen service contracts → `AppContext.Provider`. The renderer syncs the currently
+  `client.use()` the fourteen service contracts → `AppContext.Provider`. The renderer syncs the currently
   visible session through the attention service, consumes the persisted unread set, and switches back
   to the matching task when a system notification is clicked. The renderer **directly imports** the
   contract types from `electron/*/common.ts` (cross-directory shared types, never copied); since the
@@ -179,7 +179,7 @@ is **inlined** into the main bundle and `react-diff-view` (a renderer import at
 `src/routes/Chat/TurnOutputs.tsx`) is bundled into the renderer — so these two sit in `dependencies`
 yet are fully vite-bundled anomalies (candidates to move back to devDependencies). The boundary rule
 is therefore an intent, not an invariant that currently holds: apart from the deliberate runtime
-dependencies, everything else (including `@oomol/connection`) is bundled by vite and belongs in
+dependencies, everything else is bundled by vite and belongs in
 devDependencies.
 
 ## 2. Agent kernel (electron/agent/, electron-free, headless-testable)
@@ -248,21 +248,25 @@ the implementation basis for the tool-sources
 
 ## 3. IPC pattern (R7, throughout the conventions)
 
-Each domain = `common.ts` (the contract: `serviceName("x-service")` as `ServiceName<{ServerEvents,
-ClientInvokes}>`, shared-imported by main/renderer) + `node.ts` (the impl: `class XServiceImpl
-extends ConnectionService<X>`, main → renderer push via `this.send(event, data)`). On the renderer,
-after `client.use(XService)`, use `service.invoke("method", args)` / `service.serverEvents.on("event",
-cb)`. The actual ServiceName string looks like `wanta/chat-service` (prefix from
-`branding.servicePrefix`).
+Each domain = `common.ts` (the contract: `defineService<{ServerEvents, ClientInvokes}>`
+with `serviceName("x-service")` and an exhaustive method allowlist, shared by main/renderer)
 
-Twelve services: `chat` / `attention` / `session` / `skill` / `models` / `settings` / `auth` / `update`
-/ `git` / `knowledge` / `link-runtime` / `browser` (connector and teams each once had a service; after their requests moved to the
-renderer the **whole service was deleted**, see §4). When adding a service, do not guess the
-`@oomol/connection` API from memory (it is a private package) — copy the smallest live example
-(e.g. `electron/settings/common.ts` + `node.ts`). **Security note**: `@oomol/connection` dispatches
-dynamically by method name with no allowlist — every public method of a registered object is
-invocable from the renderer, so sensitive logic must live on an unregistered object (see
-`AuthManager` and `LinkRuntimeManager`). A service with local side effects (e.g. `git`) must validate on the main side that
+- `node.ts` (the impl: `class XServiceImpl
+extends ConnectionService<X>`, main → renderer push via `this.send(event, data)`). On the renderer,
+  after `client.use(XService)`, use `service.invoke("method", args)` / `service.serverEvents.on("event",
+cb)`. The actual ServiceName string looks like `wanta/chat-service` (prefix from
+  `branding.servicePrefix`).
+
+Fourteen services: `chat` / `attention` / `session` / `skill` / `models` / `settings` / `auth` / `update`
+/ `git` / `knowledge` / `link-runtime` / `browser` / `content-pack` / `mission-run`.
+Connector and teams requests moved to the renderer (see §4).
+`electron/ipc/` owns typed dispatch, Electron transport and the narrow preload bridge, without
+third-party connection packages. Only the designated main window's trusted main frame can connect
+or invoke; navigation/destruction removes its event registration. Reload reconnects, and disposal
+removes handlers and subscriptions. Service errors expose messages, not main-process stacks.
+**Security note**: dispatch checks the contract's explicit method allowlist. Internal methods,
+prototype methods and unknown services are rejected. Keep sensitive logic on unregistered objects
+(`AuthManager` and `LinkRuntimeManager`). A service with local side effects (e.g. `git`) must validate on the main side that
 the target comes from a registered user project, never trusting a path passed from the renderer.
 
 IPC only carries what "must be done in the main process" (the agent kernel, deep-link auth, fs,
@@ -660,10 +664,10 @@ electron/
   session/ common,node,activity-store,metadata-store,project-store,title(+test)  session CRUD (proxies AgentManager, sessionsChanged broadcast) + session activity/metadata + per-session project binding
   models/  common,node,store,builtin,limits(+test)  built-in + custom model list; changing custom models restarts the agent
   settings/ common,node,store(+test)  themeSource + completion-notification condition + notification sound + unread badge + knowledgeBase beta flag; atomic writes; stores no credentials (R8); updateChannel lives only in the on-disk store layer, consumed by UpdateService
-  update/  common,node,channel,policy(+test)  UpdateService: check/download/install/channel switch, periodic/foreground/wake scheduling + appUpdateStateChanged;
-                              generic feed = static.<ep>/release/apps/wanta/<plat>/<arch>; packaged-only; autoDownload=false
-                              (settings UI triggers explicitly); channel via setFeedURL channel field (never the channel setter —
-                              it silently sets allowDowngrade) + explicit allowDowngrade=false; bounded retries tolerating 404;
+  update/  common,node,channel,feed,policy(+test)  UpdateService: check/download/install/channel switch, periodic/foreground/wake scheduling + appUpdateStateChanged;
+                              GitHub feed = Shun1989/xingchao-agent; packaged-only; autoDownload=false
+                              (service controls download scheduling); channel via both autoUpdater.channel and setFeedURL,
+                              followed by allowDowngrade=false to override the setter side effect; bounded retries tolerating 404;
                               under ESM must static-default-import updaterPkg.autoUpdater
   window/  application-menu(+application-menu-messages),title-bar-overlay,window-close-behavior,windows-tray-lifecycle(+test)  application menu, native title-bar overlay, close-to-tray behavior, Windows tray lifecycle
 src/

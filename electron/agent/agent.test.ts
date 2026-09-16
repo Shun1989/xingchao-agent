@@ -389,6 +389,23 @@ test("build and plan agents enable Wanta prompt through OpenCode native modes", 
   assert.equal(rootPermission?.external_directory, "ask")
 })
 
+test("every native Agent routes direct file reads through the host permission policy", () => {
+  for (const linkRuntime of [null, { kind: "oomol" as const, sessionToken: "test" }]) {
+    const config = buildOpencodeConfig({
+      linkRuntime,
+      modelAccess: { kind: "oomol", sessionToken: "test" },
+    })
+    for (const permission of [
+      config.permission,
+      config.agent?.[WANTA_BUILD_AGENT_NAME]?.permission,
+      config.agent?.[WANTA_PLAN_AGENT_NAME]?.permission,
+      config.agent?.[WANTA_GENERAL_SUBAGENT_NAME]?.permission,
+    ]) {
+      assert.equal((permission as Record<string, unknown>)?.read, "ask")
+    }
+  }
+})
+
 test("general subagent preserves the delegated task language", () => {
   const config = buildOpencodeConfig({
     linkRuntime: { kind: "oomol", sessionToken: "k" },

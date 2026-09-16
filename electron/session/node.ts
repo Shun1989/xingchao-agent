@@ -1,4 +1,5 @@
 import type { OpencodeAgentAdapter } from "../agent/opencode-adapter.ts"
+import type { IConnectionService } from "../ipc/connection.ts"
 import type { SessionActivityStore } from "./activity-store.ts"
 import type {
   AssignSessionProjectRequest,
@@ -21,9 +22,7 @@ import type {
 import type { ExternalSessionRecord, ExternalSessionStore } from "./external-store.ts"
 import type { SessionMetadata, SessionMetadataStore } from "./metadata-store.ts"
 import type { SessionProjectStore } from "./project-store.ts"
-import type { IConnectionService } from "@oomol/connection"
 
-import { ConnectionService } from "@oomol/connection"
 import { randomUUID } from "node:crypto"
 import path from "node:path"
 import { isExternalAgentKind } from "../agent/contract/profile.ts"
@@ -33,6 +32,7 @@ import {
   mintExternalSessionId,
 } from "../agent/external/session-id.ts"
 import { logDiagnostic } from "../diagnostics-log.ts"
+import { ConnectionService } from "../ipc/connection.ts"
 import { normalizeSessionScopeValue, sessionScopesEqual, SessionService as SessionServiceName } from "./common.ts"
 import { normalizeKnowledgeBaseIds } from "./metadata-store.ts"
 
