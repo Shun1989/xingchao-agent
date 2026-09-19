@@ -69,6 +69,33 @@ function fixture() {
 }
 
 describe("first-party service dispatch", () => {
+  it.each([false, true])("cleans all services despite failures (transport failure: %s)", (transportFails) => {
+    const cleaned: string[] = []
+    const server = new ConnectionServer({
+      start() {},
+      broadcast() {},
+      dispose() {
+        cleaned.push("transport")
+        if (transportFails) throw new Error("transport cleanup failed")
+      },
+    })
+    class DisposableService extends ConnectionService {
+      constructor(private readonly id: string) {
+        super(defineService(id, {}))
+      }
+      override dispose() {
+        cleaned.push(this.id)
+        if (this.id === "first") throw new Error("service cleanup failed")
+        super.dispose()
+      }
+    }
+    server.registerService(new DisposableService("first"))
+    server.registerService(new DisposableService("second"))
+    expect(() => server.dispose()).toThrow()
+    expect(cleaned).toEqual(["transport", "first", "second"])
+    expect(() => server.dispose()).not.toThrow()
+    expect(cleaned).toHaveLength(3)
+  })
   it("preserves structured values and concurrent request results", async () => {
     const { proxy, service } = fixture()
     const values = [undefined, null, 0, false, "", { nested: [null, undefined, "中文"] }]

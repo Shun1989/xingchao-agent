@@ -116,12 +116,23 @@ export class ConnectionServer {
   dispose(): void {
     if (this.disposed) return
     this.disposed = true
-    this.transport.dispose()
+    const errors: unknown[] = []
     try {
-      for (const service of this.services.values()) service.dispose()
-    } finally {
-      this.services.clear()
+      this.transport.dispose()
+    } catch (error) {
+      errors.push(error)
     }
+    for (const service of this.services.values()) {
+      try {
+        service.dispose()
+      } catch (error) {
+        errors.push(error)
+      } finally {
+        ConnectionService.prototype.dispose.call(service)
+      }
+    }
+    this.services.clear()
+    if (errors.length) throw new AggregateError(errors, "IPC cleanup failed")
   }
 }
 

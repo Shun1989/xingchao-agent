@@ -23,6 +23,7 @@ function AuthGate() {
   const auth = useAuth()
   const runtime = useRuntimeCapabilities()
   const entry = resolveAppEntryState({
+    authFailed: auth.error !== null,
     authReady: auth.state !== null,
     runtimeFailed: runtime.error !== null,
     runtimeReady: runtime.capabilities !== null,

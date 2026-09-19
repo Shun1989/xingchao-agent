@@ -65,6 +65,87 @@ function settingsStore(updateChannel: PersistedSettings["updateChannel"] = "stab
 }
 
 describe("UpdateServiceImpl", () => {
+  it("reports a missing channel as failure and bounds automatic retries", async () => {
+    vi.useFakeTimers()
+    updaterMocks.updater.checkForUpdates.mockRejectedValue(new Error("404 channel file not found"))
+    const service = new UpdateServiceImpl({ store: settingsStore() })
+    try {
+      const state = await service.checkForAppUpdate()
+      expect(state.status.status).toBe("error")
+      expect(state.checkedAt).toBeUndefined()
+      await vi.advanceTimersByTimeAsync(300_000)
+      expect(updaterMocks.updater.checkForUpdates).toHaveBeenCalledTimes(4)
+      expect((await service.getAppUpdateState()).status.status).toBe("error")
+    } finally {
+      service.dispose()
+    }
+  })
+
+  it("downloads the update when a missing channel recovers on retry", async () => {
+    vi.useFakeTimers()
+    updaterMocks.updater.checkForUpdates
+      .mockRejectedValueOnce(new Error("404 channel file not found"))
+      .mockResolvedValue({
+        isUpdateAvailable: true,
+        updateInfo: { version: "2.0.0" },
+        cancellationToken: { cancel: vi.fn() },
+      })
+    updaterMocks.updater.downloadUpdate.mockImplementation(async () => {
+      updaterMocks.emit("update-downloaded", { version: "2.0.0" })
+    })
+    const service = new UpdateServiceImpl({ store: settingsStore() })
+    try {
+      await service.checkForAppUpdate()
+      await vi.advanceTimersByTimeAsync(60_000)
+      expect((await service.getAppUpdateState()).status).toEqual({ status: "downloaded", version: "2.0.0" })
+      expect(updaterMocks.updater.downloadUpdate).toHaveBeenCalledOnce()
+    } finally {
+      service.dispose()
+    }
+  })
+
+  it("recovers from a missing installer without reporting that the app is current", async () => {
+    vi.useFakeTimers()
+    updaterMocks.updater.checkForUpdates.mockResolvedValue({
+      isUpdateAvailable: true,
+      updateInfo: { version: "2.0.0" },
+      cancellationToken: { cancel: vi.fn() },
+    })
+    updaterMocks.updater.downloadUpdate
+      .mockRejectedValueOnce(new Error("HTTP 404 download not found"))
+      .mockImplementationOnce(async () => {
+        updaterMocks.emit("update-downloaded", { version: "2.0.0" })
+      })
+    const service = new UpdateServiceImpl({ store: settingsStore() })
+    try {
+      await expect(service.downloadAppUpdate()).rejects.toThrow("404")
+      expect((await service.getAppUpdateState()).status.status).toBe("error")
+      await vi.advanceTimersByTimeAsync(60_000)
+      expect((await service.getAppUpdateState()).status).toEqual({ status: "downloaded", version: "2.0.0" })
+    } finally {
+      service.dispose()
+    }
+  })
+
+  it("does not download a retry result after the service is disposed", async () => {
+    vi.useFakeTimers()
+    let finishCheck!: (value: unknown) => void
+    updaterMocks.updater.checkForUpdates
+      .mockRejectedValueOnce(new Error("404 channel file not found"))
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            finishCheck = resolve
+          }),
+      )
+    const service = new UpdateServiceImpl({ store: settingsStore() })
+    await service.checkForAppUpdate()
+    await vi.advanceTimersByTimeAsync(60_000)
+    service.dispose()
+    finishCheck({ isUpdateAvailable: true, updateInfo: { version: "2.0.0" } })
+    await vi.advanceTimersByTimeAsync(0)
+    expect(updaterMocks.updater.downloadUpdate).not.toHaveBeenCalled()
+  })
   beforeEach(() => {
     vi.clearAllMocks()
     updaterMocks.listeners.clear()

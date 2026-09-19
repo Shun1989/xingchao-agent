@@ -131,11 +131,15 @@ export class UpdateServiceImpl extends ConnectionService<UpdateService> implemen
     this.foregroundCheckTimer.unref()
   }
 
-  public async checkForAppUpdate(): Promise<AppUpdateState> {
+  public checkForAppUpdate(): Promise<AppUpdateState> {
+    return this.checkForUpdate(false)
+  }
+
+  private async checkForUpdate(isMissingAssetRetry: boolean): Promise<AppUpdateState> {
     if (this.inFlightCheck) {
       return this.inFlightCheck
     }
-    const promise = this.runCheck(false)
+    const promise = this.runCheck(isMissingAssetRetry)
     this.inFlightCheck = promise
     try {
       return await promise
@@ -377,10 +381,10 @@ export class UpdateServiceImpl extends ConnectionService<UpdateService> implemen
       }
       const message = cause instanceof Error ? cause.message : String(cause)
       if (isMissingAssetError(cause)) {
-        // 上传/CDN 竞态或渠道 yml 暂缺：按"暂无更新"处理并限次重试，不打扰用户。
+        // 渠道未发布或上传/CDN 暂缺不等于成功检查；保留失败状态并限次重试。
         console.warn("[wanta] update check skipped, asset missing (404):", message)
         logDiagnostic("update-service", "update check skipped because asset is missing", { error: cause }, "warn")
-        this.patchStatus({ status: "not-available" })
+        this.patchStatus({ status: "error", error: message })
         this.scheduleMissingAssetRetry()
         return this.state
       }
@@ -469,7 +473,7 @@ export class UpdateServiceImpl extends ConnectionService<UpdateService> implemen
     if (isMissingAssetError(cause)) {
       console.warn("[wanta] update download skipped, asset missing (404):", message)
       logDiagnostic("update-service", "update download skipped because asset is missing", { error: cause }, "warn")
-      this.patchStatus({ status: "not-available" })
+      this.patchStatus({ status: "error", error: message })
       this.scheduleMissingAssetRetry()
       return
     }
@@ -577,9 +581,15 @@ export class UpdateServiceImpl extends ConnectionService<UpdateService> implemen
       }
       this.missingAssetRetryTimer = undefined
       this.missingAssetRetryAttempt = nextAttempt
-      void this.runCheck(true).catch((error: unknown) => {
-        this.logFailure("missing asset retry update check failed", error, "warn")
-      })
+      void this.checkForUpdate(true)
+        .then(async (state) => {
+          if (generation === this.missingAssetRetryGeneration && state.status.status === "available") {
+            await this.downloadAppUpdate()
+          }
+        })
+        .catch((error: unknown) => {
+          this.logFailure("missing asset retry update check failed", error, "warn")
+        })
     }, missingAssetRetryDelayMs)
     this.missingAssetRetryTimer.unref()
   }

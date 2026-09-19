@@ -649,7 +649,7 @@ function reapAgentForShutdown(): Promise<void> {
     await runBoundedShutdownStep("dispose spreadsheet preview worker", () => spreadsheetPreviewWorker.dispose())
     await runBoundedShutdownStep("dispose browser control server", () => browserControlServer.dispose())
     await runBoundedShutdownStep("dispose integrated browser", () => browserManager.dispose())
-    server.dispose()
+    await runBoundedShutdownStep("dispose IPC services", async () => server.dispose())
     artifactResourceLeaseStore.clear()
     await runBoundedShutdownStep("flush diagnostics log", flushDiagnosticsLog)
   })()
