@@ -90,6 +90,27 @@ afterEach(() => {
 })
 
 describe("CaptainHost adaptive layout", () => {
+  it("discloses compact controls on demand and returns focus on Escape", () => {
+    const view = renderCaptain({ activeSessionId: null, route: "settings", viewportWidth: 1024 })
+    const trigger = view.container.querySelector<HTMLButtonElement>('[aria-label="Captain controls"]')
+    expect(trigger).not.toBeNull()
+    const panel = view.container.querySelector<HTMLElement>("[data-captain-panel]")
+    expect(panel?.hidden).toBe(true)
+    act(() => trigger?.click())
+    expect(panel?.hidden).toBe(false)
+    expect(trigger?.getAttribute("aria-expanded")).toBe("true")
+    act(() => panel?.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })))
+    expect(panel?.hidden).toBe(true)
+    expect(document.activeElement).toBe(trigger)
+    act(() => trigger?.click())
+    act(() => trigger?.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })))
+    expect(panel?.hidden).toBe(true)
+    act(() => trigger?.click())
+    act(() => panel?.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true })))
+    expect(panel?.hidden).toBe(false)
+    act(() => document.body.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true })))
+    expect(panel?.hidden).toBe(true)
+  })
   it("keeps one host instance across route changes and limits pointer events to safe controls", () => {
     const view = renderCaptain({ activeSessionId: null, route: "fleet", viewportWidth: 1440 })
     const initialHost = view.container.querySelector("[data-captain-host]")

@@ -3,7 +3,16 @@ import type { CaptainDisplayMode, CaptainRendererEvent } from "@/captain/captain
 import type { MessageKey } from "@/i18n"
 import type { CSSProperties } from "react"
 
-import { BookOpen, ChevronDown, ChevronUp, MousePointerClick, RotateCcw, Volume2, VolumeX } from "lucide-react"
+import {
+  BookOpen,
+  ChevronDown,
+  ChevronUp,
+  MousePointerClick,
+  RotateCcw,
+  SlidersHorizontal,
+  Volume2,
+  VolumeX,
+} from "lucide-react"
 import * as React from "react"
 import { useCaptain } from "./captain-context.ts"
 import { CaptainBoundary } from "./CaptainBoundary.tsx"
@@ -119,6 +128,22 @@ export function CaptainHost({ decision }: CaptainHostProps) {
   const desiredLayout = expanded && layout.displayMode === "compact" && !detectedModalOpen ? companionLayout : layout
   const effectiveLayout = collisionCompact && desiredLayout.displayMode !== "compact" ? compactLayout : desiredLayout
   const mode = effectiveLayout.displayMode
+  const [controlsOpen, setControlsOpen] = React.useState(false)
+  const controlsTrigger = React.useRef<HTMLButtonElement>(null)
+  const panelId = React.useId()
+
+  React.useEffect(() => {
+    setControlsOpen(false)
+  }, [decision.displayMode, mode])
+
+  React.useEffect(() => {
+    if (!controlsOpen) return
+    const dismiss = (event: PointerEvent) => {
+      if (event.target instanceof Node && !hostRef.current?.contains(event.target)) setControlsOpen(false)
+    }
+    document.addEventListener("pointerdown", dismiss)
+    return () => document.removeEventListener("pointerdown", dismiss)
+  }, [controlsOpen])
 
   const updatePlacement = React.useCallback(() => {
     const host = hostRef.current
@@ -270,6 +295,13 @@ export function CaptainHost({ decision }: CaptainHostProps) {
       data-captain-avoids-safe-controls="true"
       style={style}
       aria-label={t("captain.host.label")}
+      onKeyDown={(event) => {
+        if (event.key === "Escape" && mode === "compact" && controlsOpen) {
+          event.stopPropagation()
+          setControlsOpen(false)
+          controlsTrigger.current?.focus()
+        }
+      }}
     >
       <div className="captain-host__decorative pointer-events-none" data-captain-decorative aria-hidden="true">
         {skin ? (
@@ -292,90 +324,107 @@ export function CaptainHost({ decision }: CaptainHostProps) {
         ) : null}
       </div>
 
-      <div className="captain-host__caption pointer-events-none" aria-live="polite" aria-atomic="true">
-        {t(captain.snapshot.captionKey as MessageKey, translatedParams(captain.snapshot.captionParams))}
-      </div>
+      {mode === "compact" ? (
+        <div className="captain-host__controls pointer-events-auto">
+          <button
+            ref={controlsTrigger}
+            type="button"
+            aria-label={t("captain.host.controls")}
+            title={t("captain.host.controls")}
+            aria-expanded={controlsOpen}
+            aria-controls={panelId}
+            onClick={() => setControlsOpen((value) => !value)}
+          >
+            <SlidersHorizontal aria-hidden="true" />
+          </button>
+        </div>
+      ) : null}
+      <div id={panelId} data-captain-panel className="captain-host__panel" hidden={mode === "compact" && !controlsOpen}>
+        <div className="captain-host__caption pointer-events-none" aria-live="polite" aria-atomic="true">
+          {t(captain.snapshot.captionKey as MessageKey, translatedParams(captain.snapshot.captionParams))}
+        </div>
 
-      <div className="captain-host__controls pointer-events-auto" data-captain-controls>
-        <button
-          type="button"
-          data-captain-safe-control
-          aria-pressed={captain.speech.settings.enabled}
-          aria-label={t(captain.speech.settings.enabled ? "captain.voice.disable" : "captain.voice.enable")}
-          onClick={() => captain.speech.setEnabled(!captain.speech.settings.enabled)}
-        >
-          {captain.speech.settings.enabled ? <Volume2 aria-hidden="true" /> : <VolumeX aria-hidden="true" />}
-        </button>
-        <button
-          type="button"
-          data-captain-safe-control
-          aria-label={t("captain.voice.mute")}
-          onClick={captain.speech.mute}
-        >
-          <VolumeX aria-hidden="true" />
-        </button>
-        <button
-          type="button"
-          data-captain-safe-control
-          aria-pressed={captain.speech.settings.clickOnly}
-          aria-label={t("captain.voice.clickOnly")}
-          onClick={() => captain.speech.setClickOnly(!captain.speech.settings.clickOnly)}
-        >
-          <MousePointerClick aria-hidden="true" />
-        </button>
-        <label className="captain-host__voice-slider">
-          <span>{t("captain.voice.volume")}</span>
-          <input
-            type="range"
-            min="0"
-            max="1"
-            step="0.05"
-            value={captain.speech.settings.volume}
-            aria-label={t("captain.voice.volume")}
-            data-captain-safe-control
-            onChange={(event) => captain.speech.setVolume(event.currentTarget.valueAsNumber)}
-          />
-        </label>
-        <label className="captain-host__voice-slider">
-          <span>{t("captain.voice.rate")}</span>
-          <input
-            type="range"
-            min="0.5"
-            max="2"
-            step="0.1"
-            value={captain.speech.settings.rate}
-            aria-label={t("captain.voice.rate")}
-            data-captain-safe-control
-            onChange={(event) => captain.speech.setRate(event.currentTarget.valueAsNumber)}
-          />
-        </label>
-        <button
-          type="button"
-          data-captain-safe-control
-          aria-label={t("captain.voice.manualRead")}
-          onClick={requestManualRead}
-        >
-          <BookOpen aria-hidden="true" />
-        </button>
-        <button
-          type="button"
-          data-captain-safe-control
-          aria-expanded={expanded}
-          aria-label={t(expanded ? "captain.host.collapse" : "captain.host.expand")}
-          onClick={() => setExpanded((value) => !value)}
-        >
-          {expanded ? <ChevronDown aria-hidden="true" /> : <ChevronUp aria-hidden="true" />}
-        </button>
-        {rendererFailed ? (
+        <div className="captain-host__controls pointer-events-auto" data-captain-controls>
           <button
             type="button"
             data-captain-safe-control
-            aria-label={t("captain.host.retryRenderer")}
-            onClick={recoverRenderer}
+            aria-pressed={captain.speech.settings.enabled}
+            aria-label={t(captain.speech.settings.enabled ? "captain.voice.disable" : "captain.voice.enable")}
+            onClick={() => captain.speech.setEnabled(!captain.speech.settings.enabled)}
           >
-            <RotateCcw aria-hidden="true" />
+            {captain.speech.settings.enabled ? <Volume2 aria-hidden="true" /> : <VolumeX aria-hidden="true" />}
           </button>
-        ) : null}
+          <button
+            type="button"
+            data-captain-safe-control
+            aria-label={t("captain.voice.mute")}
+            onClick={captain.speech.mute}
+          >
+            <VolumeX aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            data-captain-safe-control
+            aria-pressed={captain.speech.settings.clickOnly}
+            aria-label={t("captain.voice.clickOnly")}
+            onClick={() => captain.speech.setClickOnly(!captain.speech.settings.clickOnly)}
+          >
+            <MousePointerClick aria-hidden="true" />
+          </button>
+          <label className="captain-host__voice-slider">
+            <span>{t("captain.voice.volume")}</span>
+            <input
+              type="range"
+              min="0"
+              max="1"
+              step="0.05"
+              value={captain.speech.settings.volume}
+              aria-label={t("captain.voice.volume")}
+              data-captain-safe-control
+              onChange={(event) => captain.speech.setVolume(event.currentTarget.valueAsNumber)}
+            />
+          </label>
+          <label className="captain-host__voice-slider">
+            <span>{t("captain.voice.rate")}</span>
+            <input
+              type="range"
+              min="0.5"
+              max="2"
+              step="0.1"
+              value={captain.speech.settings.rate}
+              aria-label={t("captain.voice.rate")}
+              data-captain-safe-control
+              onChange={(event) => captain.speech.setRate(event.currentTarget.valueAsNumber)}
+            />
+          </label>
+          <button
+            type="button"
+            data-captain-safe-control
+            aria-label={t("captain.voice.manualRead")}
+            onClick={requestManualRead}
+          >
+            <BookOpen aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            data-captain-safe-control
+            aria-expanded={expanded}
+            aria-label={t(expanded ? "captain.host.collapse" : "captain.host.expand")}
+            onClick={() => setExpanded((value) => !value)}
+          >
+            {expanded ? <ChevronDown aria-hidden="true" /> : <ChevronUp aria-hidden="true" />}
+          </button>
+          {rendererFailed ? (
+            <button
+              type="button"
+              data-captain-safe-control
+              aria-label={t("captain.host.retryRenderer")}
+              onClick={recoverRenderer}
+            >
+              <RotateCcw aria-hidden="true" />
+            </button>
+          ) : null}
+        </div>
       </div>
     </aside>
   )
