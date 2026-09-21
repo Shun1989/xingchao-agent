@@ -18,14 +18,14 @@ export function FleetHarborRoute({ onOpenVoyage }: { onOpenVoyage: () => void })
 
   return (
     <div className="fleet-route h-full overflow-y-auto">
-      <div className="mx-auto grid max-w-[110rem] gap-6 px-8 py-8">
-        <section className="fleet-hero grid min-h-[22rem] grid-cols-[minmax(0,1.25fr)_minmax(18rem,.75fr)] overflow-hidden border max-[900px]:grid-cols-1">
-          <div className="relative z-10 flex flex-col justify-center gap-5 p-8 lg:p-12">
+      <div className="fleet-page mx-auto grid max-w-[100rem] gap-8">
+        <section className="fleet-hero fleet-page-hero overflow-hidden border">
+          <div className="relative z-10 flex flex-col justify-center gap-5">
             <div className="flex items-center gap-2 text-sm tracking-[.18em] text-primary">
               <Compass className="size-4" /> 星潮航局 · 舰队港口
             </div>
             <div>
-              <h1 className="text-4xl font-semibold tracking-tight text-foreground">十团协作，不止角色扮演</h1>
+              <h1 className="text-3xl font-semibold tracking-tight text-foreground">十团协作，不止角色扮演</h1>
               <p className="mt-3 max-w-3xl text-base leading-7 text-muted-foreground">
                 澜汐负责识别目标、推荐团队与最终复核。每位船长和船员拥有独立人格、专业边界、工具白名单与评测任务。
               </p>
@@ -49,7 +49,7 @@ export function FleetHarborRoute({ onOpenVoyage }: { onOpenVoyage: () => void })
         </section>
 
         <section>
-          <div className="mb-4 flex items-end justify-between gap-4">
+          <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
             <div>
               <p className="text-xs tracking-[.2em] text-muted-foreground">FLEET THEMES</p>
               <h2 className="mt-1 text-2xl font-semibold">选择主团，工作台随之换肤</h2>
@@ -80,7 +80,7 @@ export function FleetHarborRoute({ onOpenVoyage }: { onOpenVoyage: () => void })
               </button>
             </div>
           )}
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+          <div className="fleet-crew-grid">
             {crews.map((crew) => {
               const crewTheme = runtimeFleet.index.themeById.get(crew.themeId)!
               return (
@@ -88,6 +88,7 @@ export function FleetHarborRoute({ onOpenVoyage }: { onOpenVoyage: () => void })
                   data-crew-id={crew.id}
                   key={crew.id}
                   type="button"
+                  aria-pressed={activeCrewId === crew.id}
                   onClick={() => requestCrew(crew.id)}
                   onPointerEnter={() => {
                     if (isBuiltinFleetSkinId(crew.id)) preloadCrew(crew.id)

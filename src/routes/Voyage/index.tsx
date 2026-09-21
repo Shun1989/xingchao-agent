@@ -88,28 +88,20 @@ export function VoyageRoute({
 
   return (
     <div className="fleet-route h-full overflow-y-auto">
-      <div className="mx-auto grid max-w-[100rem] gap-6 px-8 py-8">
-        {onRetry && onOpenSession ? (
-          <MissionHistory
-            onRetry={onRetry}
-            onOpenSession={onOpenSession}
-            activeSessionId={activeSessionId}
-            fleetRevision={runtimeFleet.snapshot.revision}
-          />
-        ) : null}
+      <div className="fleet-page mx-auto grid max-w-[100rem] gap-6">
         {launchError ? (
           <p role="alert" className="text-destructive">
             {launchError}
           </p>
         ) : null}
-        <section className="grid min-h-[18rem] grid-cols-[minmax(0,1.25fr)_minmax(18rem,.75fr)] overflow-hidden rounded-2xl border max-[900px]:grid-cols-1">
-          <header className="flex flex-col justify-center p-8">
+        <section className="fleet-page-heading">
+          <header className="flex flex-col justify-center">
             <p className="text-xs tracking-[.2em] text-primary">MISSION CHART</p>
             <h1 className="mt-1 text-3xl font-semibold">航海图</h1>
             <p className="mt-2 text-muted-foreground">澜汐先推荐团队；你确认或修改后，主团主题才会生效并进入执行。</p>
           </header>
         </section>
-        <section className="fleet-panel grid gap-4 p-5">
+        <section className="fleet-panel fleet-mission-composer grid gap-4 p-6">
           <label className="text-sm font-medium" htmlFor="mission-goal">
             这次航程要交付什么？
           </label>
@@ -141,7 +133,7 @@ export function VoyageRoute({
                 <h2 className="text-lg font-semibold">确认编队</h2>
                 <span className="ml-auto text-xs text-muted-foreground">1 个主团 · 最多 2 个支援团</span>
               </div>
-              <div className="grid grid-cols-2 gap-2 lg:grid-cols-5">
+              <div className="fleet-crew-grid">
                 {runtimeFleet.snapshot.crews.map((crew) => (
                   <div
                     key={crew.id}
@@ -222,7 +214,7 @@ export function VoyageRoute({
                 })}
               </div>
             </section>
-            <section className="flex items-center justify-between gap-4 rounded-2xl bg-primary p-5 text-primary-foreground">
+            <section className="flex flex-wrap items-center justify-between gap-4 rounded-2xl bg-primary p-5 text-primary-foreground">
               <div>
                 <strong>确认后将切换至 {runtimeFleet.index.crewById.get(primaryCrewId)?.name} 主题</strong>
                 <p className="mt-1 text-sm opacity-75">随后由现有 Agent 内核执行，危险操作仍会逐项审批。</p>
@@ -239,6 +231,14 @@ export function VoyageRoute({
               </button>
             </section>
           </>
+        ) : null}
+        {onRetry && onOpenSession ? (
+          <MissionHistory
+            onRetry={onRetry}
+            onOpenSession={onOpenSession}
+            activeSessionId={activeSessionId}
+            fleetRevision={runtimeFleet.snapshot.revision}
+          />
         ) : null}
       </div>
     </div>

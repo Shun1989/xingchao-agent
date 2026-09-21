@@ -1,0 +1,8 @@
+@import "../../src/index.css";
+@source "../../src";
+@source "./route-polish.tsx";
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+}

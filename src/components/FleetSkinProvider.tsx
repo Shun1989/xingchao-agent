@@ -91,15 +91,15 @@ function surfaceFill(material: string, color: string, opacity: number): string {
     solid: "linear-gradient(180deg, transparent, transparent)",
     glass: "linear-gradient(145deg, color-mix(in oklab, white 10%, transparent), transparent 58%)",
     paper:
-      "repeating-linear-gradient(0deg, color-mix(in oklab, var(--foreground) 3%, transparent) 0 1px, transparent 1px 5px)",
-    wood: "repeating-linear-gradient(98deg, color-mix(in oklab, var(--foreground) 5%, transparent) 0 1px, transparent 1px 16px)",
+      "repeating-linear-gradient(0deg, color-mix(in oklab, var(--foreground) 1%, transparent) 0 1px, transparent 1px 8px)",
+    wood: "repeating-linear-gradient(98deg, color-mix(in oklab, var(--foreground) 2%, transparent) 0 1px, transparent 1px 20px)",
     metal:
       "linear-gradient(120deg, color-mix(in oklab, white 8%, transparent), transparent 36%, color-mix(in oklab, black 7%, transparent))",
     mist: "radial-gradient(circle at 80% 10%, color-mix(in oklab, white 12%, transparent), transparent 58%)",
     grid: "linear-gradient(color-mix(in oklab, var(--foreground) 5%, transparent) 1px, transparent 1px), linear-gradient(90deg, color-mix(in oklab, var(--foreground) 5%, transparent) 1px, transparent 1px)",
     ink: "radial-gradient(ellipse at 12% 0%, color-mix(in oklab, var(--foreground) 9%, transparent), transparent 52%)",
     fabric:
-      "repeating-linear-gradient(135deg, color-mix(in oklab, var(--foreground) 4%, transparent) 0 1px, transparent 1px 4px)",
+      "repeating-linear-gradient(135deg, color-mix(in oklab, var(--foreground) 1%, transparent) 0 1px, transparent 1px 6px)",
     ceramic: "linear-gradient(160deg, color-mix(in oklab, white 9%, transparent), transparent 42%)",
   }[material]
   return `${motif ?? "linear-gradient(180deg, transparent, transparent)"}, ${base}`
