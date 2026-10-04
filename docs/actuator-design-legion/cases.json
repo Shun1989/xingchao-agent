@@ -1,0 +1,120 @@
+{
+  "schemaVersion": "1.0.0",
+  "auditedOn": "2026-10-05",
+  "currentReview": {
+    "sourceFilesReadAndHashed": true,
+    "cadExecution": "not-run",
+    "scope": "Read-only review of saved records; no source models or drawings were changed.",
+    "sanitization": "Private identifiers, dimensions, material grades, suppliers, paths, and thread IDs are omitted."
+  },
+  "cases": [
+    {
+      "id": "CASE-ACTUATOR-EXCHANGE",
+      "title": "Readable STEP with unresolved numerical and delivery requirements",
+      "trigger": "An actuator review package had exchange files that parsed successfully, but the declared numerical and deliverable criteria were not all closed.",
+      "sourceIds": ["SRC-STEP-CHECK-01", "SRC-ACTUATOR-STEP-01", "SRC-ACTUATOR-SCOPE-01"],
+      "recordedFindings": [
+        {
+          "criterion": "Independent STEP format and B-representation validity",
+          "status": "recorded-pass",
+          "observation": "The saved summary recorded valid format for all examined exchange files."
+        },
+        {
+          "criterion": "Strict numerical equivalence across the package",
+          "status": "recorded-fail",
+          "observation": "Some independent-kernel and native-part volume comparisons did not meet the unchanged relative threshold of 1e-5. The saved summary left numerical equivalence open."
+        },
+        {
+          "criterion": "Native assembly STEP roundtrip",
+          "status": "not-run",
+          "observation": "The saved summary explicitly recorded that the assembly roundtrip was not performed."
+        },
+        {
+          "criterion": "Geometry, tooth definition, exchange closure, and independent manufacturing drawings",
+          "status": "incomplete",
+          "observation": "The requirements record retained open items and manufacturing_release=false."
+        }
+      ],
+      "method": "Maintain separate format, solid-count, numerical, re-import, drawing, and release results; keep the original reference and failed criteria.",
+      "nextVerification": "Resolve each open requirement on a controlled project copy, rerun the affected native and independent exchange checks, and inspect the required drawing coverage.",
+      "currentCadReview": "not-run",
+      "reuseBoundary": "A historical exchange result applies only to its saved version; it does not establish strength, life, thermal behavior, NVH, or manufacturing readiness."
+    },
+    {
+      "id": "CASE-HAND-DISCRETE",
+      "title": "Discrete motion checks and an incomplete additional reopen",
+      "trigger": "A multi-joint demonstrator had saved clearance results for selected poses and transition samples, followed by an interrupted additional native-file reopen.",
+      "sourceIds": ["SRC-HAND-POSE-01", "SRC-HAND-PATH-01", "SRC-HAND-REOPEN-01"],
+      "recordedFindings": [
+        {
+          "criterion": "Recorded pose and transition samples",
+          "status": "recorded-pass",
+          "observation": "The saved sample records had successful transform checks and no reported intersections at their sampled states."
+        },
+        {
+          "criterion": "Additional final native reopen attempt",
+          "status": "incomplete",
+          "observation": "The saved attempt said additional_check_not_completed because the shared CAD session remained busy. It claimed no pass for that attempt."
+        },
+        {
+          "criterion": "Continuous-path clearance and target-project operation",
+          "status": "needs-project-validation",
+          "observation": "Discrete samples do not prove clearance between samples or under physical load and tolerances."
+        }
+      ],
+      "method": "Preserve the earlier recorded results and the interrupted attempt separately; declare sample coverage rather than a continuous collision-free claim.",
+      "nextVerification": "Repeat native reopen in a controlled available session and use a justified continuous-clearance method for the project's motion envelope.",
+      "currentCadReview": "not-run",
+      "reuseBoundary": "The audit interpreted saved JSON records only; no hand model was reopened or moved."
+    },
+    {
+      "id": "CASE-ENGINE-WALL",
+      "title": "A clearance cut broke a protected wall",
+      "trigger": "A late interference repair enlarged an engine cavity and cut through an external wall.",
+      "sourceIds": ["SRC-GEOMETRY-01"],
+      "recordedFindings": [
+        {
+          "criterion": "Protected wall and external closure after the cut",
+          "status": "recorded-fail",
+          "observation": "The retrospective documented a wall breakthrough discovered in CAD imagery despite successful rebuild and positive volume."
+        },
+        {
+          "criterion": "Current verification of the reported wall restoration",
+          "status": "not-run",
+          "observation": "The retrospective described restoring the wall; this audit did not inspect or remeasure the repaired native model."
+        }
+      ],
+      "method": "Name protected faces and minimum walls before a cut, then check local sections, wall thickness, external closure, and interfaces before refreshing downstream outputs.",
+      "nextVerification": "On the target project's version, capture and measure the local cut region, check protected boundaries, and rerun affected assembly and export criteria.",
+      "currentCadReview": "not-run",
+      "reuseBoundary": "This failure is documented by a retrospective, not by a fresh direct CAD inspection in this audit."
+    },
+    {
+      "id": "CASE-ENGINE-MOTION",
+      "title": "Analytical kinematics passed while native motion-study replay failed",
+      "trigger": "An engine motion demonstrator used analytical checks and native CAD replay through different paths.",
+      "sourceIds": ["SRC-ENGINE-MOTION-01", "SRC-ENGINE-KINEMATICS-01"],
+      "recordedFindings": [
+        {
+          "criterion": "Analytical kinematic sample checks",
+          "status": "recorded-pass",
+          "observation": "The saved analytical record reported passed=true for its sampled angular checks."
+        },
+        {
+          "criterion": "Native multi-component motion-study transform validation",
+          "status": "recorded-fail",
+          "observation": "The saved record reported passed=false and included=false; the invalid study was removed."
+        },
+        {
+          "criterion": "Dynamic loads, physical operation, and manufacturing readiness",
+          "status": "needs-project-validation",
+          "observation": "Analytical motion and directly driven frame replay do not establish these engineering outcomes."
+        }
+      ],
+      "method": "Keep analytical, native-study, and directly driven replay results distinct; exclude a failed study rather than labeling the fallback as that study.",
+      "nextVerification": "Define the required native motion behavior and engineering criteria, then collect separate evidence for each on a controlled current project.",
+      "currentCadReview": "not-run",
+      "reuseBoundary": "The audit neither reran the analytical solver nor exercised native motion."
+    }
+  ]
+}

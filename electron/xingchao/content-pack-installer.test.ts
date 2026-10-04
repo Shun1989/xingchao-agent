@@ -6,6 +6,7 @@ import path from "node:path"
 import { afterEach, describe, expect, it } from "vitest"
 import { originalFleetPack } from "../../src/domain/xingchao/content-pack.ts"
 import {
+  compareVersions,
   installContentPackArchive,
   listInstalledContentPacks,
   removeInstalledContentPack,
@@ -28,6 +29,21 @@ async function createArchive(options: { asset?: string; checksum?: string; path?
 }
 
 describe("content-pack installer", () => {
+  it.each([
+    ["0.1.0-beta.1", "0.1.0", 0],
+    ["0.1.0-beta.2+build.7", "0.1.0", 0],
+    ["0.1.1-alpha.1", "0.1.0", 1],
+    ["0.0.9-beta.1", "0.1.0", -1],
+    ["2.0.0", "1.9.9", 1],
+  ])("compares content API baselines for %s and %s", (left, right, sign) => {
+    expect(Math.sign(compareVersions(left, right))).toBe(sign)
+  })
+
+  it("rejects malformed compatibility versions instead of returning NaN", () => {
+    expect(() => compareVersions("not-a-version", "0.1.0")).toThrow(/invalid/i)
+    expect(() => compareVersions("0.1.0", "0.1.0garbage")).toThrow(/invalid/i)
+  })
+
   it("installs a validated pack atomically under the app data directory", async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "xingchao-pack-"))
     temporaryDirectories.push(root)

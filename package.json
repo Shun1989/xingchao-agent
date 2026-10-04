@@ -1,7 +1,7 @@
 {
   "name": "xingchao-navigation",
   "displayName": "星潮航局",
-  "version": "0.1.0-beta.1",
+  "version": "0.1.0-beta.2",
   "private": true,
   "description": "星潮航局：本地优先、可执行真实任务的原创航海主题多 Agent 桌面工作台。",
   "homepage": "https://github.com/Shun1989/xingchao-agent#readme",

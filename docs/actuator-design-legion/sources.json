@@ -1,0 +1,93 @@
+{
+  "schemaVersion": "1.0.0",
+  "auditedOn": "2026-10-05",
+  "auditMethod": "Read-only source-file inspection and SHA256 hashing; no CAD execution.",
+  "contentPolicy": "Publish only original distilled methods and sanitized case summaries. Private source files and third-party PDFs are not redistributed, and no blanket license is asserted.",
+  "locatorPolicy": "Source IDs resolve through a git-ignored local provenance map. Public descriptions are generic and are not paths to source files.",
+  "sources": [
+    {
+      "sourceId": "SRC-INPUT-01",
+      "sha256": "62f2902a2f48295556f6c579bb249aa5f9ef603912516d9235c80add4bb8ee17",
+      "category": "original-method-note",
+      "description": "Private transmission workflow: input registers, assumptions, units, and project validation."
+    },
+    {
+      "sourceId": "SRC-EVIDENCE-01",
+      "sha256": "f120faa559f9432d81fa1c368d16b37a92b3ecd87ac811788277d8c49d3f6321",
+      "category": "source-use-rule",
+      "description": "Private engineering guide: original evidence, derivation, assumption, and validated data boundaries."
+    },
+    {
+      "sourceId": "SRC-GEOMETRY-01",
+      "sha256": "d2b25b6cf98810d5b9dfca2cb9f9ad6bd51a1ffe52db007f33ddd3db000c9bf0",
+      "category": "original-retrospective",
+      "description": "Private CAD retrospective: interface sequencing, wall-cut regression, and scoped recovery."
+    },
+    {
+      "sourceId": "SRC-ASSEMBLY-01",
+      "sha256": "c528f079333fee274ec9a49998578e4fc46a1176d7077c808d5aabb17a296a37",
+      "category": "check-definition",
+      "description": "Private assembly check script: rebuild, instance/BOM comparison, references, placement, and interference."
+    },
+    {
+      "sourceId": "SRC-PORTABLE-01",
+      "sha256": "c098f700eab04f1cf1eef2da1bbc19de16f8aa28d0d35bcda092d96d270d8f32",
+      "category": "check-definition",
+      "description": "Private relocated-package check script: references, rebuild, part comparison, and drawing sections/dimensions."
+    },
+    {
+      "sourceId": "SRC-STEP-CHECK-01",
+      "sha256": "d3ca16c1e4aca2831cea8eb2e5f77ed86a23f5a46195b79579340380e6836171",
+      "category": "check-definition",
+      "description": "Private independent STEP check: read status, B-representation validity, solid count, and numerical comparison."
+    },
+    {
+      "sourceId": "SRC-ACTUATOR-STEP-01",
+      "sha256": "01e2caab908750475630fb9e47e278b0a19d277f0178c6a9545bab4f4398e286",
+      "category": "saved-validation",
+      "description": "Private actuator exchange summary retaining strict numerical failures and an unperformed assembly roundtrip."
+    },
+    {
+      "sourceId": "SRC-ACTUATOR-SCOPE-01",
+      "sha256": "a74a43676b4b3874069c9f7b592e147fa2524ba933fde4aaaea2ccca8a5331ba",
+      "category": "saved-requirements-status",
+      "description": "Private actuator delivery requirements: open geometry, exchange, and manufacturing-drawing items."
+    },
+    {
+      "sourceId": "SRC-HAND-REOPEN-01",
+      "sha256": "31b54dca0e50b39462f0dd670720a3cc03341c52c15bbc2ebfa967411c091bf8",
+      "category": "saved-validation",
+      "description": "Private multi-joint demonstrator record: additional native reopen was not completed."
+    },
+    {
+      "sourceId": "SRC-HAND-PATH-01",
+      "sha256": "4ba9125cbe822717a0f4d440a612eac9a2d45e9ecc86834d2fd2c29f42baf839",
+      "category": "saved-validation",
+      "description": "Private multi-joint demonstrator transition samples: transform and discrete interference results."
+    },
+    {
+      "sourceId": "SRC-HAND-POSE-01",
+      "sha256": "71ee090092ee5df9c8299172c2bccd0250920e41a8629cc3fa47ed2bf8ed79a2",
+      "category": "saved-validation",
+      "description": "Private multi-joint demonstrator poses: transform and discrete interference results."
+    },
+    {
+      "sourceId": "SRC-ENGINE-MOTION-01",
+      "sha256": "d958028aa3d6efa8429904f23a76801072734accfd938cc9fd0134bfc19b0b89",
+      "category": "saved-validation",
+      "description": "Private engine native-motion record: failed transform validation and exclusion of the invalid study."
+    },
+    {
+      "sourceId": "SRC-ENGINE-KINEMATICS-01",
+      "sha256": "3a8318a4f08cd9ec4ceef2757abe65b59704b2e391d9266f16ccd80f7d3570b0",
+      "category": "saved-validation",
+      "description": "Private engine analytical kinematics record: scoped sampled-angle checks."
+    },
+    {
+      "sourceId": "SRC-LIBRARY-GAPS-01",
+      "sha256": "8f5e77f014fedae159b5d535bfb78a8916804eefa571d03dfd6844f9df4b25ad",
+      "category": "original-limitations-note",
+      "description": "Private library errata: historical-source limits, no licensed KISSsoft execution, and no physical life/NVH tests."
+    }
+  ]
+}

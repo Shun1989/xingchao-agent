@@ -45,8 +45,18 @@ function isZipSymlink(entry: JSZip.JSZipObject): boolean {
 }
 
 export function compareVersions(left: string, right: string): number {
-  const leftParts = left.split(".").map(Number)
-  const rightParts = right.split(".").map(Number)
+  // Content-pack minimumAppVersion is a numeric API baseline, not release-channel ordering.
+  // A beta app exposes its core baseline; updater SemVer ordering remains separate.
+  const coreVersion =
+    /^(\d+)\.(\d+)\.(\d+)(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/
+  const parts = (version: string): number[] => {
+    const match = coreVersion.exec(version)
+    const parsed = match?.slice(1, 4).map(Number)
+    if (!parsed || !parsed.every(Number.isSafeInteger)) throw new Error("Invalid content pack compatibility version")
+    return parsed
+  }
+  const leftParts = parts(left)
+  const rightParts = parts(right)
   for (let index = 0; index < 3; index += 1) {
     const difference = (leftParts[index] ?? 0) - (rightParts[index] ?? 0)
     if (difference !== 0) return difference

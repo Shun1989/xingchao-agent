@@ -2,7 +2,20 @@
 
 This document separates implemented behavior from planned release work. A passing web build is not evidence that platform signing, commercial content licenses, or a Cubism model exist.
 
+## Current source/content preview
+
+The source-preview-v0.1.0-beta.2 preview targets application source version 0.1.0-beta.2 and the optional six-member Actuator Design Legion content pack 1.0.0. Its release assets are content packages and knowledge files; it does not publish a desktop installer or provide a direct installer upgrade.
+
+Selecting the content pack requires an application source build containing the beta app-version compatibility fix. The legacy comparison parsed a beta version into NaN, allowing import but rejecting selection. Existing 0.1.0-beta.1 installer binaries do not contain the correction and are not repaired by importing this content pack.
+
 ## Implemented in the current baseline
+
+- An optional Actuator Design Legion content pack with one original six-member crew, domain routing and palette
+  theme. Imported and selected through Supply Depot in the corrected source build, it participates in the runtime fleet and Mission planning.
+  Independent sanitized knowledge, recorded cases and acceptance documents are explicitly readable by tasks;
+  this does not activate pack Skills/personas or bind SolidWorks execution. The original ten built-in crews remain unchanged.
+- Weekly Git version management and verified GitHub source/content publication are user-authorized, subject to
+  `docs/weekly-release-policy.md`. Content previews are not application installers or manufacturing acceptance.
 
 - Wanta upstream is pinned at `470bbe1c0b48322e11d5955f9023362117776f09` on `codex/xingchao-platform`.
 - Product branding, original logo, chief-assistant key art, and ten persistent crew themes.

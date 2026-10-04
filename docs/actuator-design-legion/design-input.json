@@ -1,0 +1,187 @@
+{
+  "schemaVersion": "1.0.0",
+  "template": true,
+  "purpose": "Copy into a target project's private working area and fill from confirmed inputs. Null means unknown, not zero or an acceptable default.",
+  "methodSourceIds": ["SRC-INPUT-01", "SRC-EVIDENCE-01"],
+  "project": {
+    "name": null,
+    "artifactVersion": null,
+    "targetPurpose": null,
+    "status": "needs-project-validation"
+  },
+  "inputs": [
+    {
+      "id": "IN-01",
+      "quantity": "input_continuous_torque",
+      "value": null,
+      "unit": "N*m",
+      "reference": "input_shaft",
+      "source": null,
+      "status": "needs-project-validation"
+    },
+    {
+      "id": "IN-02",
+      "quantity": "input_peak_torque_and_duration",
+      "value": null,
+      "unit": ["N*m", "s"],
+      "reference": "input_shaft",
+      "source": null,
+      "status": "needs-project-validation"
+    },
+    {
+      "id": "IN-03",
+      "quantity": "input_speed_range",
+      "value": null,
+      "unit": "rpm",
+      "reference": "input_shaft",
+      "source": null,
+      "status": "needs-project-validation"
+    },
+    {
+      "id": "IN-04",
+      "quantity": "output_load_and_speed",
+      "value": null,
+      "unit": ["N*m", "rpm"],
+      "reference": "output_shaft",
+      "source": null,
+      "status": "needs-project-validation"
+    },
+    {
+      "id": "IN-05",
+      "quantity": "ratio_direction_and_reverse_behavior",
+      "value": null,
+      "unit": "dimensionless",
+      "reference": "declare_input_over_output_convention",
+      "source": null,
+      "status": "needs-project-validation"
+    },
+    {
+      "id": "IN-06",
+      "quantity": "physical_load_spectrum_and_duty",
+      "value": null,
+      "unit": null,
+      "reference": "declare_time_or_cycle_weights_and_correlated_conditions",
+      "source": null,
+      "status": "needs-project-validation"
+    },
+    {
+      "id": "IN-07",
+      "quantity": "start_stop_reversal_stall_shock_and_dwell",
+      "value": null,
+      "unit": null,
+      "reference": "declare_event_counts_durations_and_loads",
+      "source": null,
+      "status": "needs-project-validation"
+    },
+    {
+      "id": "IN-08",
+      "quantity": "accuracy_backlash_and_allowed_deformation",
+      "value": null,
+      "unit": null,
+      "reference": "declare_measurement_axis_temperature_and_load",
+      "source": null,
+      "status": "needs-project-validation"
+    },
+    {
+      "id": "IN-09",
+      "quantity": "target_life_and_failure_criteria",
+      "value": null,
+      "unit": null,
+      "reference": "declare_hours_or_cycles_and_failure_mode",
+      "source": null,
+      "status": "needs-project-validation"
+    },
+    {
+      "id": "IN-10",
+      "quantity": "temperature_humidity_media_and_storage",
+      "value": null,
+      "unit": null,
+      "reference": "declare_working_and_measurement_states",
+      "source": null,
+      "status": "needs-project-validation"
+    },
+    {
+      "id": "IN-11",
+      "quantity": "material_state_process_and_property_basis",
+      "value": null,
+      "unit": null,
+      "reference": "declare_conditioning_heat_treatment_and_property_test_conditions",
+      "source": null,
+      "status": "needs-project-validation"
+    },
+    {
+      "id": "IN-12",
+      "quantity": "lubrication_and_material_pairing",
+      "value": null,
+      "unit": null,
+      "reference": "declare_medium_supply_and_operating_condition",
+      "source": null,
+      "status": "needs-project-validation"
+    },
+    {
+      "id": "IN-13",
+      "quantity": "installation_envelope_interfaces_and_coordinates",
+      "value": null,
+      "unit": "mm",
+      "reference": "declare_origin_axes_datums_and_protected_boundaries",
+      "source": null,
+      "status": "needs-project-validation"
+    },
+    {
+      "id": "IN-14",
+      "quantity": "manufacturing_process_volume_and_inspection_capability",
+      "value": null,
+      "unit": null,
+      "reference": "declare_process_and_measurable_acceptance_limits",
+      "source": null,
+      "status": "needs-project-validation"
+    },
+    {
+      "id": "IN-15",
+      "quantity": "thermal_efficiency_and_nvh_targets",
+      "value": null,
+      "unit": null,
+      "reference": "declare_sensor_location_boundary_speed_load_and_band",
+      "source": null,
+      "status": "needs-project-validation"
+    }
+  ],
+  "sourceRecordTemplate": {
+    "sourceId": null,
+    "evidenceTier": null,
+    "version": null,
+    "privateLocator": null,
+    "sha256": null,
+    "applicability": null,
+    "status": "needs-project-validation"
+  },
+  "assumptions": [],
+  "assumptionRecordTemplate": {
+    "id": null,
+    "inputIds": [],
+    "value": null,
+    "unit": null,
+    "reason": null,
+    "owner": null,
+    "closureCondition": null,
+    "source": null,
+    "status": "needs-project-validation"
+  },
+  "acceptanceChecks": [],
+  "checkRecordTemplate": {
+    "id": null,
+    "gate": null,
+    "artifactHash": null,
+    "inputIds": [],
+    "sourceIds": [],
+    "criterion": null,
+    "threshold": null,
+    "unit": null,
+    "methodAndEnvironment": null,
+    "measuredResult": null,
+    "evidence": null,
+    "recordedStatus": "not-run",
+    "currentReviewStatus": "not-run"
+  },
+  "manufacturingRelease": false
+}
