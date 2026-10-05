@@ -1,3 +1,5 @@
+import type { ChatContextMention } from "../../../electron/chat/common.ts"
+import type { ManagedSkillGroup } from "../../../electron/skills/common.ts"
 import type { MissionRunSummary } from "../../../electron/xingchao/mission-common.ts"
 import type { CrewId, Mission } from "@/domain/xingchao/types.ts"
 
@@ -15,11 +17,13 @@ export function VoyageRoute({
   onRetry,
   onOpenSession,
   activeSessionId,
+  planningSkillGroups = [],
 }: {
-  onLaunch: (mission: Mission) => Promise<void>
+  onLaunch: (mission: Mission, skills?: ChatContextMention[]) => Promise<void>
   onRetry?: (run: MissionRunSummary) => Promise<void>
   onOpenSession?: (sessionId: string) => void
   activeSessionId?: string | null
+  planningSkillGroups?: ManagedSkillGroup[]
 }) {
   const t = useT()
   const runtimeFleet = useRuntimeFleet()
@@ -30,9 +34,36 @@ export function VoyageRoute({
   const [mission, setMission] = React.useState<Mission | null>(null)
   const [launching, setLaunching] = React.useState(false)
   const [launchError, setLaunchError] = React.useState<string | null>(null)
+  const [selectedSkillIds, setSelectedSkillIds] = React.useState<string[]>([])
+  const source = runtimeFleet.snapshot.sources.crews[primaryCrewId]
+  const canSelectSkills =
+    primaryCrewId === "actuator-design-legion--actuator-legion" &&
+    source?.kind === "installed" &&
+    source.packId === "actuator-design-legion" &&
+    source.packVersion === "1.0.1"
+  const installedSkills = planningSkillGroups.filter(
+    (group) =>
+      group.runtimeHosts.filter((host) => host.scope === "runtime" && host.status === "installed" && Boolean(host.path))
+        .length === 1,
+  )
+  const selectedSkills: ChatContextMention[] = canSelectSkills
+    ? installedSkills
+        .filter((group) => selectedSkillIds.includes(group.id))
+        .map((group) => ({
+          kind: "skill",
+          id: group.id,
+          name: group.name,
+        }))
+    : []
+  const missingSelectedSkill =
+    canSelectSkills && selectedSkillIds.some((id) => !installedSkills.some((group) => group.id === id))
+  React.useEffect(() => {
+    setSelectedSkillIds([])
+  }, [primaryCrewId, runtimeFleet.snapshot.revision])
 
   const buildPlan = React.useCallback(
     (nextGoal: string) => {
+      setSelectedSkillIds([])
       const recommendation = recommendCrews(nextGoal, runtimeFleet.index)
       const nextMission = draftMissionForCrews(
         nextGoal,
@@ -51,8 +82,10 @@ export function VoyageRoute({
     if (!trimmedGoal) return
     buildPlan(trimmedGoal)
   }
-  const refreshMission = (primary: CrewId, support: CrewId[]) =>
+  const refreshMission = (primary: CrewId, support: CrewId[]) => {
+    setSelectedSkillIds([])
     setMission(draftMissionForCrews(mission?.goal ?? goal.trim(), primary, support, runtimeFleet.index))
+  }
   const choosePrimary = (crewId: CrewId) => {
     const support = supportCrewIds.filter((id) => id !== crewId)
     setPrimaryCrewId(crewId)
@@ -74,13 +107,27 @@ export function VoyageRoute({
 
   const launch = async () => {
     if (!mission || mission.fleetRevision !== runtimeFleet.snapshot.revision) return
+    if (missingSelectedSkill) {
+      setLaunchError(t("voyage.skills.selectionMissing"))
+      return
+    }
     setLaunching(true)
     setLaunchError(null)
     setActiveCrewId(mission.primaryCrewId)
     try {
-      await onLaunch(mission)
-    } catch {
-      setLaunchError(t("voyage.launchFailed"))
+      await onLaunch(mission, selectedSkills)
+      setSelectedSkillIds([])
+    } catch (error) {
+      const skillErrors: Record<string, string> = {
+        planning_skill_unavailable: t("voyage.skills.unavailable"),
+        planning_skill_changed: t("voyage.skills.changed"),
+        planning_skill_ambiguous: t("voyage.skills.ambiguous"),
+        planning_skill_limit: t("voyage.skills.limit"),
+        planning_skill_unsupported: t("voyage.skills.unsupported"),
+      }
+      setLaunchError(
+        error instanceof Error ? (skillErrors[error.message] ?? t("voyage.launchFailed")) : t("voyage.launchFailed"),
+      )
     } finally {
       setLaunching(false)
     }
@@ -214,6 +261,46 @@ export function VoyageRoute({
                 })}
               </div>
             </section>
+            {canSelectSkills ? (
+              <fieldset className="fleet-panel grid gap-3 p-5" disabled={launching}>
+                <legend className="text-sm font-semibold">{t("voyage.skills.title")}</legend>
+                <p className="text-xs text-muted-foreground">{t("voyage.skills.notice")}</p>
+                {missingSelectedSkill ? (
+                  <p role="alert" className="text-sm text-destructive">
+                    {t("voyage.skills.selectionMissing")}
+                  </p>
+                ) : null}
+                {selectedSkillIds.length ? (
+                  <button
+                    type="button"
+                    className="justify-self-start text-sm underline"
+                    onClick={() => setSelectedSkillIds([])}
+                  >
+                    {t("voyage.skills.clear")}
+                  </button>
+                ) : null}
+                {installedSkills.length === 0 ? (
+                  <p className="text-sm">{t("voyage.skills.empty")}</p>
+                ) : (
+                  installedSkills.map((group) => (
+                    <label key={group.id} className="flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        value={group.id}
+                        checked={selectedSkillIds.includes(group.id)}
+                        disabled={!selectedSkillIds.includes(group.id) && selectedSkillIds.length >= 4}
+                        onChange={(event) =>
+                          setSelectedSkillIds((ids) =>
+                            event.target.checked ? [...ids, group.id] : ids.filter((id) => id !== group.id),
+                          )
+                        }
+                      />
+                      {group.name}
+                    </label>
+                  ))
+                )}
+              </fieldset>
+            ) : null}
             <section className="flex flex-wrap items-center justify-between gap-4 rounded-2xl bg-primary p-5 text-primary-foreground">
               <div>
                 <strong>确认后将切换至 {runtimeFleet.index.crewById.get(primaryCrewId)?.name} 主题</strong>
@@ -222,7 +309,7 @@ export function VoyageRoute({
               <button
                 type="button"
                 data-captain-safe-control
-                disabled={launching || mission.fleetRevision !== runtimeFleet.snapshot.revision}
+                disabled={launching || missingSelectedSkill || mission.fleetRevision !== runtimeFleet.snapshot.revision}
                 onClick={() => void launch()}
                 className="flex shrink-0 items-center gap-2 rounded-lg bg-background px-4 py-2.5 text-sm font-semibold text-primary"
               >

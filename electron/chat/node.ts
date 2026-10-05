@@ -9,6 +9,7 @@ import type { IConnectionService } from "../ipc/connection.ts"
 import type { ActiveLinkRuntime } from "../link-runtime/common.ts"
 import type { RuntimeCapabilities } from "../runtime/common.ts"
 import type { SessionProjectStore } from "../session/project-store.ts"
+import type { PlanningSkillDocument } from "../skills/planning-document.ts"
 import type { ArtifactBundleStore, ArtifactBundles } from "./artifact-bundles.ts"
 import type { AuthorizationOverlayStore } from "./authorization.ts"
 import type {
@@ -107,6 +108,7 @@ import { directoryArtifacts, fileArtifact, localArtifactItem, readArtifactPack }
 import { OutputPersistence } from "./output-persistence.ts"
 import { PermissionDiagnostics } from "./permission-diagnostics.ts"
 import { PermissionState } from "./permission-state.ts"
+import { resolvePlanningSkillContext } from "./planning-skill-context.ts"
 import { attachmentPreview, localArtifactPreview } from "./previews.ts"
 import { detectResponseLanguage } from "./response-language.ts"
 import { applyStoppedGenerations } from "./stopped-generations.ts"
@@ -244,6 +246,7 @@ function taskChildSessionId(data: ToolCallStartedEvent | ToolCallResultEvent): s
 
 interface ChatServiceDeps {
   missionRuns?: import("../xingchao/mission-service.ts").MissionRunServiceImpl
+  resolvePlanningSkill?: (id: string) => Promise<PlanningSkillDocument>
   browserAvailable?: () => boolean
   createArtifactResourceUrl?: (item: { mime: string; modifiedAt: number; path: string; size: number }) => {
     expiresAt: number
@@ -277,6 +280,12 @@ interface StopSessionGenerationOptions {
   abortAgent: boolean
   reason: "system" | "user"
   throwOnAbortFailure: boolean
+}
+
+interface VerifiedPlanningRuntime {
+  system: string
+  agent: OpencodeAgentAdapter
+  runtimeRevision: number
 }
 
 export class ChatServiceImpl extends ConnectionService<ChatService> implements IConnectionService<ChatService> {
@@ -1713,7 +1722,28 @@ export class ChatServiceImpl extends ConnectionService<ChatService> implements I
       if (admitted.status !== "admitted") throw new Error("Mission already has an active execution")
       try {
         const text = await manager.launchPrompt(admitted.runId)
-        await this.#sendMessageNow({ ...req, text }, admitted.runId)
+        const selectedSkills = req.contextMentions?.some((mention) => mention.kind === "skill")
+        if (selectedSkills && (await manager.hasActuatorKnowledge(admitted.runId))) {
+          if (externalAgentKindForSessionId(req.sessionId)) throw new Error("planning_skill_unsupported")
+          if (!this.agent || !this.deps.resolvePlanningSkill) throw new Error("planning_skill_unavailable")
+          const planningAgent = this.agent
+          const runtimeRevision = planningAgent.runtimeRevision
+          const skillContext = await resolvePlanningSkillContext(req.contextMentions, {
+            resolve: this.deps.resolvePlanningSkill,
+            runtimeSkills: () => planningAgent.getPlanningSkills(),
+          })
+          await this.#sendMessageNow(
+            {
+              ...req,
+              text: text + (skillContext?.evidence ?? ""),
+              contextMentions: req.contextMentions?.filter((mention) => mention.kind !== "skill"),
+            },
+            admitted.runId,
+            skillContext ? { system: skillContext.system, agent: planningAgent, runtimeRevision } : undefined,
+          )
+        } else {
+          await this.#sendMessageNow({ ...req, text }, admitted.runId)
+        }
       } catch (error) {
         await manager.failDispatch({ runId: admitted.runId, reason: "send_failed" }).catch((failure: unknown) => {
           logDiagnostic("mission", "failed to persist dispatch failure", { error: failure }, "error")
@@ -1737,7 +1767,22 @@ export class ChatServiceImpl extends ConnectionService<ChatService> implements I
     })
   }
 
-  async #sendMessageNow(req: SendMessageRequest, missionRunId?: string): Promise<void> {
+  #assertPlanningRuntime(verified?: VerifiedPlanningRuntime): void {
+    if (
+      verified &&
+      (this.agent !== verified.agent ||
+        !verified.agent.isReady() ||
+        verified.agent.runtimeRevision !== verified.runtimeRevision)
+    )
+      throw new Error("planning_skill_unavailable")
+  }
+
+  async #sendMessageNow(
+    req: SendMessageRequest,
+    missionRunId?: string,
+    verifiedSkill?: VerifiedPlanningRuntime,
+  ): Promise<void> {
+    this.#assertPlanningRuntime(verifiedSkill)
     const externalKind = externalAgentKindForSessionId(req.sessionId)
     if (externalKind) {
       return this.sendExternalMessage(req, externalKind, missionRunId)
@@ -1781,6 +1826,7 @@ export class ChatServiceImpl extends ConnectionService<ChatService> implements I
         )
       }
       if (this.generations.has(req.sessionId)) throw new Error("A generation is already active for this session.")
+      this.#assertPlanningRuntime(verifiedSkill)
       generation = this.beginSessionGeneration(req.sessionId, userMessageId)
       if (missionRunId) this.#missionGenerationIds.add(generation.id)
       this.createActiveRun(req, generation)
@@ -1796,6 +1842,7 @@ export class ChatServiceImpl extends ConnectionService<ChatService> implements I
           generationId: activeGeneration.id,
           userMessageId,
         })
+      this.#assertPlanningRuntime(verifiedSkill)
       if (!this.isCurrentGeneration(req.sessionId, activeGeneration.id) || activeGeneration.controller.signal.aborted)
         return
       const knowledgeBaseIds = (req.contextMentions ?? []).flatMap((mention) =>
@@ -1805,6 +1852,7 @@ export class ChatServiceImpl extends ConnectionService<ChatService> implements I
         this.agent.setSessionTeamName(req.sessionId, teamName),
         this.agent.setSessionKnowledgeBaseIds(req.sessionId, knowledgeBaseIds),
       ])
+      this.#assertPlanningRuntime(verifiedSkill)
       if (!this.isCurrentGeneration(req.sessionId, activeGeneration.id) || activeGeneration.controller.signal.aborted) {
         this.clearSessionGeneration(req.sessionId, activeGeneration.id)
         await removeUnsubmittedTurnDirectories(artifactDir, processDir)
@@ -1832,6 +1880,7 @@ export class ChatServiceImpl extends ConnectionService<ChatService> implements I
       if (directoryErrors.length === 1) throw directoryErrors[0]
       if (directoryErrors.length > 1) throw new AggregateError(directoryErrors, "Failed to create turn directories")
       if (!artifactDir || !processDir) throw new Error("Turn directory creation returned an empty path")
+      this.#assertPlanningRuntime(verifiedSkill)
       if (!this.isCurrentGeneration(req.sessionId, activeGeneration.id) || activeGeneration.controller.signal.aborted) {
         this.clearSessionGeneration(req.sessionId, activeGeneration.id)
         await removeUnsubmittedTurnDirectories(artifactDir, processDir)
@@ -1885,6 +1934,7 @@ export class ChatServiceImpl extends ConnectionService<ChatService> implements I
           })
         : undefined
       // promptStreaming 的结果经 SSE 推送；RPC 只确认主进程已接收本轮发送，避免首条消息 UI 等到流式内容已累积后才切换。
+      this.#assertPlanningRuntime(verifiedSkill)
       this.rememberTrustedAttachments(req.sessionId, req.attachments)
       this.discardTrustedAttachmentPaths(req.attachments)
       this.activeRuns.update(req.sessionId, { phase: "submitted" })
@@ -1908,6 +1958,7 @@ export class ChatServiceImpl extends ConnectionService<ChatService> implements I
             system: mergeSystemPrompts(
               buildTeamSkillsSystem(req.teamSkills),
               buildContextMentionsSystemPrompt(req.contextMentions),
+              verifiedSkill?.system,
               buildProjectContextSystem(req.projectContext),
               buildPermissionModeSystem(req.permissionMode, this.deps.browserAvailable?.() ?? false),
               bugReportSystem,

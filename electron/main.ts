@@ -268,6 +268,7 @@ const missionRunService = new MissionRunQueryService(
 )
 const chatService = new ChatServiceImpl(null, {
   missionRuns,
+  resolvePlanningSkill: (id) => skillService.resolvePlanningSkill(id),
   browserAvailable: () => settingsStore.read().browserEnabled !== false,
   bugReportRuntime: {
     appCommit: typeof __APP_COMMIT__ === "string" ? __APP_COMMIT__ : "unknown",

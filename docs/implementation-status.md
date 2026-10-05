@@ -4,11 +4,11 @@ This document separates implemented behavior from planned release work. A passin
 
 ## Current source/content preview
 
-The source-preview-v0.1.0-beta.3 preview targets application source version 0.1.0-beta.3, the optional six-member Actuator Design Legion content pack 1.0.1, and independent knowledge binding version 1.0.0. Its delivery scope is source, content packages and knowledge files; it does not include a new desktop installer or provide a direct installer upgrade. This version declaration is not evidence of successful public publication.
+The source-preview-v0.1.0-beta.4 preview targets application source version 0.1.0-beta.4, the optional six-member Actuator Design Legion content pack 1.0.1, and independent knowledge binding version 1.0.0. Its delivery scope is source, content packages and knowledge files; it does not include a new desktop installer or provide a direct installer upgrade. This version declaration is not evidence of successful public publication.
 
 Selecting the content pack requires an application source build containing the beta app-version compatibility fix. The legacy comparison parsed a beta version into NaN, allowing import but rejecting selection. Existing 0.1.0-beta.1 installer binaries do not contain the correction and are not repaired by importing this content pack.
 
-The beta.2 source preview contains the compatibility correction but does not contain this knowledge binding. Use the beta.3 source build for the binding described below.
+The beta.2 source preview contains the compatibility correction but does not contain knowledge binding. Beta.3 adds the fixed knowledge binding; beta.4 retains it and adds explicitly selected installed-Skill verification described below.
 
 ## Implemented in the current baseline
 
@@ -79,6 +79,48 @@ The beta.2 source preview contains the compatibility correction but does not con
   original dates and scopes.
 - The next highest-priority integration is a real read-only planning Skill bridge, with observable tool availability,
   permission scope and input/check-plan evidence. CAD execution remains a later, separately scoped integration.
+
+## Explicit installed-Skill bridge in beta.4
+
+- Mission Chart provides an optional, initially empty installed-Skill selection for a new knowledge-bound
+  Actuator Design Legion Mission. It lists unique installed runtime-host groups, limits selection to four, blocks
+  a disappeared choice rather than silently omitting it, and clears selection on new planning, crew changes and success.
+  Other primary crews and ordinary chat keep their existing behavior. Content-pack Skill declarations stay inactive.
+- A main-only fresh inventory resolver reads the actual regular UTF-8 `SKILL.md`, checks path/file identity,
+  limits each document to 64 KiB, and computes its complete-byte SHA-256. Actual frontmatter and fresh host
+  metadata provide declared versions; missing values remain unknown. Combined document text is limited to 128 KiB.
+- The actual OpenCode Skill and tool registries must contain the selected name, absolute location, matching
+  frontmatter-free body and registered `skill` tool. A second local read rejects changes. Adapter identity and a
+  monotonic runtime revision prevent old discovery evidence from crossing restart/replacement into submission.
+- Verified text enters the existing system prompt; version/ID/SHA metadata enters the authoritative Mission
+  execution text for existing conversation history. No new Skill ledger, historical replay pin, IPC, tool grant,
+  automatic installation or content-pack persona activation is added. Fixed knowledge remains independently pinned.
+- Rejected Mission dispatches do not start automatic title-model requests; local optimistic Mission retries route
+  back to Mission Chart rather than ordinary unverified chat. History retry does not reuse Skill choices;
+  users replan to select again. Main dispatch can verify explicitly supplied retry selections, but the history UI
+  does not expose that picker. See [the bridge contract](planning-skill-bridge.md).
+- Registration is not proof of Skill execution, model compliance, authorship, read-only behavior or CAD/manufacturing
+  correctness. The next single highest priority is host-enforced read-only planning and input/check-plan artifacts.
+
+## Skill bridge verification on 2026-10-05
+
+- Final complete deterministic suite with four workers: 386 test files, 3,149 passed, 21 skipped, zero failures.
+  Twenty skips are inherited platform/opt-in checks. The new regular-file symlink test skips because this Windows
+  account cannot create that symlink (`EPERM`); actual directory and parent-junction rejection tests passed.
+- Fresh full type checking, full lint and renderer/main/preload production builds passed. Existing large-chunk
+  and deprecated `inlineDynamicImports` warnings remain. All 28 task files pass formatting and `git diff --check`.
+  Full-tree formatting still fails only on seven pre-existing untracked introduction-video files, kept outside this slice.
+- RED/GREEN tests cover fresh exact-ID resolution without manifest writes, invalid paths/UTF-8/oversize/identity
+  changes, renderer-label forgery, body/path/tool mismatch, null versions, runtime replacement/restart before and
+  after generation, inventory disappearance, delayed titles and rejected-Mission retry routing. Ordinary chat and
+  fixed-knowledge retry regression checks pass. Independent read-only review has no remaining critical/important findings.
+- The coordinator ran the real OpenCode `1.18.10` discovery smoke: four disposable sidecar starts, paired local
+  plugin dependency, isolated home/config/data/cache and offline npm, with no model prompt or CAD execution.
+  It confirmed body normalization, in-instance caching, same-name/different-path resolution and updated content
+  after restart. Duplicate-name precedence varied between runs, reinforcing the need to verify actual path/body.
+- Rebuilding the unchanged content pack `1.0.1` reproduced its `.xcp`, knowledge ZIP and checksum bytes exactly.
+  Source advances to `0.1.0-beta.4`; knowledge binding stays `1.0.0`. No installer, strict read-only workflow,
+  paid-provider output, SolidWorks binding, manufacturing acceptance or new weekly competitor survey is claimed.
 
 ## Knowledge binding verification on 2026-10-05
 

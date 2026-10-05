@@ -19,6 +19,7 @@ import type {
 } from "./common.ts"
 import type { DefaultRegistrySkillSpec } from "./default-registry-skills.ts"
 import type { SkillDeleteStoreTarget } from "./delete-plan.ts"
+import type { PlanningSkillDocument } from "./planning-document.ts"
 import type { EnsureSkillPublishMetadataResult } from "./publish-metadata.ts"
 
 import { app, shell } from "electron"
@@ -66,6 +67,7 @@ import { SkillInventoryCache } from "./inventory-cache.ts"
 import { mergeInstalledSkillSnapshots, readSkillCoverageAgents } from "./inventory-snapshot.ts"
 import { buildSummary, groupInstalledSkills } from "./inventory.ts"
 import { areManifestStoresEqual, readManifestStore, upsertManifestRecords, writeManifestStore } from "./manifest.ts"
+import { resolvePlanningSkillDocument } from "./planning-document.ts"
 import { ensureSkillPublishMetadata } from "./publish-metadata.ts"
 import { RegistrySkillRuntimeSynchronizer } from "./registry-runtime-sync.ts"
 import {
@@ -220,6 +222,20 @@ export class SkillServiceImpl extends ConnectionService<SkillService> implements
 
   public async getSkillInventory(): Promise<SkillInventory> {
     return this.readSharedSkillInventory({ writeManifest: true })
+  }
+
+  // Main-only: the renderer contract deliberately does not expose this resolver.
+  public async resolvePlanningSkill(id: string): Promise<PlanningSkillDocument> {
+    try {
+      const inventory = await this.refreshSharedSkillInventory({ writeManifest: false })
+      return await resolvePlanningSkillDocument(inventory, id)
+    } catch (error) {
+      const code =
+        error instanceof Error && error.message === "planning_skill_invalid"
+          ? "planning_skill_invalid"
+          : "planning_skill_unavailable"
+      throw new Error(code)
+    }
   }
 
   public async [ensureDefaultRegistrySkillsInstalled](

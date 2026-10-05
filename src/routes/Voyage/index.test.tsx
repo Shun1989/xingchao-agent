@@ -1,5 +1,6 @@
 // @vitest-environment happy-dom
 
+import type { ManagedSkillGroup } from "../../../electron/skills/common.ts"
 import type { RuntimeFleetContextValue } from "@/components/runtime-fleet-context.ts"
 import type { XingchaoThemeContextValue } from "@/components/xingchao-theme-context.ts"
 
@@ -39,6 +40,47 @@ function importedRuntimeFleetContext(packId: string): RuntimeFleetContextValue {
   return { snapshot, index: indexRuntimeFleet(snapshot), status: "ready", error: null }
 }
 
+function legionContext(): RuntimeFleetContextValue {
+  const pack = structuredClone({ ...originalFleetPack, id: "actuator-design-legion", version: "1.0.1" })
+  const crew = pack.crews[0]!
+  const priorId = crew.id
+  crew.id = "actuator-legion"
+  crew.name = "执行器设计军团"
+  crew.routingSignals = ["执行器输入登记"]
+  for (const agent of pack.agents) if (agent.crewId === priorId) agent.crewId = crew.id
+  const snapshot = projectRuntimeFleetCatalog(buildRuntimeContentCatalog(originalFleetPack, [pack]))
+  return { snapshot, index: indexRuntimeFleet(snapshot), status: "ready", error: null }
+}
+
+const planningSkillGroups: ManagedSkillGroup[] = [
+  {
+    id: "local:planner",
+    name: "Input planner",
+    kind: "local",
+    hosts: [],
+    externalHosts: [],
+    runtimeHosts: [
+      {
+        agentId: "opencode",
+        agentName: "OpenCode",
+        scope: "runtime",
+        status: "installed",
+        path: "C:\\fixture\\planner",
+      },
+    ],
+  },
+  {
+    id: "source-only",
+    name: "Source only",
+    kind: "local",
+    hosts: [],
+    externalHosts: [],
+    runtimeHosts: [
+      { agentId: "external", agentName: "External", scope: "external", status: "installed", path: "C:\\source" },
+    ],
+  },
+]
+
 const themeContextValue: XingchaoThemeContextValue = {
   activeCrewId: "watchtide",
   setActiveCrewId: vi.fn(),
@@ -72,18 +114,19 @@ async function enterGoalAndCreatePlan(host: HTMLElement, goal: string) {
 async function renderVoyage(
   contextValue: RuntimeFleetContextValue,
   onLaunch: React.ComponentProps<typeof VoyageRoute>["onLaunch"],
+  groups?: ManagedSkillGroup[],
 ) {
   const host = document.createElement("div")
   const root = createRoot(host)
   roots.push(root)
-  const renderTree = (value: RuntimeFleetContextValue) =>
+  const renderTree = (value: RuntimeFleetContextValue, nextGroups = groups) =>
     root.render(
       <I18nContext.Provider
         value={{ locale: "zh-CN", setLocale: () => undefined, t: (key, vars) => translate("zh-CN", key, vars) }}
       >
         <RuntimeFleetContext.Provider value={value}>
           <XingchaoThemeContext.Provider value={themeContextValue}>
-            <VoyageRoute onLaunch={onLaunch} />
+            <VoyageRoute onLaunch={onLaunch} planningSkillGroups={nextGroups} />
           </XingchaoThemeContext.Provider>
         </RuntimeFleetContext.Provider>
       </I18nContext.Provider>,
@@ -97,8 +140,11 @@ async function renderVoyage(
   const flushEffects = async () => {
     await act(async () => undefined)
   }
+  const rerenderGroups = async (nextGroups: ManagedSkillGroup[]) => {
+    await act(async () => renderTree(contextValue, nextGroups))
+  }
   await rerender(contextValue)
-  return { host, rerender, rerenderWithoutFlushingEffects, flushEffects }
+  return { host, rerender, rerenderGroups, rerenderWithoutFlushingEffects, flushEffects }
 }
 
 afterEach(() => {
@@ -109,6 +155,45 @@ afterEach(() => {
 })
 
 describe("VoyageRoute", () => {
+  it("blocks a chosen Skill disappearing from inventory instead of silently submitting without it", async () => {
+    const onLaunch = vi.fn().mockResolvedValue(undefined)
+    const view = await renderVoyage(legionContext(), onLaunch, planningSkillGroups)
+    await enterGoalAndCreatePlan(view.host, "执行器输入登记")
+    await act(async () => (view.host.querySelector('input[type="checkbox"]') as HTMLInputElement).click())
+    await view.rerenderGroups([])
+    expect(buttonByText(view.host, "确认并开始执行").disabled).toBe(true)
+    await clickButton(view.host, "确认并开始执行")
+    expect(onLaunch).not.toHaveBeenCalled()
+    expect(view.host.querySelector('[role="alert"]')?.textContent).toContain("所选 Skill")
+    await clickButton(view.host, "清除选择")
+    expect(buttonByText(view.host, "确认并开始执行").disabled).toBe(false)
+  })
+
+  it("carries only a user's explicit installed Skill choice into an eligible Legion launch and clears it", async () => {
+    const onLaunch = vi.fn().mockResolvedValue(undefined)
+    const { host } = await renderVoyage(legionContext(), onLaunch, planningSkillGroups)
+    await enterGoalAndCreatePlan(host, "执行器输入登记")
+    const checkbox = host.querySelector('input[type="checkbox"][value="local:planner"]') as HTMLInputElement
+    expect(checkbox).not.toBeNull()
+    expect(checkbox.checked).toBe(false)
+    expect(host.textContent).not.toContain("Source only")
+    await act(async () => checkbox.click())
+    await clickButton(host, "确认并开始执行")
+    expect(onLaunch.mock.calls[0]?.[1]).toEqual([{ kind: "skill", id: "local:planner", name: "Input planner" }])
+    expect(checkbox.checked).toBe(false)
+  })
+
+  it("does not offer Legion selection to other crews or forward a removed choice", async () => {
+    const onLaunch = vi.fn().mockResolvedValue(undefined)
+    const view = await renderVoyage(legionContext(), onLaunch, planningSkillGroups)
+    await enterGoalAndCreatePlan(view.host, "执行器输入登记")
+    await act(async () => (view.host.querySelector('input[type="checkbox"]') as HTMLInputElement).click())
+    await view.rerender(builtinRuntimeFleetContext)
+    expect(view.host.querySelector('input[type="checkbox"]')).toBeNull()
+    await clickButton(view.host, "确认并开始执行")
+    expect(onLaunch.mock.calls[0]?.[1] ?? []).toEqual([])
+  })
+
   it("shows a recoverable launch error instead of an unhandled rejected promise", async () => {
     const onLaunch = vi.fn().mockRejectedValue(new Error("sensitive provider diagnostics"))
     const { host } = await renderVoyage(builtinRuntimeFleetContext, onLaunch)

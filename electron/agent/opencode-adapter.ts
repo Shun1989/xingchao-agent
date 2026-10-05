@@ -7,7 +7,7 @@ import type {
   PromptAgentInput,
   QuestionResponseAgentInput,
 } from "./contract/input.ts"
-import type { AgentManager, GeneratedSessionTitle } from "./manager.ts"
+import type { AgentManager, GeneratedSessionTitle, PlanningSkillsSnapshot } from "./manager.ts"
 
 import { BaseAgentAdapter } from "./contract/adapter.ts"
 import { AGENT_PROFILES } from "./contract/profile.ts"
@@ -104,6 +104,14 @@ export class OpencodeAgentAdapter extends BaseAgentAdapter {
 
   public get url(): string {
     return this.manager.url
+  }
+
+  public get runtimeRevision(): number {
+    return this.manager.runtimeRevision
+  }
+
+  public getPlanningSkills(): Promise<PlanningSkillsSnapshot> {
+    return this.manager.getPlanningSkills()
   }
 
   public setTeamName(teamName?: string): Promise<void> {

@@ -3,6 +3,7 @@ import type {
   AgentPermissionMode,
   AgentRuntimeStatus,
   AuthorizationInfo,
+  ChatContextMention,
   ChatPermissionReply,
 } from "../../../electron/chat/common.ts"
 import type { ChatErrorKind } from "../../../electron/chat/error.ts"
@@ -1539,12 +1540,17 @@ export function AppShell({ auth }: { auth: UseAuth }) {
   )
 
   const handleMissionLaunch = React.useCallback(
-    async (mission: Mission): Promise<void> => {
+    async (mission: Mission, skills: ChatContextMention[] = []): Promise<void> => {
       if (mission.fleetRevision !== runtimeFleet.snapshot.revision) {
         throw new Error(t("voyage.fleetChanged"))
       }
       if (activeChatSessionId && !chatTurnAllowsDirectSend(activeChatTurnState)) throw new Error(t("voyage.chatBusy"))
-      const result = await sendNow({ text: missionLaunchPrompt(mission, runtimeFleet.index), mode: "build", mission })
+      const result = await sendNow({
+        text: missionLaunchPrompt(mission, runtimeFleet.index),
+        mode: "build",
+        mission,
+        contextMentions: skills,
+      })
       if (result.status === "failed") {
         toast.error(t("voyage.launchFailed"))
         throw result.error
@@ -1676,6 +1682,7 @@ export function AppShell({ auth }: { auth: UseAuth }) {
               },
               activeChatSessionId,
               source.userMessageId,
+              turnRetryOptionsBySession.current.get(activeChatSessionId)?.get(chatTurnInputKey(source))?.missionTurn,
             )
           )
             return
@@ -1740,6 +1747,7 @@ export function AppShell({ auth }: { auth: UseAuth }) {
           },
           activeChatSessionId,
           source.userMessageId,
+          turnRetryOptionsBySession.current.get(activeChatSessionId)?.get(chatTurnInputKey(source))?.missionTurn,
         )
       } catch {
         toast.error(t("missionHistory.readFailed"))
@@ -2354,6 +2362,7 @@ export function AppShell({ auth }: { auth: UseAuth }) {
                       onRetry={handleMissionRetry}
                       onOpenSession={handleMissionOpenSession}
                       activeSessionId={activeChatSessionId}
+                      planningSkillGroups={skillInventory.data?.groups}
                     />
                   ) : route === "connections" ? (
                     linkRuntime.state?.active === "openconnector" ? (

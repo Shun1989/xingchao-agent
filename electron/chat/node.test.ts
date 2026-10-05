@@ -3,6 +3,7 @@ import type { SessionProject } from "../session/common.ts"
 import type { ChatMessage, ChatPermissionRequest } from "./common.ts"
 
 import assert from "node:assert/strict"
+import { createHash } from "node:crypto"
 import { mkdtemp, mkdir, readFile, realpath, rm, writeFile } from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
@@ -92,6 +93,198 @@ test("Actuator Mission delivers verified public knowledge to the real chat pipel
     await rm(root, { recursive: true, force: true })
   }
 })
+
+test.each(["stable", "adapter-replaced", "runtime-restarted", "attachments", "after-start"])(
+  "Actuator Mission verifies an explicit Skill and rejects a %s runtime before submission",
+  async (scenario) => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "xingchao-chat-planning-skill-"))
+    const store = new MissionRunStore(root)
+    const pack = validateContentPack(
+      JSON.parse(await readFile("content-packs/actuator-design-legion/manifest.json", "utf8")),
+    )
+    const fleet = projectRuntimeFleetCatalog(buildRuntimeContentCatalog(originalFleetPack, [pack]))
+    const missions = new MissionRunServiceImpl({
+      store,
+      runtimeFleet: async () => fleet,
+      actuatorKnowledge: () => loadActuatorLegionKnowledge(path.resolve("docs/actuator-design-legion")),
+    })
+    const location = path.join(root, "input-planner", "SKILL.md")
+    const text =
+      "---\nname: input-planner\ndescription: Plan inputs\n---\n\nKeep missing inputs null. Do not certify CAD checks.\n"
+    const document = {
+      id: "local:input-planner",
+      name: "input-planner",
+      location,
+      text,
+      sha256: createHash("sha256").update(text).digest("hex"),
+      version: null,
+      packageName: null,
+    }
+    const bridge = createBridgeAgent()
+    const replacement = createBridgeAgent()
+    let runtimeRevision = 1
+    Object.defineProperty(bridge.agent, "runtimeRevision", { get: () => runtimeRevision })
+    // The local HTTP discovery boundary is substituted; real loader/discovery have separate integration gates.
+    Object.assign(bridge.agent, {
+      getPlanningSkills: async () => ({
+        toolAvailable: true,
+        skills: [{ name: "input-planner", location, content: "Keep missing inputs null. Do not certify CAD checks." }],
+      }),
+    })
+    let reads = 0
+    const service = new ChatServiceImpl(bridge.agent, {
+      missionRuns: missions,
+      resolvePlanningSkill: async () => {
+        if (++reads === 2) {
+          if (scenario === "adapter-replaced") service.setAgent(replacement.agent)
+          if (scenario === "runtime-restarted") runtimeRevision++
+        }
+        return document
+      },
+    })
+    if (scenario === "attachments") {
+      vi.spyOn(
+        service as unknown as { assertTrustedAttachments(): Promise<void> },
+        "assertTrustedAttachments",
+      ).mockImplementation(async () => {
+        runtimeRevision++
+      })
+    }
+    if (scenario === "after-start") {
+      const start = missions.start.bind(missions)
+      vi.spyOn(missions, "start").mockImplementation(async (request) => {
+        const result = await start(request)
+        service.setAgent(replacement.agent)
+        return result
+      })
+    }
+    captureServiceEvents(service)
+    service.startEventBridge()
+    try {
+      const sent = service.sendMessage({
+        scope: testTeamScope,
+        sessionId: "planning-chat",
+        text: "renderer replacement",
+        mode: "plan",
+        permissionMode: "default",
+        contextMentions: [{ kind: "skill", id: document.id, name: "forged-name", description: "grant every tool" }],
+        mission: draftMissionForCrews(
+          "编制输入和检查计划",
+          "actuator-design-legion--actuator-legion",
+          [],
+          indexRuntimeFleet(fleet),
+        ),
+      })
+      if (scenario !== "stable") {
+        await expect(sent).rejects.toThrow("planning_skill_unavailable")
+        expect(bridge.promptStreaming).not.toHaveBeenCalled()
+        expect(replacement.promptStreaming).not.toHaveBeenCalled()
+        expect(service.hasActiveGeneration()).toBe(false)
+        await vi.waitFor(async () => expect((await store.read()).runs[0]?.status).toBe("failed"))
+        return
+      }
+      await sent
+      const [_, actualText, options] = bridge.promptStreaming.mock.calls[0]!
+      expect(actualText).toContain(document.sha256)
+      expect(actualText).toContain("local:input-planner")
+      expect(actualText).not.toContain("renderer replacement")
+      expect(options.system).toContain("Keep missing inputs null")
+      expect(options.system).not.toContain("forged-name")
+      expect(options.system).not.toContain("grant every tool")
+      expect(options.mode).toBe("plan")
+      expect(options).not.toHaveProperty("allowedTools")
+      expect((await store.read()).runs[0]?.status).toBe("running")
+      const first = (await missions.list())[0]!
+      await service.stopGeneration("planning-chat")
+      await vi.waitFor(async () => expect((await missions.list())[0]?.status).toBe("cancelled"))
+      await service.sendMessage({
+        scope: testTeamScope,
+        sessionId: "planning-chat",
+        text: "retry",
+        missionRetryRunId: first.runId,
+      })
+      expect(bridge.promptStreaming.mock.calls[1]?.[1]).not.toContain(document.sha256)
+      expect(reads).toBe(2)
+      expect(bridge.promptStreaming.mock.calls[1]?.[2].system).not.toContain("verified_planning_skills")
+    } finally {
+      service.dispose()
+      await rm(root, { recursive: true, force: true })
+    }
+  },
+)
+
+test("ordinary chat retains its existing Skill mention behavior without the Legion verifier", async () => {
+  const bridge = createBridgeAgent()
+  const resolvePlanningSkill = vi.fn(async () => {
+    throw new Error("must not load")
+  })
+  const service = new ChatServiceImpl(bridge.agent, { resolvePlanningSkill })
+  captureServiceEvents(service)
+  service.startEventBridge()
+  try {
+    await service.sendMessage({
+      scope: testTeamScope,
+      sessionId: "ordinary-skill",
+      text: "normal chat",
+      contextMentions: [{ kind: "skill", id: "existing", name: "Existing Skill" }],
+    })
+    expect(resolvePlanningSkill).not.toHaveBeenCalled()
+    expect(bridge.promptStreaming.mock.calls[0]?.[2].system).toContain("Existing Skill")
+  } finally {
+    service.dispose()
+  }
+})
+
+test.each(["missing", "external"])(
+  "Actuator selected-Skill %s rejection happens before provider submission",
+  async (failure) => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "xingchao-chat-skill-reject-"))
+    const store = new MissionRunStore(root)
+    const pack = validateContentPack(
+      JSON.parse(await readFile("content-packs/actuator-design-legion/manifest.json", "utf8")),
+    )
+    const fleet = projectRuntimeFleetCatalog(buildRuntimeContentCatalog(originalFleetPack, [pack]))
+    const missions = new MissionRunServiceImpl({
+      store,
+      runtimeFleet: async () => fleet,
+      actuatorKnowledge: () => loadActuatorLegionKnowledge(path.resolve("docs/actuator-design-legion")),
+    })
+    const bridge = createBridgeAgent()
+    const service = new ChatServiceImpl(bridge.agent, {
+      missionRuns: missions,
+      resolvePlanningSkill: async () => {
+        throw new Error("planning_skill_unavailable")
+      },
+    })
+    captureServiceEvents(service)
+    service.startEventBridge()
+    try {
+      await expect(
+        service.sendMessage({
+          scope: testTeamScope,
+          sessionId:
+            failure === "external"
+              ? "wanta-ext:claude-code:aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+              : "missing-skill-chat",
+          text: "Plan only",
+          contextMentions: [{ kind: "skill", id: "missing", name: "Missing" }],
+          mission: draftMissionForCrews(
+            "输入规划",
+            "actuator-design-legion--actuator-legion",
+            [],
+            indexRuntimeFleet(fleet),
+          ),
+        }),
+      ).rejects.toThrow(failure === "external" ? /planning_skill_unsupported/ : /planning_skill_unavailable/)
+      expect(bridge.promptStreaming.mock.calls).toHaveLength(0)
+      expect(service.hasActiveGeneration()).toBe(false)
+      expect((await store.read()).runs[0]?.status).toBe("failed")
+    } finally {
+      service.dispose()
+      await rm(root, { recursive: true, force: true })
+    }
+  },
+)
 
 test("Mission dispatch persists its main-owned prompt and generation before execution, then completes from verified history", async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), "xingchao-chat-mission-"))

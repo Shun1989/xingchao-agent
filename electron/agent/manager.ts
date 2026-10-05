@@ -269,6 +269,11 @@ export interface SendMessageResult {
   messages: unknown
 }
 
+export interface PlanningSkillsSnapshot {
+  toolAvailable: boolean
+  skills: Array<{ name: string; location: string; content: string }>
+}
+
 interface OpencodeResult<T = unknown> {
   data?: T
   error?: unknown
@@ -520,6 +525,7 @@ export class AgentManager {
   private eventLoopRestartFailures = 0
   private disposed = false
   private runtimeRecovery: Promise<void> | null = null
+  private runtimeEpoch = 0
   private started = false
   private eventLoopStopped = false
   private teamName: string | undefined
@@ -552,6 +558,54 @@ export class AgentManager {
 
   public isReady(): boolean {
     return this.started
+  }
+
+  /** Main-process evidence token; startup, exit, and disposal invalidate older discovery. */
+  public get runtimeRevision(): number {
+    return this.runtimeEpoch
+  }
+
+  /** The sidecar's loaded skills and registered tool, rather than the host's installed inventory. */
+  public async getPlanningSkills(): Promise<PlanningSkillsSnapshot> {
+    if (!this.started) throw new Error("AgentManager not ready")
+    const client = this.client
+    const [skillsResult, toolsResult] = await Promise.all([client.app.skills(), client.tool.ids()])
+    assertOpencodeSuccess(skillsResult, "app.skills")
+    assertOpencodeSuccess(toolsResult, "tool.ids")
+    if (!Array.isArray(skillsResult.data)) throw new Error("app.skills returned invalid data")
+    if (!Array.isArray(toolsResult.data)) throw new Error("tool.ids returned invalid data")
+
+    const names = new Set<string>()
+    const locations = new Set<string>()
+    const skills: PlanningSkillsSnapshot["skills"] = []
+    for (const skill of skillsResult.data) {
+      if (
+        !skill ||
+        typeof skill.name !== "string" ||
+        !skill.name ||
+        skill.name.trim() !== skill.name ||
+        typeof skill.location !== "string" ||
+        !skill.location ||
+        skill.location.trim() !== skill.location ||
+        (skill.location !== "<built-in>" && !path.isAbsolute(skill.location)) ||
+        typeof skill.content !== "string"
+      ) {
+        throw new Error("app.skills returned an invalid skill")
+      }
+      const normalizedLocation = path.normalize(skill.location)
+      const locationKey = process.platform === "win32" ? normalizedLocation.toLowerCase() : normalizedLocation
+      if (names.has(skill.name) || locations.has(locationKey)) throw new Error("app.skills returned a duplicate skill")
+      names.add(skill.name)
+      locations.add(locationKey)
+      skills.push({ name: skill.name, location: skill.location, content: skill.content })
+    }
+    const tools = new Set<string>()
+    for (const id of toolsResult.data) {
+      if (typeof id !== "string" || !id || id.trim() !== id) throw new Error("tool.ids returned an invalid tool ID")
+      if (tools.has(id)) throw new Error("tool.ids returned a duplicate tool ID")
+      tools.add(id)
+    }
+    return { toolAvailable: tools.has("skill"), skills }
   }
 
   /** 更新 Link 工具使用的团队工作区，不重启 sidecar，避免刷新会话列表。 */
@@ -829,12 +883,14 @@ export class AgentManager {
     }
     this.sidecar = sidecar
     this.started = true
+    this.runtimeEpoch += 1
   }
 
   private handleSidecarExit(info: { code?: number | null; error?: Error; signal?: NodeJS.Signals | null }): void {
     if (this.disposed) {
       return
     }
+    this.runtimeEpoch += 1
     this.started = false
     this.sidecar = null
     this.eventStreamAbort?.abort()
@@ -1469,6 +1525,7 @@ export class AgentManager {
    * 否则残留孤儿会被 macOS 判为"正在后台运行"）；重启路径可 fire-and-forget。
    */
   public dispose(): Promise<void> {
+    this.runtimeEpoch += 1
     this.disposed = true
     this.eventLoopStopped = true
     this.eventStreamAbort?.abort()

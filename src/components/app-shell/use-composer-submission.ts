@@ -255,7 +255,9 @@ export function useComposerSubmission({
           return { error, status: "failed" }
         }
         persistKnowledgeBaseIds(sessionId, knowledgeBaseIds)
-        if (shouldRefreshTitle) {
+        const isMissionTurn = Boolean(request.mission || request.missionRetryRunId)
+        const refreshTitle = () => {
+          if (!shouldRefreshTitle) return
           void titleGeneration.refreshGeneratedTitle(
             sessionId,
             titleInput,
@@ -263,12 +265,14 @@ export function useComposerSubmission({
             !activeChatSessionId ? fallbackTitle : autoFallbackTitle,
           )
         }
+        if (!isMissionTurn) refreshTitle()
         modelBySession.current.set(sessionId, model)
         reasoningLevelBySession.current.set(sessionId, reasoningLevel)
         modeBySession.current.set(sessionId, mode)
         permissionModeBySession.current.set(sessionId, selectedPermissionMode)
         contextMentionsBySession.current.set(sessionId, contextMentions)
         rememberTurnRetryOptions(retryOptionsBySession.current, sessionId, chatTurnInputKey({ text, attachments }), {
+          missionTurn: isMissionTurn,
           contextMentions,
           teamSkills: effectiveTeamSkills,
           projectContext: effectiveProjectContext,
@@ -300,6 +304,7 @@ export function useComposerSubmission({
           })
           afterOptimisticSubmit?.()
           await sendPromise
+          if (isMissionTurn) refreshTitle()
         } catch (error) {
           if (bridgeEmptySend && isCurrentSendTarget()) {
             setPendingChatTransition(null)

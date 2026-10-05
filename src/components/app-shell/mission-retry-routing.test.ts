@@ -32,3 +32,21 @@ it("does not silently fall back to untracked execution if history cannot be read
     ),
   ).rejects.toThrow()
 })
+
+it("routes a locally rejected Mission to replanning even before it has a bound ledger session", async () => {
+  let opened = false
+  expect(
+    await routeMissionRetry(
+      {
+        list: async () => [],
+        openHistory: () => {
+          opened = true
+        },
+      },
+      "s1",
+      "optimistic-u1",
+      true,
+    ),
+  ).toBe(true)
+  expect(opened).toBe(true)
+})

@@ -37,6 +37,21 @@ export const enMessages = {
   "voyage.fleetChanged": "Fleet content changed; regenerate the voyage plan.",
   "voyage.chatBusy": "This conversation is busy. Wait for completion or stop it before launching.",
   "voyage.launchFailed": "Launch failed. Check the model and task status before retrying.",
+  "voyage.skills.title": "Skills for this Legion mission (optional, up to 4)",
+  "voyage.skills.notice":
+    "Only installed local Skills are listed; none is selected by default. Each document is limited to 64 KiB, with 128 KiB total. Files and kernel registration are checked before launch. This does not install Skills, change permissions or start CAD. History retries do not reuse Skills; replan to select again.",
+  "voyage.skills.empty": "No eligible Skills. Check installed status on the Skills page first.",
+  "voyage.skills.clear": "Clear selection",
+  "voyage.skills.selectionMissing":
+    "A selected Skill is no longer available. Check its installation or explicitly clear the selection before launching.",
+  "voyage.skills.unavailable":
+    "A selected Skill file or OpenCode registration is unavailable. Check its installation on the Skills page and select again.",
+  "voyage.skills.changed": "A selected Skill changed. Refresh or restart the kernel and select again.",
+  "voyage.skills.ambiguous":
+    "A selected Skill has conflicting registrations. Resolve the duplicate name before selecting again.",
+  "voyage.skills.limit": "Select at most 4 Skills, with 64 KiB per document and 128 KiB total.",
+  "voyage.skills.unsupported":
+    "This external Agent does not support the Skill verification bridge. Use the built-in OpenCode kernel.",
   "runtimeFleet.loadFailed": "Selected content could not be activated; using the built-in fleet. {error}",
   "supply.title": "Supply Depot",
   "supply.description":

@@ -139,6 +139,8 @@ export function resolveNotificationTeam({
 }
 
 export interface TurnRetryOptions {
+  /** Local submission memory, including Mission rejection before a generation is bound. */
+  missionTurn?: boolean
   contextMentions?: ChatContextMention[]
   teamSkills?: ChatTeamSkillContext[]
   projectContext?: ChatProjectContext

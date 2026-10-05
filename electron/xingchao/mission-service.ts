@@ -380,6 +380,18 @@ export class MissionRunServiceImpl {
     })
   }
 
+  /** Main-only query; eligibility comes from the stored Mission, not renderer labels. */
+  public async hasActuatorKnowledge(runId: string): Promise<boolean> {
+    return this.#enqueue(async () => {
+      const run = (await this.#initialize()).runs.find((item) => item.runId === runId)
+      if (!run) throw new Error("Mission Run does not exist")
+      return (
+        run.mission.primaryCrewId === "actuator-design-legion--actuator-legion" &&
+        run.mission.constraints.some((constraint) => constraint.startsWith(knowledgeBindingPrefix))
+      )
+    })
+  }
+
   public async retrySettlement(runId: string): Promise<void> {
     const pending = this.#pendingSettlements.get(runId)
     if (!pending) return

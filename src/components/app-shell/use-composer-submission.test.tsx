@@ -97,3 +97,31 @@ it("preserves immediate chat navigation for ordinary sends", async () => {
   })
   expect(host.textContent).toBe("chat")
 })
+
+it.each([true, false])(
+  "generates a Mission title only after successful main dispatch (success=%s)",
+  async (success) => {
+    const refreshGeneratedTitle = vi.fn(async () => undefined)
+    const send = vi.fn<Input["send"]>().mockImplementation(async () => {
+      expect(refreshGeneratedTitle).not.toHaveBeenCalled()
+      if (!success) throw new Error("planning_skill_unavailable")
+    })
+    await mount({
+      send,
+      activeSession: { id: "original-session", title: "Untitled", createdAt: 1, updatedAt: 1 },
+      titleGeneration: {
+        getAutoFallbackTitle: () => undefined,
+        isAutoRefreshable: () => true,
+        refreshGeneratedTitle,
+        rememberAutoFallbackTitle: () => undefined,
+      },
+    })
+    await act(async () => {
+      await controller.sendNow({ text: "retry", missionRetryRunId: "run-1" })
+    })
+    expect(refreshGeneratedTitle).toHaveBeenCalledTimes(success ? 1 : 0)
+    expect([...controller.memory.retryOptionsBySession.current.get("original-session")!.values()][0]?.missionTurn).toBe(
+      true,
+    )
+  },
+)
