@@ -4,16 +4,19 @@ This document separates implemented behavior from planned release work. A passin
 
 ## Current source/content preview
 
-The source-preview-v0.1.0-beta.2 preview targets application source version 0.1.0-beta.2 and the optional six-member Actuator Design Legion content pack 1.0.0. Its release assets are content packages and knowledge files; it does not publish a desktop installer or provide a direct installer upgrade.
+The source-preview-v0.1.0-beta.3 preview targets application source version 0.1.0-beta.3, the optional six-member Actuator Design Legion content pack 1.0.1, and independent knowledge binding version 1.0.0. Its delivery scope is source, content packages and knowledge files; it does not include a new desktop installer or provide a direct installer upgrade. This version declaration is not evidence of successful public publication.
 
 Selecting the content pack requires an application source build containing the beta app-version compatibility fix. The legacy comparison parsed a beta version into NaN, allowing import but rejecting selection. Existing 0.1.0-beta.1 installer binaries do not contain the correction and are not repaired by importing this content pack.
+
+The beta.2 source preview contains the compatibility correction but does not contain this knowledge binding. Use the beta.3 source build for the binding described below.
 
 ## Implemented in the current baseline
 
 - An optional Actuator Design Legion content pack with one original six-member crew, domain routing and palette
   theme. Imported and selected through Supply Depot in the corrected source build, it participates in the runtime fleet and Mission planning.
-  Independent sanitized knowledge, recorded cases and acceptance documents are explicitly readable by tasks;
-  this does not activate pack Skills/personas or bind SolidWorks execution. The original ten built-in crews remain unchanged.
+  When the installed and selected actuator-design-legion 1.0.1 crew is the Mission primary crew, confirmation binds
+  app-owned public knowledge to the existing execution text. This does not activate pack Skills/personas or bind
+  SolidWorks execution. The original ten built-in crews remain unchanged.
 - Weekly Git version management and verified GitHub source/content publication are user-authorized, subject to
   `docs/weekly-release-policy.md`. Content previews are not application installers or manufacturing acceptance.
 
@@ -51,6 +54,54 @@ Selecting the content pack requires an application source build containing the b
 - A persistent multi-Agent mission scheduler. A confirmed Mission now has an atomic single-turn run ledger, restart-to-blocked recovery, user-facing run history, guarded whole-run retries and failed-write repair. Individual DAG node admission, dependency-aware scheduling, per-node retries and deliverable acceptance remain unimplemented.
 - Full rebrand of all upstream localized copy and every internal compatibility identifier. IPC, storage, diagnostics, and several update-safe identifiers intentionally remain `wanta` for migration safety.
 - Windows signing, macOS Developer ID signing/notarization, updater infrastructure, release server, and public distribution approval.
+
+## Actuator Design Legion knowledge binding in beta.3
+
+- Import and select content pack 1.0.1 in the corrected source build, make Actuator Design Legion the Mission primary
+  crew, and confirm the voyage. Only a primary crew whose provenance matches the installed pack ID and version is
+  eligible. Pack 1.0.0, other primary crews, and a Legion used only as support do not receive automatic injection.
+- The main process reads five fixed application-owned public files: `knowledge.md`, `cases.json`, `acceptance.md`,
+  `sources.json`, and `design-input.json`. It validates each file's SHA-256 and size against the compiled main-process allowlist;
+  the public `runtime-binding.json` is informational, not a trust source. Verification completes
+  before adding actual document text, sourceIds, independent binding version 1.0.0 and the binding digest to the
+  existing execution text. These are reference data, not new runtime authority or system-prompt roster injection.
+- The main process reserves a constraint entry for the binding version and digest in the existing Mission ledger;
+  there are no new IPC or ledger fields. Bound Legion Missions allow at most 31 user constraints plus the host-owned
+  entry. Each retry and dispatch revalidates the files and stored binding. A changed
+  binding requires replanning rather than silently substituting evidence for an admitted Mission.
+- Pack identity matching is not an author signature. Retrieval uses app-owned public original guidance, not arbitrary
+  imported-pack files, private provenance sources or model files. The binding does not grant tools or permissions,
+  install a Skill or persona, connect CAD, execute complete Skills, train a model, or certify engineering results.
+- The standalone knowledge ZIP contains eight documentation/metadata files, adding `runtime-binding.json` to the
+  previous companion, along with the content archive and license files. The `.xcp` remains manifest-only.
+- Paid model calls, real CAD execution and manufacturing acceptance were not run for this slice. No new installer
+  or successful public publication is claimed by this version declaration; historical gates below retain their
+  original dates and scopes.
+- The next highest-priority integration is a real read-only planning Skill bridge, with observable tool availability,
+  permission scope and input/check-plan evidence. CAD execution remains a later, separately scoped integration.
+
+## Knowledge binding verification on 2026-10-05
+
+- Full deterministic suite with four workers: 3,074 passed, 20 skipped, zero failures. The skips are sixteen existing
+  Windows-gated checks and four opt-in real-sidecar/external-Agent smoke cases; none was added for this slice.
+- The first default-concurrency full run failed one existing Claude-adapter transcript check: its one-second wait
+  did not observe the new message on disk. That unchanged 24-test file passed in isolation, and the subsequent
+  full run with four workers passed. This records timing sensitivity, not proof that the underlying cause is fixed.
+- Type checking, full lint and renderer/main/preload production builds passed. Existing build warnings for large
+  chunks and deprecated `inlineDynamicImports` remain.
+- All nineteen task files passed formatting and the working-tree whitespace check passed. Full-tree formatting
+  still flags seven pre-existing untracked introduction-video files; those files are outside this slice and preserved.
+- Real-file tests cover the five bound bodies, fourteen source IDs, missing/changed/oversized files, regular-file
+  and symlink/junction boundaries, and rejection of a forged public index. Mission and real ChatService integration
+  tests cover escaped reference data, durable binding, idempotence, 31/32 constraint capacity and same-session retry.
+- `smoke:actuator-knowledge` launched real Electron twice with a temporary profile and copied production-resource
+  layout: confirmed content-pack import/selection, eleven runtime crews, five verified documents, fourteen source
+  IDs and a second durable attempt with identical knowledge after restart. It invoked no provider, CAD or user profile.
+- Repeated content builds produced identical bytes. The manifest-only `.xcp`, eleven-entry companion ZIP, document
+  byte equality, binding hashes, license notices and private-locator scan passed. No model answer or engineering
+  acceptance is inferred from prompt delivery or the isolated smoke.
+- Independent code review found no remaining critical, important or minor findings after the documentation and
+  constraint-capacity corrections.
 
 ## Verified on 2026-08-13
 

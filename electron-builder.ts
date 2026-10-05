@@ -34,6 +34,11 @@ export default {
   // workspace 的 .opencode/skill/，使 Wanta agent 直接读到。
   extraResources: [
     {
+      from: "docs/actuator-design-legion",
+      to: "knowledge/actuator-design-legion/1.0.0",
+      filter: ["knowledge.md", "cases.json", "acceptance.md", "sources.json", "design-input.json"],
+    },
+    {
       from: "resources/licenses",
       to: "licenses",
     },

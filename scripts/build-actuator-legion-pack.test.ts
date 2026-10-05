@@ -31,7 +31,7 @@ describe("Actuator Design Legion release packaging", () => {
       expect(installed.manifest.crews).toHaveLength(1)
       expect(installed.manifest.agents).toHaveLength(6)
       expect((await listInstalledContentPacks(directory)).map(({ id, version }) => ({ id, version }))).toEqual([
-        { id: "actuator-design-legion", version: "1.0.0" },
+        { id: "actuator-design-legion", version: "1.0.1" },
       ])
       const manager = new ContentPackRuntimeManager({ appVersion, userDataDirectory: directory })
       expect((await manager.runtimeCatalog()).crews).toHaveLength(10)

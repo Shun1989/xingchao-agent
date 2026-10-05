@@ -14,6 +14,7 @@ const knowledgeFiles = [
   "growth.md",
   "sources.json",
   "design-input.json",
+  "runtime-binding.json",
 ]
 
 export async function buildActuatorLegionArchive(input: unknown): Promise<Buffer> {

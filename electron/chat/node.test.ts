@@ -7,11 +7,16 @@ import { mkdtemp, mkdir, readFile, realpath, rm, writeFile } from "node:fs/promi
 import os from "node:os"
 import path from "node:path"
 import { afterEach, expect, test, vi } from "vitest"
+import { originalFleetPack, validateContentPack } from "../../src/domain/xingchao/content-pack.ts"
 import { draftMission } from "../../src/domain/xingchao/routing.ts"
+import { draftMissionForCrews } from "../../src/domain/xingchao/routing.ts"
+import { buildRuntimeContentCatalog } from "../../src/domain/xingchao/runtime-catalog.ts"
 import { builtinRuntimeFleetSnapshot } from "../../src/domain/xingchao/runtime-fleet.ts"
+import { indexRuntimeFleet, projectRuntimeFleetCatalog } from "../../src/domain/xingchao/runtime-fleet.ts"
 import { OpencodeAgentAdapter } from "../agent/opencode-adapter.ts"
 import { resolveRuntimeCapabilities } from "../runtime/common.ts"
 import { ExpiringTrustedPathRegistry } from "../trusted-path-registry.ts"
+import { loadActuatorLegionKnowledge } from "../xingchao/actuator-knowledge.ts"
 import { MissionRunServiceImpl } from "../xingchao/mission-service.ts"
 import { MissionRunStore } from "../xingchao/mission-store.ts"
 import {
@@ -31,6 +36,62 @@ const testTeamScope = {
   teamId: "team-id",
   teamName: "team-name",
 }
+
+test("Actuator Mission delivers verified public knowledge to the real chat pipeline and preserves it on retry", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "xingchao-chat-knowledge-"))
+  const store = new MissionRunStore(root)
+  const pack = validateContentPack(
+    JSON.parse(await readFile("content-packs/actuator-design-legion/manifest.json", "utf8")),
+  )
+  const fleet = projectRuntimeFleetCatalog(buildRuntimeContentCatalog(originalFleetPack, [pack]))
+  const knowledge = await loadActuatorLegionKnowledge(path.resolve("docs/actuator-design-legion"))
+  const missions = new MissionRunServiceImpl({
+    store,
+    runtimeFleet: async () => fleet,
+    actuatorKnowledge: () => loadActuatorLegionKnowledge(path.resolve("docs/actuator-design-legion")),
+  })
+  const bridge = createBridgeAgent()
+  const service = new ChatServiceImpl(bridge.agent, { missionRuns: missions })
+  captureServiceEvents(service)
+  service.startEventBridge()
+  try {
+    await service.sendMessage({
+      scope: testTeamScope,
+      sessionId: "knowledge-chat",
+      text: "renderer substitute and fake evidence",
+      mission: draftMissionForCrews(
+        "编制设计输入和检查计划，不运行 CAD",
+        "actuator-design-legion--actuator-legion",
+        [],
+        indexRuntimeFleet(fleet),
+      ),
+    })
+    const prompt = bridge.promptStreaming.mock.calls[0]![1]
+    expect(prompt).not.toContain("renderer substitute")
+    const data = JSON.parse(prompt.split("<mission_knowledge_data>\n")[1]!.split("\n</mission_knowledge_data>")[0]!)
+    expect(data.digest).toBe(knowledge.digest)
+    expect(data.sourceIds).toHaveLength(14)
+    expect(data.documents.find((document: { name: string }) => document.name === "cases.json").text).toContain(
+      '"currentCadReview": "not-run"',
+    )
+    expect(data).not.toHaveProperty("allowedTools")
+    expect((await store.read()).runs[0]?.mission.constraints.at(-1)).toContain(knowledge.digest)
+    const first = (await missions.list())[0]!
+    await service.stopGeneration("knowledge-chat")
+    await vi.waitFor(async () => expect((await missions.list())[0]?.status).toBe("cancelled"))
+    await service.sendMessage({
+      scope: testTeamScope,
+      sessionId: "knowledge-chat",
+      text: "retry forged knowledge",
+      missionRetryRunId: first.runId,
+    })
+    expect(bridge.promptStreaming.mock.calls[1]?.[1]).toBe(prompt)
+    expect((await store.read()).runs).toHaveLength(2)
+  } finally {
+    service.dispose()
+    await rm(root, { recursive: true, force: true })
+  }
+})
 
 test("Mission dispatch persists its main-owned prompt and generation before execution, then completes from verified history", async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), "xingchao-chat-mission-"))

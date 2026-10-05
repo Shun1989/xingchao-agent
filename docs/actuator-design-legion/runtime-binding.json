@@ -1,0 +1,61 @@
+{
+  "schemaVersion": "1.0.0",
+  "id": "actuator-design-legion-knowledge",
+  "version": "1.0.0",
+  "digest": "0e3e2d0276f207fac845d1339162798111c86594a3d0d63b165a5e5a1803c44b",
+  "digestMethod": "SHA256 over UTF-8 JSON.stringify of the ordered document name/sha256 pairs, without size or text fields.",
+  "runtimeAuthority": "This file is a public index, not runtime trust input. The main-process reader compiles its own fixed allowlist, byte sizes, and raw-byte SHA256 values. Renderer and content-pack paths cannot select knowledge files.",
+  "packBinding": "The main Mission service checks the active pack identity and compatible version before admitting this app-owned knowledge binding. This index does not grant tools or runtime permissions.",
+  "hashScope": "Document SHA256 values below hash the raw bytes of public distilled documents. They are not the private-source SHA256 values recorded inside sources.json, and they do not publish or locate private source files.",
+  "limits": {
+    "maxDocumentBytes": 16384,
+    "maxBundleBytes": 65536,
+    "totalDocumentBytes": 29295,
+    "regularFilesOnly": true,
+    "symlinksAndJunctionsAllowed": false
+  },
+  "documents": [
+    {
+      "name": "knowledge.md",
+      "bytes": 5124,
+      "sha256": "c6e046fc64b7fd95c60e871c805f3197e87c24b2654b287d63685c9b51d50f2e"
+    },
+    {
+      "name": "cases.json",
+      "bytes": 7120,
+      "sha256": "a34b82a9780a87cc2d5ab7c64fce08e9c16d2ad3f35ae7149296d9ff4504054d"
+    },
+    {
+      "name": "acceptance.md",
+      "bytes": 7182,
+      "sha256": "a4bdcdee96d875f62d24ff076b8aba9b3d4f8c04c74aae15fa9f2165909aa040"
+    },
+    {
+      "name": "sources.json",
+      "bytes": 4681,
+      "sha256": "445832edcafd9bd2d6f0bf25de99019dcaf10e9ea94eba26b6d099938fe4b84e"
+    },
+    {
+      "name": "design-input.json",
+      "bytes": 5188,
+      "sha256": "305495aa4f24a242720db69ce7b62450212720d117d659dde1263bf5aaa2fc2c"
+    }
+  ],
+  "sourceIds": [
+    "SRC-INPUT-01",
+    "SRC-EVIDENCE-01",
+    "SRC-GEOMETRY-01",
+    "SRC-ASSEMBLY-01",
+    "SRC-PORTABLE-01",
+    "SRC-STEP-CHECK-01",
+    "SRC-ACTUATOR-STEP-01",
+    "SRC-ACTUATOR-SCOPE-01",
+    "SRC-HAND-REOPEN-01",
+    "SRC-HAND-PATH-01",
+    "SRC-HAND-POSE-01",
+    "SRC-ENGINE-MOTION-01",
+    "SRC-ENGINE-KINEMATICS-01",
+    "SRC-LIBRARY-GAPS-01"
+  ],
+  "evidenceBoundary": "Knowledge loading is a verified document read, not CAD execution or acceptance. Saved case results retain their recorded version and scope. This binding does not reopen native CAD, re-export STEP, validate a new design, perform physical tests, or authorize manufacturing release."
+}

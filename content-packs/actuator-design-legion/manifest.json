@@ -1,9 +1,9 @@
 {
   "schemaVersion": "1.0.0",
   "id": "actuator-design-legion",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "name": "执行器设计军团",
-  "description": "六人专业航海团初版：职责、路由、调色板与有来源的建模经验。知识须显式读取；不包含自动执行代码、SolidWorks 工具绑定或制造放行能力。",
+  "description": "六人专业航海团：职责、路由、调色板与有来源的建模经验。beta.3 源码应用的主团 Mission 自动绑定公开知识；其他路径须显式读取。不包含 SolidWorks 工具绑定或制造放行能力。",
   "visibility": "public-original",
   "minimumAppVersion": "0.1.0",
   "checksums": {},
@@ -13,7 +13,7 @@
       "name": "执行器设计军团",
       "domain": "执行器、传动与 SolidWorks 参数化设计",
       "motto": "以证据校准设计，以复验积累经验。",
-      "description": "围绕设计输入、传动计算、参数化建模、装配、图纸与验收组织六人职责。初版按需显式读取 docs/actuator-design-legion/；真实 CAD 执行、自动知识注入和逐节点调度未接入。",
+      "description": "围绕设计输入、传动计算、参数化建模、装配、图纸与验收组织六人职责。beta.3 源码应用确认主团 Mission 时自动绑定公开知识；其他路径显式读取。真实 CAD 执行、Skills 执行和逐节点调度未接入。",
       "captainId": "actuator-captain",
       "memberIds": [
         "actuator-captain",

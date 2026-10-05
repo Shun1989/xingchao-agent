@@ -115,6 +115,7 @@ import {
 } from "./window/title-bar-overlay.ts"
 import { createHideOnCloseHandler, revealMainWindow } from "./window/window-close-behavior.ts"
 import { createWindowsTrayLifecycle } from "./window/windows-tray-lifecycle.ts"
+import { loadActuatorLegionKnowledge } from "./xingchao/actuator-knowledge.ts"
 import { createMissionFileDialogs } from "./xingchao/mission-file-dialogs.ts"
 import { MissionRunServiceImpl, MissionRunQueryService } from "./xingchao/mission-service.ts"
 import { MissionRunStore } from "./xingchao/mission-store.ts"
@@ -252,6 +253,12 @@ const browserControlServer = new BrowserControlServer(browserManager)
 // Connections 请求已整体搬到渲染层（src/lib/connections-client.ts）；主进程只保留 agent 团队作用域同步，
 // 经 ChatService.setAgentTeam → onSetAgentTeam 回调（渲染层切 workspace 时调用）。
 const missionRuns = new MissionRunServiceImpl({
+  actuatorKnowledge: () =>
+    loadActuatorLegionKnowledge(
+      app.isPackaged
+        ? path.join(process.resourcesPath, "knowledge/actuator-design-legion/1.0.0")
+        : path.join(appRoot, "docs/actuator-design-legion"),
+    ),
   store: new MissionRunStore(app.getPath("userData")),
   runtimeFleet: async () => projectRuntimeFleetCatalog(await contentPackRuntimeManager.runtimeCatalog()),
 })
